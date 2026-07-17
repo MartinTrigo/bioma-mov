@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Bioma: círculo de hojas + agricultor sembrando -->
+  <circle cx="256" cy="256" r="256" fill="#faf8f2"/>
+
+  <!-- Hojas en círculo -->
+  <g fill="#5a8a4a">
+    <g transform="translate(256,256)">
+      <g transform="rotate(0)">   <path d="M0,-195 Q45,-175 40,-130 Q0,-110 -35,-140 Q-30,-180 0,-195Z" transform="rotate(30 0 -160)"/> <circle cx="0" cy="-118" r="14" fill="#3d6b35" transform="rotate(60 0 0)"/></g>
+      <g transform="rotate(60)">  <path d="M0,-195 Q45,-175 40,-130 Q0,-110 -35,-140 Q-30,-180 0,-195Z" transform="rotate(30 0 -160)"/> <circle cx="0" cy="-118" r="14" fill="#3d6b35" transform="rotate(60 0 0)"/></g>
+      <g transform="rotate(120)"> <path d="M0,-195 Q45,-175 40,-130 Q0,-110 -35,-140 Q-30,-180 0,-195Z" transform="rotate(30 0 -160)"/> <circle cx="0" cy="-118" r="14" fill="#3d6b35" transform="rotate(60 0 0)"/></g>
+      <g transform="rotate(180)"> <path d="M0,-195 Q45,-175 40,-130 Q0,-110 -35,-140 Q-30,-180 0,-195Z" transform="rotate(30 0 -160)"/> <circle cx="0" cy="-118" r="14" fill="#3d6b35" transform="rotate(60 0 0)"/></g>
+      <g transform="rotate(240)"> <path d="M0,-195 Q45,-175 40,-130 Q0,-110 -35,-140 Q-30,-180 0,-195Z" transform="rotate(30 0 -160)"/> <circle cx="0" cy="-118" r="14" fill="#3d6b35" transform="rotate(60 0 0)"/></g>
+      <g transform="rotate(300)"> <path d="M0,-195 Q45,-175 40,-130 Q0,-110 -35,-140 Q-30,-180 0,-195Z" transform="rotate(30 0 -160)"/> <circle cx="0" cy="-118" r="14" fill="#3d6b35" transform="rotate(60 0 0)"/></g>
+    </g>
+  </g>
+
+  <!-- Tierra / surcos -->
+  <g>
+    <path d="M175 300 Q225 275 275 288 Q325 300 345 285 L345 330 Q256 355 175 330 Z" fill="#d9b382"/>
+    <path d="M180 318 Q256 338 340 315" stroke="#b98a4a" stroke-width="7" fill="none"/>
+    <path d="M185 300 Q256 320 338 298" stroke="#b98a4a" stroke-width="5" fill="none"/>
+    <path d="M280 265 Q320 250 345 262 L345 288 Q310 296 278 288 Z" fill="#b98a4a"/>
+  </g>
+
+  <!-- Agricultor sembrando -->
+  <g fill="#3d6b35">
+    <circle cx="228" cy="196" r="17"/>
+    <path d="M214 210 Q198 228 200 258 L204 300 L188 302 L186 262 Q184 224 208 206 Z"/>
+    <path d="M212 212 Q240 218 258 244 L276 262 L266 274 L244 256 Q216 240 210 220 Z"/>
+    <path d="M190 298 L212 298 L216 312 L186 314 Z"/>
+  </g>
+  <!-- Sombrero -->
+  <path d="M204 188 Q228 168 252 188 Q254 194 248 195 Q228 184 208 195 Q202 194 204 188Z" fill="#d9b382" stroke="#b98a4a" stroke-width="3"/>
+
+  <!-- Semillas cayendo -->
+  <g fill="#f0e3d0" stroke="#b98a4a" stroke-width="1.5">
+    <circle cx="278" cy="276" r="5"/>
+    <circle cx="288" cy="290" r="5"/>
+    <circle cx="279" cy="302" r="5"/>
+    <circle cx="291" cy="313" r="5"/>
+  </g>
+
+  <!-- Pájaros -->
+  <g stroke="#5a8a4a" stroke-width="4" fill="none" stroke-linecap="round">
+    <path d="M292 178 Q298 172 304 178 Q310 172 316 178"/>
+    <path d="M310 194 Q315 189 320 194 Q325 189 330 194"/>
+    <path d="M298 208 Q302 204 306 208 Q310 204 314 208"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="462" text-anchor="middle" font-family="Georgia, serif" font-weight="bold" font-size="96" fill="#3d6b35">bioma</text>
+</svg>

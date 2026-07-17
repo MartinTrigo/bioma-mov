@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#3d6b35">
+<title>Bioma · Movimientos</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="apple-touch-icon" href="logo.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <img src="logo.svg" alt="Bioma" class="logo">
+  <div class="brand">
+    <h1>bioma</h1>
+    <span class="subtitle">registro de movimientos</span>
+  </div>
+  <div class="topbar-actions">
+    <button id="btnSync" class="icon-btn" title="Sincronizar con Drive">↻</button>
+    <button id="btnExport" class="icon-btn" title="Exportar / Respaldo">⭳</button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============ TAB: INGRESOS ============ -->
+  <section id="tab-ingreso" class="tab active">
+    <form id="form-ingreso" class="card form" autocomplete="off">
+      <h2>Nuevo ingreso</h2>
+      <div class="row">
+        <label>Fecha
+          <input type="date" name="fecha" required>
+        </label>
+        <label>Monto ($)
+          <input type="number" name="monto" inputmode="decimal" step="0.01" min="0.01" placeholder="0" required>
+        </label>
+      </div>
+      <label>Punto de venta
+        <select name="concepto" required></select>
+      </label>
+      <label>Observaciones
+        <input type="text" name="obs" placeholder="detalle (opcional)">
+      </label>
+      <button type="submit" class="btn btn-in">Registrar ingreso</button>
+    </form>
+    <div class="list-head">
+      <h3>Últimos ingresos</h3>
+      <input type="month" id="filtro-ingreso" title="Filtrar por mes">
+    </div>
+    <ul id="lista-ingreso" class="mov-list"></ul>
+  </section>
+
+  <!-- ============ TAB: EGRESOS ============ -->
+  <section id="tab-egreso" class="tab">
+    <form id="form-egreso" class="card form" autocomplete="off">
+      <h2>Nuevo egreso</h2>
+      <div class="row">
+        <label>Fecha
+          <input type="date" name="fecha" required>
+        </label>
+        <label>Monto ($)
+          <input type="number" name="monto" inputmode="decimal" step="0.01" min="0.01" placeholder="0" required>
+        </label>
+      </div>
+      <label>Concepto
+        <select name="concepto" required></select>
+      </label>
+      <label>Observaciones
+        <input type="text" name="obs" placeholder="detalle (opcional)">
+      </label>
+      <button type="submit" class="btn btn-out">Registrar egreso</button>
+    </form>
+    <div class="list-head">
+      <h3>Últimos egresos</h3>
+      <input type="month" id="filtro-egreso" title="Filtrar por mes">
+    </div>
+    <ul id="lista-egreso" class="mov-list"></ul>
+  </section>
+
+  <!-- ============ TAB: DEUDAS ============ -->
+  <section id="tab-deuda" class="tab">
+    <form id="form-deuda" class="card form" autocomplete="off">
+      <h2>Nueva deuda</h2>
+      <div class="row">
+        <label>Fecha
+          <input type="date" name="fecha" required>
+        </label>
+        <label>Monto ($)
+          <input type="number" name="monto" inputmode="decimal" step="0.01" min="0.01" placeholder="0" required>
+        </label>
+      </div>
+      <div class="row">
+        <label>Persona / Entidad
+          <input type="text" name="persona" placeholder="ej: marto" required>
+        </label>
+        <label>Tipo
+          <select name="direccion">
+            <option value="debo">Debemos</option>
+            <option value="nos_deben">Nos deben</option>
+          </select>
+        </label>
+      </div>
+      <label>Concepto
+        <input type="text" name="concepto" placeholder="ej: semillas de nabo" required>
+      </label>
+      <button type="submit" class="btn btn-debt">Registrar deuda</button>
+    </form>
+    <div class="deuda-resumen card" id="deuda-totales"></div>
+    <div class="list-head">
+      <h3>Deudas</h3>
+      <select id="filtro-deuda">
+        <option value="pendiente">Pendientes</option>
+        <option value="pagada">Pagadas</option>
+        <option value="todas">Todas</option>
+      </select>
+    </div>
+    <ul id="lista-deuda" class="mov-list"></ul>
+  </section>
+
+  <!-- ============ TAB: RESUMEN ============ -->
+  <section id="tab-resumen" class="tab">
+    <div class="card">
+      <div class="resumen-selector">
+        <h2>Resumen</h2>
+        <select id="resumen-periodo"></select>
+      </div>
+      <div class="kpis">
+        <div class="kpi kpi-in"><span class="kpi-label">Ingresos</span><span class="kpi-val" id="kpi-ingresos">$0</span></div>
+        <div class="kpi kpi-out"><span class="kpi-label">Egresos</span><span class="kpi-val" id="kpi-egresos">$0</span></div>
+        <div class="kpi kpi-bal"><span class="kpi-label">Balance</span><span class="kpi-val" id="kpi-balance">$0</span></div>
+        <div class="kpi kpi-debt"><span class="kpi-label">Deuda pendiente</span><span class="kpi-val" id="kpi-deuda">$0</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Ingresos por punto de venta</h3>
+      <div id="desglose-ingresos" class="desglose"></div>
+    </div>
+    <div class="card">
+      <h3>Egresos por concepto</h3>
+      <div id="desglose-egresos" class="desglose"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ NAV INFERIOR (mobile-first) ============ -->
+<nav class="tabbar">
+  <button data-tab="ingreso" class="active"><span class="t-ico">↑</span>Ingresos</button>
+  <button data-tab="egreso"><span class="t-ico">↓</span>Egresos</button>
+  <button data-tab="deuda"><span class="t-ico">✦</span>Deudas</button>
+  <button data-tab="resumen"><span class="t-ico">≡</span>Resumen</button>
+</nav>
+
+<!-- ============ MODAL EXPORT / IMPORT ============ -->
+<div id="modal-export" class="modal hidden">
+  <div class="modal-box card">
+    <h2>Sincronización con Drive</h2>
+    <p class="hint">Pegá acá la URL del Web App de Google Apps Script (ver README). Todos los dispositivos con la misma URL comparten los datos en tu planilla de Drive.</p>
+    <label>URL de sincronización
+      <input type="url" id="sync-url" placeholder="https://script.google.com/macros/s/.../exec">
+    </label>
+    <button class="btn" id="btnSyncSave">Guardar y sincronizar</button>
+    <p class="hint" id="sync-status"></p>
+    <hr>
+    <h2>Respaldo de datos</h2>
+    <p class="hint">Exportá el archivo JSON y subilo a tu carpeta de Drive para respaldar. También podés exportar CSV para planillas.</p>
+    <button class="btn" id="btnExportJson">Descargar respaldo (JSON)</button>
+    <button class="btn btn-sec" id="btnExportCsv">Descargar CSV (movimientos)</button>
+    <button class="btn btn-sec" id="btnExportCsvDeudas">Descargar CSV (deudas)</button>
+    <hr>
+    <label class="btn btn-sec file-btn">Importar respaldo JSON
+      <input type="file" id="inputImport" accept=".json" hidden>
+    </label>
+    <p class="hint" id="stats-line"></p>
+    <button class="btn btn-ghost" id="btnCloseModal">Cerrar</button>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
