@@ -31,6 +31,7 @@ function load() {
     if (raw) {
       const d = JSON.parse(raw);
       d.conceptos = d.conceptos || structuredClone(CONCEPTOS_DEFAULT);
+      d.conceptosNuevos = d.conceptosNuevos || { ingresos: [], egresos: [] };
       d.movimientos = d.movimientos || [];
       d.deudas = d.deudas || [];
       d.borrados = d.borrados || [];
@@ -43,7 +44,8 @@ function load() {
     movimientos: [], // {id, tipo:'ingreso'|'egreso', fecha, concepto, monto, obs, mod}
     deudas: [],      // {id, fecha, persona, concepto, monto, direccion:'debo'|'nos_deben', estado:'pendiente'|'pagada', mod}
     borrados: [],    // tombstones {id, mod} para propagar eliminaciones al sincronizar
-    conceptos: structuredClone(CONCEPTOS_DEFAULT)
+    conceptos: structuredClone(CONCEPTOS_DEFAULT),
+    conceptosNuevos: { ingresos: [], egresos: [] } // pendientes de subir a la planilla
   };
 }
 
@@ -123,7 +125,12 @@ function initConceptos() {
     const lista = db.conceptos[tipo + 's'];
     if (nuevo && nuevo.trim()) {
       const limpio = nuevo.trim();
-      if (!lista.includes(limpio)) { lista.push(limpio); save(); }
+      if (!lista.includes(limpio)) {
+        lista.push(limpio);
+        db.conceptosNuevos[tipo + 's'].push(limpio);
+        save();
+        sincronizar(true);
+      }
       llenarSelect(e.target, lista);
       e.target.value = limpio;
     } else {
@@ -402,6 +409,8 @@ $('#inputImport').addEventListener('change', e => {
       if (!confirm(`El respaldo tiene ${datos.movimientos.length} movimientos y ${datos.deudas.length} deudas.\n¿Reemplazar los datos actuales?`)) return;
       db = datos;
       db.conceptos = db.conceptos || structuredClone(CONCEPTOS_DEFAULT);
+      db.conceptosNuevos = db.conceptosNuevos || { ingresos: [], egresos: [] };
+      db.borrados = db.borrados || [];
       save();
       initAll();
       toast('Respaldo importado ✓');
@@ -436,6 +445,13 @@ async function sincronizar(silencioso) {
   sincronizando = true;
   setSyncEstado('⟳');
   const inicio = Date.now();
+  // Solo se suben los conceptos agregados desde la app ("+ agregar nuevo…").
+  // La hoja "conceptos" de la planilla es la fuente de verdad: renombrar,
+  // borrar u ordenar ahí se refleja en la app en la próxima sincronización.
+  const conceptosEnviados = {
+    ingresos: [...db.conceptosNuevos.ingresos],
+    egresos: [...db.conceptosNuevos.egresos]
+  };
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -445,7 +461,7 @@ async function sincronizar(silencioso) {
         movimientos: db.movimientos,
         deudas: db.deudas,
         borrados: db.borrados,
-        conceptos: db.conceptos
+        conceptos: conceptosEnviados
       })
     });
     const remoto = await res.json();
@@ -460,7 +476,13 @@ async function sincronizar(silencioso) {
 
     db.movimientos = [...remoto.movimientos, ...db.movimientos.filter(nuevosLocales)];
     db.deudas = [...remoto.deudas, ...db.deudas.filter(nuevosLocales)];
-    db.conceptos = remoto.conceptos || db.conceptos;
+    // Adoptar la lista de la planilla tal cual (si no vino vacía)
+    if (remoto.conceptos && (remoto.conceptos.ingresos.length || remoto.conceptos.egresos.length)) {
+      db.conceptos = remoto.conceptos;
+    }
+    // Descartar los pendientes que ya viajaron; conservar los agregados mientras tanto
+    db.conceptosNuevos.ingresos = db.conceptosNuevos.ingresos.filter(c => !conceptosEnviados.ingresos.includes(c));
+    db.conceptosNuevos.egresos = db.conceptosNuevos.egresos.filter(c => !conceptosEnviados.egresos.includes(c));
     db.borrados = db.borrados.filter(b => b.mod > inicio);
     db.ultimaSync = new Date().toISOString();
     save();
