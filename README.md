@@ -58,9 +58,21 @@ de Google como base de datos, mediante el script `apps-script/Code.gs`.
 **Cómo funciona:** cada alta/edición/borrado se sincroniza automáticamente
 (y también al abrir la app, o al tocar ↻). Si no hay conexión, los datos quedan
 en el dispositivo y se suben en la próxima sincronización. Los conflictos se
-resuelven a favor del cambio más reciente. Los datos quedan visibles en la
-planilla `bioma-db` (hojas: movimientos, deudas, conceptos) y Claude puede
-leerlos directamente desde Drive.
+resuelven a favor del cambio más reciente.
+
+**Estructura de la planilla `bioma-db`** (el script solo administra estas
+hojas; cualquier otra hoja agregada a mano no se toca):
+
+- `resumen` — fórmulas vivas: totales, balance, desglose por concepto, por mes
+  y deuda pendiente por persona. Se crea una sola vez; se puede personalizar.
+- `ingresos` / `egresos` — una fila por movimiento. Se pueden agregar filas a
+  mano: basta fecha, concepto y monto; el script normaliza fechas (`3/8/2026`)
+  y montos (`$1.234,50`) y genera los campos técnicos en la próxima sincronización.
+- `deudas` — con validación desplegable en `tipo` (debemos / nos deben) y
+  `estado` (pendiente / saldada).
+- `conceptos` — dos columnas (ingresos | egresos). Es la fuente de verdad:
+  renombrar, borrar u ordenar acá se refleja en la app.
+- `borrados` y `backup_movimientos` — hojas técnicas ocultas.
 
 **Respaldo manual:** el botón ⭳ también permite exportar/importar JSON y
 exportar CSV de movimientos y deudas, compatibles con Google Sheets.

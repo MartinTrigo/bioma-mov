@@ -34,6 +34,7 @@ function load() {
       d.conceptosNuevos = d.conceptosNuevos || { ingresos: [], egresos: [] };
       d.movimientos = d.movimientos || [];
       d.deudas = d.deudas || [];
+      d.deudas.forEach(x => { if (x.estado === 'pagada') x.estado = 'saldada'; });
       d.borrados = d.borrados || [];
       return d;
     }
@@ -242,11 +243,11 @@ function renderDeudas() {
         <div class="mov-detalle">${fmtFecha(d.fecha)} · ${esc(d.concepto)}</div>
       </div>
       <span class="mov-monto ${d.direccion === 'nos_deben' ? 'monto-in' : 'monto-debt'}">${fmt(d.monto)}</span>
-      <button class="mov-check ${d.estado === 'pagada' ? 'pagada' : ''}" data-id="${d.id}">
-        ${d.estado === 'pagada' ? 'Pagada ✓' : 'Pendiente'}</button>
+      <button class="mov-check ${d.estado === 'saldada' ? 'pagada' : ''}" data-id="${d.id}">
+        ${d.estado === 'saldada' ? 'Saldada ✓' : 'Pendiente'}</button>
       <button class="mov-del" title="Eliminar" data-id="${d.id}">✕</button>`;
     li.querySelector('.mov-check').addEventListener('click', () => {
-      d.estado = d.estado === 'pagada' ? 'pendiente' : 'pagada';
+      d.estado = d.estado === 'saldada' ? 'pendiente' : 'saldada';
       d.mod = Date.now();
       save();
       renderDeudas();
@@ -476,6 +477,7 @@ async function sincronizar(silencioso) {
 
     db.movimientos = [...remoto.movimientos, ...db.movimientos.filter(nuevosLocales)];
     db.deudas = [...remoto.deudas, ...db.deudas.filter(nuevosLocales)];
+    db.deudas.forEach(x => { if (x.estado === 'pagada') x.estado = 'saldada'; });
     // Adoptar la lista de la planilla tal cual (si no vino vacía)
     if (remoto.conceptos && (remoto.conceptos.ingresos.length || remoto.conceptos.egresos.length)) {
       db.conceptos = remoto.conceptos;
