@@ -297,7 +297,72 @@ function hoja_(nombre) {
 
 function asegurarEsquema_() {
   var props = PropertiesService.getDocumentProperties();
-  if (props.getProperty('esquema') === 'v2') return;
+  var version = props.getProperty('esquema');
+  if (version !== 'v2' && version !== 'v3') migrarV2_();
+  if (version !== 'v3') {
+    repararResumen_();
+    props.setProperty('esquema', 'v3');
+  }
+  // En cada petición: deshacer los efectos de una versión vieja del script
+  // que hubiera quedado publicada (hoja "movimientos" recreada, conceptos
+  // vaciados o vueltos al formato tipo|nombre).
+  reabsorberHojasViejas_();
+}
+
+// Reconstruye la hoja resumen (v3 corrige las fórmulas, que estaban en
+// formato inglés y fallaban en planillas configuradas en español).
+function repararResumen_() {
+  var ss = SpreadsheetApp.getActive();
+  var h = ss.getSheetByName('resumen');
+  if (h) ss.deleteSheet(h);
+  crearResumen_();
+}
+
+// Pliega la hoja "movimientos" vieja (si una versión anterior del script la
+// recreó) dentro de ingresos/egresos, y normaliza la hoja conceptos si
+// quedó en el formato viejo. Es inofensivo cuando no hay nada que reparar.
+function reabsorberHojasViejas_() {
+  var ss = SpreadsheetApp.getActive();
+
+  var hm = ss.getSheetByName('movimientos');
+  if (hm) {
+    var vm = hm.getDataRange().getValues();
+    var extraIng = [], extraEgr = [];
+    for (var i = 1; i < vm.length; i++) {
+      var r = vm[i];
+      if (!r[2] && !r[4]) continue;
+      var obj = {
+        id: String(r[0] || ''), fecha: r[2], concepto: String(r[3] || ''),
+        monto: r[4], obs: String(r[5] || ''), mod: Number(r[6]) || 0
+      };
+      if (String(r[1] || '').trim() === 'egreso') extraEgr.push(obj);
+      else extraIng.push(obj);
+    }
+    var borrados = {};
+    leerBorrados_().forEach(function (b) { borrados[b.id] = b; });
+    escribirDatos_('ingresos', fusionar_(leerDatos_('ingresos', 'ingreso'),
+      normalizarLista_(extraIng, 'ingreso'), borrados));
+    escribirDatos_('egresos', fusionar_(leerDatos_('egresos', 'egreso'),
+      normalizarLista_(extraEgr, 'egreso'), borrados));
+    ss.deleteSheet(hm);
+  }
+
+  var hc = ss.getSheetByName('conceptos');
+  if (hc && String(hc.getRange(1, 1).getValue()).toLowerCase().trim() === 'tipo') {
+    var vc = hc.getDataRange().getValues();
+    var conceptos = { ingresos: [], egresos: [] };
+    for (var i = 1; i < vc.length; i++) {
+      var t = String(vc[i][0] || '').trim(), n = String(vc[i][1] || '').trim();
+      if (conceptos[t] && n && conceptos[t].indexOf(n) < 0) conceptos[t].push(n);
+    }
+    hc.clear();
+    estilizarConceptos_();
+    escribirConceptos_(conceptos);
+  }
+}
+
+// Migración inicial desde el esquema viejo (hoja "movimientos" única)
+function migrarV2_() {
   var ss = SpreadsheetApp.getActive();
 
   // --- conceptos: convertir del formato viejo (tipo|nombre) a dos columnas
@@ -352,8 +417,6 @@ function asegurarEsquema_() {
   var deudasViejas = leerDatos_('deudas', null);
   if (deudasViejas.length) escribirDatos_('deudas', deudasViejas);
   if (conceptos.ingresos.length || conceptos.egresos.length) escribirConceptos_(conceptos);
-
-  props.setProperty('esquema', 'v2');
 }
 
 function normalizarLista_(lista, tipo) {
@@ -449,12 +512,14 @@ function crearResumen_() {
     .setBackground(COLOR.verde).setFontColor(COLOR.blanco)
     .setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center');
 
+  // Nota: la planilla está configurada en español, así que las fórmulas
+  // usan ";" como separador de argumentos.
   h.getRange('A3:B7').setValues([
     ['Ingresos totales', '=SUM(ingresos!D2:D)'],
     ['Egresos totales', '=SUM(egresos!D2:D)'],
     ['Balance', '=B3-B4'],
-    ['Debemos (pendiente)', '=SUMIFS(deudas!E2:E,deudas!G2:G,"pendiente",deudas!F2:F,"debemos")'],
-    ['Nos deben (pendiente)', '=SUMIFS(deudas!E2:E,deudas!G2:G,"pendiente",deudas!F2:F,"nos deben")']
+    ['Debemos (pendiente)', '=SUMIFS(deudas!E2:E;deudas!G2:G;"pendiente";deudas!F2:F;"debemos")'],
+    ['Nos deben (pendiente)', '=SUMIFS(deudas!E2:E;deudas!G2:G;"pendiente";deudas!F2:F;"nos deben")']
   ]);
   h.getRange('A3:A7').setFontWeight('bold');
   h.getRange('B3:B7').setNumberFormat('"$"#,##0');
@@ -470,13 +535,13 @@ function crearResumen_() {
     h.getRange(t[0]).setValue(t[1]).setFontWeight('bold').setFontColor(t[2]);
   });
 
-  h.getRange('A10').setFormula('=QUERY(ingresos!C2:D,"select C, sum(D) where C is not null group by C order by sum(D) desc label C \'punto de venta\', sum(D) \'total\'",0)');
-  h.getRange('D10').setFormula('=QUERY(egresos!C2:D,"select C, sum(D) where C is not null group by C order by sum(D) desc label C \'concepto\', sum(D) \'total\'",0)');
-  h.getRange('G10').setFormula('=QUERY({ARRAYFORMULA(IF(ingresos!B2:B="","",TEXT(ingresos!B2:B,"yyyy-mm"))),ingresos!D2:D},"select Col1, sum(Col2) where Col1<>\'\' group by Col1 order by Col1 desc label Col1 \'mes\', sum(Col2) \'total\'",0)');
-  h.getRange('J10').setFormula('=QUERY({ARRAYFORMULA(IF(egresos!B2:B="","",TEXT(egresos!B2:B,"yyyy-mm"))),egresos!D2:D},"select Col1, sum(Col2) where Col1<>\'\' group by Col1 order by Col1 desc label Col1 \'mes\', sum(Col2) \'total\'",0)');
-  h.getRange('M10').setFormula('=QUERY(deudas!C2:G,"select C, sum(E) where G=\'pendiente\' and C is not null group by C order by sum(E) desc label C \'persona\', sum(E) \'pendiente\'",0)');
+  h.getRange('A10').setValue('=QUERY(ingresos!C2:D;"select C, sum(D) where C is not null group by C order by sum(D) desc label C \'punto de venta\', sum(D) \'total\'";0)');
+  h.getRange('D10').setValue('=QUERY(egresos!C2:D;"select C, sum(D) where C is not null group by C order by sum(D) desc label C \'concepto\', sum(D) \'total\'";0)');
+  h.getRange('G10').setValue('=QUERY(ingresos!B2:D;"select year(B), month(B)+1, sum(D) where B is not null group by year(B), month(B) order by year(B) desc, month(B) desc label year(B) \'año\', month(B)+1 \'mes\', sum(D) \'total\'";0)');
+  h.getRange('J10').setValue('=QUERY(egresos!B2:D;"select year(B), month(B)+1, sum(D) where B is not null group by year(B), month(B) order by year(B) desc, month(B) desc label year(B) \'año\', month(B)+1 \'mes\', sum(D) \'total\'";0)');
+  h.getRange('M10').setValue('=QUERY(deudas!C2:G;"select C, sum(E) where G=\'pendiente\' and C is not null group by C order by sum(E) desc label C \'persona\', sum(E) \'pendiente\'";0)');
 
-  ['B10:B', 'E10:E', 'H10:H', 'K10:K', 'N10:N'].forEach(function (r) {
+  ['B10:B', 'E10:E', 'I10:I', 'L10:L', 'N10:N'].forEach(function (r) {
     h.getRange(r).setNumberFormat('"$"#,##0');
   });
   ['A', 'D', 'G', 'J', 'M'].forEach(function (c) {

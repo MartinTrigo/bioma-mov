@@ -437,6 +437,7 @@ $('#filtro-deuda').addEventListener('change', renderDeudas);
 
 const SYNC_URL_KEY = 'bioma-sync-url';
 let sincronizando = false;
+let reintentoConceptos = false; // evita reintentar en bucle la reposición de conceptos
 
 function urlSync() { return localStorage.getItem(SYNC_URL_KEY) || ''; }
 
@@ -481,10 +482,20 @@ async function sincronizar(silencioso) {
     // Adoptar la lista de la planilla tal cual (si no vino vacía)
     if (remoto.conceptos && (remoto.conceptos.ingresos.length || remoto.conceptos.egresos.length)) {
       db.conceptos = remoto.conceptos;
+      // Descartar los pendientes que ya viajaron; conservar los agregados mientras tanto
+      db.conceptosNuevos.ingresos = db.conceptosNuevos.ingresos.filter(c => !conceptosEnviados.ingresos.includes(c));
+      db.conceptosNuevos.egresos = db.conceptosNuevos.egresos.filter(c => !conceptosEnviados.egresos.includes(c));
+    } else {
+      // La planilla quedó sin conceptos: reponer los de este dispositivo
+      db.conceptosNuevos = {
+        ingresos: [...db.conceptos.ingresos],
+        egresos: [...db.conceptos.egresos]
+      };
+      if (!reintentoConceptos) {
+        reintentoConceptos = true;
+        setTimeout(() => sincronizar(true), 1500);
+      }
     }
-    // Descartar los pendientes que ya viajaron; conservar los agregados mientras tanto
-    db.conceptosNuevos.ingresos = db.conceptosNuevos.ingresos.filter(c => !conceptosEnviados.ingresos.includes(c));
-    db.conceptosNuevos.egresos = db.conceptosNuevos.egresos.filter(c => !conceptosEnviados.egresos.includes(c));
     db.borrados = db.borrados.filter(b => b.mod > inicio);
     db.ultimaSync = new Date().toISOString();
     save();
