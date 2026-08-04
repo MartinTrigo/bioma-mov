@@ -298,10 +298,10 @@ function hoja_(nombre) {
 function asegurarEsquema_() {
   var props = PropertiesService.getDocumentProperties();
   var version = props.getProperty('esquema');
-  if (version !== 'v2' && version !== 'v3') migrarV2_();
-  if (version !== 'v3') {
+  if (version !== 'v2' && version !== 'v3' && version !== 'v4') migrarV2_();
+  if (version !== 'v4') {
     repararResumen_();
-    props.setProperty('esquema', 'v3');
+    props.setProperty('esquema', 'v4');
   }
   // En cada petición: deshacer los efectos de una versión vieja del script
   // que hubiera quedado publicada (hoja "movimientos" recreada, conceptos
@@ -537,11 +537,14 @@ function crearResumen_() {
 
   h.getRange('A10').setValue('=QUERY(ingresos!C2:D;"select C, sum(D) where C is not null group by C order by sum(D) desc label C \'punto de venta\', sum(D) \'total\'";0)');
   h.getRange('D10').setValue('=QUERY(egresos!C2:D;"select C, sum(D) where C is not null group by C order by sum(D) desc label C \'concepto\', sum(D) \'total\'";0)');
-  h.getRange('G10').setValue('=QUERY(ingresos!B2:D;"select year(B), month(B)+1, sum(D) where B is not null group by year(B), month(B) order by year(B) desc, month(B) desc label year(B) \'año\', month(B)+1 \'mes\', sum(D) \'total\'";0)');
-  h.getRange('J10').setValue('=QUERY(egresos!B2:D;"select year(B), month(B)+1, sum(D) where B is not null group by year(B), month(B) order by year(B) desc, month(B) desc label year(B) \'año\', month(B)+1 \'mes\', sum(D) \'total\'";0)');
+  // Meses como texto "yyyy-mm" (evita funciones de fecha de QUERY, que
+  // fallan según el tipo de columna). El "\" separa columnas en la
+  // sintaxis de matrices de las planillas en español.
+  h.getRange('G10').setValue('=QUERY({ARRAYFORMULA(IF(ingresos!B2:B="";"";TEXT(ingresos!B2:B;"yyyy-mm")))\\ingresos!D2:D};"select Col1, sum(Col2) where Col1<>\'\' group by Col1 order by Col1 desc label Col1 \'mes\', sum(Col2) \'total\'";0)');
+  h.getRange('J10').setValue('=QUERY({ARRAYFORMULA(IF(egresos!B2:B="";"";TEXT(egresos!B2:B;"yyyy-mm")))\\egresos!D2:D};"select Col1, sum(Col2) where Col1<>\'\' group by Col1 order by Col1 desc label Col1 \'mes\', sum(Col2) \'total\'";0)');
   h.getRange('M10').setValue('=QUERY(deudas!C2:G;"select C, sum(E) where G=\'pendiente\' and C is not null group by C order by sum(E) desc label C \'persona\', sum(E) \'pendiente\'";0)');
 
-  ['B10:B', 'E10:E', 'I10:I', 'L10:L', 'N10:N'].forEach(function (r) {
+  ['B10:B', 'E10:E', 'H10:H', 'K10:K', 'N10:N'].forEach(function (r) {
     h.getRange(r).setNumberFormat('"$"#,##0');
   });
   ['A', 'D', 'G', 'J', 'M'].forEach(function (c) {
