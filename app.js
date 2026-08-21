@@ -556,6 +556,17 @@ function actualizarSyncInfo() {
   $('#sync-status').textContent = urlSync()
     ? (db.ultimaSync ? 'Última sincronización: ' + new Date(db.ultimaSync).toLocaleString('es-AR') : 'Configurada, aún sin sincronizar')
     : 'Sin configurar — los datos solo viven en este dispositivo';
+  // Aviso visible: sin URL la app parece "vacía" aunque los datos estén
+  // a salvo en la planilla. Que no se confunda con pérdida de datos.
+  $('#aviso-sync').classList.toggle('hidden', !!urlSync());
+}
+
+$('#aviso-sync').addEventListener('click', () => $('#btnExport').click());
+
+/* Pedirle al navegador que no descarte el almacenamiento local: sin esto
+   Android puede vaciar los datos de la app y perder lo aún no sincronizado. */
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persisted().then(ok => { if (!ok) navigator.storage.persist(); });
 }
 
 /* ================= Init ================= */

@@ -64,6 +64,17 @@ body {
 }
 .icon-btn:active { background: var(--verde); color: var(--blanco); }
 
+/* ===== Aviso de sincronización sin configurar ===== */
+.aviso {
+  background: #f7e9c9;
+  color: #7a5a1e;
+  border-bottom: 1px solid #e0cb9a;
+  padding: 10px 16px;
+  font-size: 0.82rem;
+  text-align: center;
+  cursor: pointer;
+}
+
 /* ===== Layout ===== */
 main { max-width: 640px; margin: 0 auto; padding: 14px; }
 .tab { display: none; }
