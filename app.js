@@ -446,7 +446,6 @@ async function sincronizar(silencioso) {
   if (!url || sincronizando) return;
   sincronizando = true;
   setSyncEstado('⟳');
-  const inicio = Date.now();
   // Solo se suben los conceptos agregados desde la app ("+ agregar nuevo…").
   // La hoja "conceptos" de la planilla es la fuente de verdad: renombrar,
   // borrar u ordenar ahí se refleja en la app en la próxima sincronización.
@@ -469,15 +468,26 @@ async function sincronizar(silencioso) {
     const remoto = await res.json();
     if (remoto.error) throw new Error(remoto.error);
 
-    // Conservar lo creado localmente mientras viajaba la petición
+    // Rechazar servidores desactualizados: una implementación vieja del
+    // Apps Script devuelve un esquema distinto y borraría los datos.
+    if (!(remoto.api >= 4)) {
+      setSyncEstado('!');
+      toast('El script de la planilla está desactualizado — datos a salvo');
+      return;
+    }
+
+    // Regla de seguridad: un movimiento local solo desaparece si el
+    // servidor confirma que fue eliminado (tumba). Si la respuesta viene
+    // incompleta, los datos locales sobreviven y se vuelven a subir.
+    const tumbas = new Set((remoto.borrados || []).map(b => b.id));
     const idsRemotos = new Set([
       ...remoto.movimientos.map(m => m.id),
       ...remoto.deudas.map(d => d.id)
     ]);
-    const nuevosLocales = m => !idsRemotos.has(m.id) && m.mod && m.mod > inicio;
+    const conservar = x => !idsRemotos.has(x.id) && !tumbas.has(x.id);
 
-    db.movimientos = [...remoto.movimientos, ...db.movimientos.filter(nuevosLocales)];
-    db.deudas = [...remoto.deudas, ...db.deudas.filter(nuevosLocales)];
+    db.movimientos = [...remoto.movimientos, ...db.movimientos.filter(conservar)];
+    db.deudas = [...remoto.deudas, ...db.deudas.filter(conservar)];
     db.deudas.forEach(x => { if (x.estado === 'pagada') x.estado = 'saldada'; });
     // Adoptar la lista de la planilla tal cual (si no vino vacía)
     if (remoto.conceptos && (remoto.conceptos.ingresos.length || remoto.conceptos.egresos.length)) {
@@ -496,7 +506,7 @@ async function sincronizar(silencioso) {
         setTimeout(() => sincronizar(true), 1500);
       }
     }
-    db.borrados = db.borrados.filter(b => b.mod > inicio);
+    db.borrados = db.borrados.filter(b => !tumbas.has(b.id));
     db.ultimaSync = new Date().toISOString();
     save();
     initAll();

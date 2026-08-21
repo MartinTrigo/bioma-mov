@@ -24,6 +24,11 @@
    para que la URL /exec NO cambie.
    ============================================================ */
 
+// Versión del protocolo. La app rechaza las respuestas que no la traigan:
+// así una implementación vieja que haya quedado publicada no puede
+// sobrescribir los datos del teléfono con un esquema que ya no existe.
+var API = 4;
+
 var COLUMNAS = {
   ingresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod'],
   egresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod'],
@@ -52,7 +57,9 @@ function doGet() {
   lock.waitLock(20000);
   try {
     asegurarEsquema_();
-    return salidaJson_(leerEstado_());
+    var estado = leerEstado_();
+    estado.api = API;
+    return salidaJson_(estado);
   } finally {
     lock.releaseLock();
   }
@@ -97,7 +104,19 @@ function sincronizar_(entrada) {
   escribirBorrados_(borrados);
   escribirConceptos_(conceptos);
 
-  return { movimientos: movimientos, deudas: deudas, conceptos: conceptos, borrados: [] };
+  // Se devuelve la lista completa de tumbas: la app la necesita para saber
+  // qué borrar de su copia local sin tener que confiar ciegamente en que
+  // "lo que no vino en la respuesta hay que borrarlo".
+  var listaBorrados = Object.keys(borrados).map(function (id) {
+    return { id: id, mod: borrados[id].mod };
+  });
+  return {
+    api: API,
+    movimientos: movimientos,
+    deudas: deudas,
+    conceptos: conceptos,
+    borrados: listaBorrados
+  };
 }
 
 function fusionar_(remotos, locales, borrados) {
