@@ -16,7 +16,7 @@
   <img src="logo.svg" alt="Bioma" class="logo">
   <div class="brand">
     <h1>bioma</h1>
-    <span class="subtitle">registro de movimientos</span>
+    <span class="subtitle">gestión económica</span>
   </div>
   <div class="topbar-actions">
     <button id="btnSync" class="icon-btn" title="Sincronizar con Drive">↻</button>
@@ -124,6 +124,23 @@
     <ul id="lista-deuda" class="mov-list"></ul>
   </section>
 
+  <!-- ============ TAB: PRODUCTOS ============ -->
+  <section id="tab-producto" class="tab">
+    <div class="card">
+      <div class="prod-barra">
+        <h2>Productos y precios</h2>
+        <button id="btnNuevoProducto" class="btn-mini">+ Nuevo</button>
+      </div>
+      <input type="search" id="buscar-producto" placeholder="Buscar producto…">
+      <div id="producto-resumen" class="prod-resumen"></div>
+      <div class="prod-acciones">
+        <button id="btnAumentar" class="btn btn-sec">Aumentar %</button>
+        <button id="btnExportPrecios" class="btn btn-sec">Descargar lista</button>
+      </div>
+    </div>
+    <ul id="lista-producto" class="prod-list"></ul>
+  </section>
+
   <!-- ============ TAB: RESUMEN ============ -->
   <section id="tab-resumen" class="tab">
     <div class="card">
@@ -155,6 +172,7 @@
   <button data-tab="ingreso" class="active"><span class="t-ico">↑</span>Ingresos</button>
   <button data-tab="egreso"><span class="t-ico">↓</span>Egresos</button>
   <button data-tab="deuda"><span class="t-ico">✦</span>Deudas</button>
+  <button data-tab="producto"><span class="t-ico">☘</span>Productos</button>
   <button data-tab="resumen"><span class="t-ico">≡</span>Resumen</button>
 </nav>
 
@@ -183,8 +201,48 @@
   </div>
 </div>
 
+<!-- ============ MODAL PRODUCTO ============ -->
+<div id="modal-producto" class="modal hidden">
+  <div class="modal-box card">
+    <h2 id="producto-titulo">Nuevo producto</h2>
+    <form id="form-producto" autocomplete="off">
+      <label>Nombre
+        <input type="text" name="nombre" placeholder="ej: Acelga" required>
+      </label>
+      <div class="row">
+        <label>Unidad
+          <select name="unidad"></select>
+        </label>
+        <label>Presentación
+          <input type="text" name="presentacion" placeholder="ej: atado 500g">
+        </label>
+      </div>
+      <label>Precio chacra ($ por unidad)
+        <input type="number" name="chacra" inputmode="decimal" step="1" min="0" placeholder="0">
+      </label>
+      <p class="hint">Los demás precios se calculan solos. Completá uno solo si
+        querés fijarlo a mano; dejalo vacío para que siga el porcentaje.</p>
+      <div id="precios-derivados" class="row"></div>
+      <label class="check-line">
+        <input type="checkbox" name="activo" checked> Activo
+      </label>
+      <button type="submit" class="btn">Guardar</button>
+    </form>
+    <button class="btn btn-sec hidden" id="btnBorrarProducto">Eliminar producto</button>
+    <button class="btn btn-ghost" id="btnCerrarProducto">Cancelar</button>
+  </div>
+</div>
+
 <div id="toast" class="toast hidden"></div>
 
+<script src="js/util.js"></script>
+<script src="js/db.js"></script>
+<script src="js/sincro.js"></script>
+<script src="js/movimientos.js"></script>
+<script src="js/deudas.js"></script>
+<script src="js/productos.js"></script>
+<script src="js/resumen.js"></script>
+<script src="js/respaldo.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

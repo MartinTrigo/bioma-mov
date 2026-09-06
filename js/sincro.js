@@ -1,0 +1,157 @@
+/* ============================================================
+   Sincronización con la planilla de Google (Apps Script).
+   La app manda su estado, el script lo fusiona con la planilla y
+   devuelve el consolidado. Reglas de seguridad:
+   · Se rechaza toda respuesta sin `api` (implementación vieja).
+   · Un registro local solo se borra si el servidor confirma su tumba.
+   ============================================================ */
+
+const SYNC_URL_KEY = 'bioma-sync-url';
+const API_MINIMA = 4;   // por debajo de esto la respuesta se descarta
+const API_PRODUCTOS = 5; // desde acá el servidor entiende productos y listas
+
+let sincronizando = false;
+let reintentoConceptos = false;
+
+function urlSync() { return localStorage.getItem(SYNC_URL_KEY) || ''; }
+
+async function sincronizar(silencioso) {
+  const url = urlSync();
+  if (!url || sincronizando) return;
+  sincronizando = true;
+  setSyncEstado('⟳');
+
+  // Solo se suben los conceptos agregados desde la app ("+ agregar nuevo…").
+  // La hoja "conceptos" manda: renombrar, borrar u ordenar ahí se refleja acá.
+  const conceptosEnviados = {
+    ingresos: [...db.conceptosNuevos.ingresos],
+    egresos: [...db.conceptosNuevos.egresos]
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      // sin Content-Type: evita el preflight CORS que Apps Script no soporta
+      body: JSON.stringify({
+        action: 'sync',
+        movimientos: db.movimientos,
+        deudas: db.deudas,
+        productos: db.productos,
+        borrados: db.borrados,
+        conceptos: conceptosEnviados
+      })
+    });
+    const remoto = await res.json();
+    if (remoto.error) throw new Error(remoto.error);
+
+    if (!(remoto.api >= API_MINIMA)) {
+      setSyncEstado('!');
+      toast('El script de la planilla está desactualizado — datos a salvo');
+      return;
+    }
+
+    const tumbas = new Set((remoto.borrados || []).map(b => b.id));
+    const idsRemotos = new Set([
+      ...(remoto.movimientos || []).map(x => x.id),
+      ...(remoto.deudas || []).map(x => x.id),
+      ...(remoto.productos || []).map(x => x.id)
+    ]);
+    const conservar = x => !idsRemotos.has(x.id) && !tumbas.has(x.id);
+
+    db.movimientos = [...remoto.movimientos, ...db.movimientos.filter(conservar)];
+    db.deudas = [...remoto.deudas, ...db.deudas.filter(conservar)];
+    db.deudas.forEach(x => { if (x.estado === 'pagada') x.estado = 'saldada'; });
+
+    // Productos y listas solo si el servidor ya los entiende: contra una
+    // versión anterior del script se conserva lo que haya en el dispositivo.
+    if (remoto.api >= API_PRODUCTOS) {
+      db.productos = [...(remoto.productos || []), ...db.productos.filter(conservar)];
+      if (remoto.listas && remoto.listas.length) db.listas = remoto.listas;
+    }
+
+    adoptarConceptos(remoto, conceptosEnviados);
+
+    db.borrados = db.borrados.filter(b => !tumbas.has(b.id));
+    db.ultimaSync = new Date().toISOString();
+    save();
+    initAll();
+    setSyncEstado('✓');
+    if (!silencioso) toast('Sincronizado con Drive ✓');
+  } catch (e) {
+    console.warn('Sync falló:', e);
+    setSyncEstado('!');
+    if (!silencioso) toast('Sin conexión — los datos quedan guardados en el dispositivo');
+  } finally {
+    sincronizando = false;
+  }
+}
+
+function adoptarConceptos(remoto, enviados) {
+  const hay = remoto.conceptos &&
+    (remoto.conceptos.ingresos.length || remoto.conceptos.egresos.length);
+  if (hay) {
+    db.conceptos = remoto.conceptos;
+    db.conceptosNuevos.ingresos = db.conceptosNuevos.ingresos.filter(c => !enviados.ingresos.includes(c));
+    db.conceptosNuevos.egresos = db.conceptosNuevos.egresos.filter(c => !enviados.egresos.includes(c));
+    return;
+  }
+  // La planilla quedó sin conceptos: reponer los de este dispositivo
+  db.conceptosNuevos = {
+    ingresos: [...db.conceptos.ingresos],
+    egresos: [...db.conceptos.egresos]
+  };
+  if (!reintentoConceptos) {
+    reintentoConceptos = true;
+    setTimeout(() => sincronizar(true), 1500);
+  }
+}
+
+function setSyncEstado(simbolo) {
+  const b = $('#btnSync');
+  if (!b) return;
+  b.dataset.estado = simbolo;
+  b.textContent = simbolo === '⟳' ? '⟳' : '↻';
+  b.classList.toggle('sync-error', simbolo === '!');
+}
+
+function actualizarSyncInfo() {
+  $('#sync-url').value = urlSync();
+  $('#sync-status').textContent = urlSync()
+    ? (db.ultimaSync
+      ? 'Última sincronización: ' + new Date(db.ultimaSync).toLocaleString('es-AR')
+      : 'Configurada, aún sin sincronizar')
+    : 'Sin configurar — los datos solo viven en este dispositivo';
+  // Sin URL la app parece vacía aunque los datos estén a salvo en la
+  // planilla: el aviso evita que se confunda con una pérdida de datos.
+  $('#aviso-sync').classList.toggle('hidden', !!urlSync());
+}
+
+$('#btnSync').addEventListener('click', () => {
+  if (!urlSync()) {
+    $('#btnExport').click();
+    toast('Configurá primero la URL de sincronización');
+    return;
+  }
+  sincronizar(false);
+});
+
+$('#btnSyncSave').addEventListener('click', () => {
+  const url = $('#sync-url').value.trim();
+  if (url && !url.startsWith('https://script.google.com/')) {
+    alert('La URL debe ser la del Web App de Google Apps Script\n(empieza con https://script.google.com/…)');
+    return;
+  }
+  if (url) localStorage.setItem(SYNC_URL_KEY, url);
+  else localStorage.removeItem(SYNC_URL_KEY);
+  actualizarSyncInfo();
+  if (url) sincronizar(false);
+  else toast('Sincronización desactivada');
+});
+
+$('#aviso-sync').addEventListener('click', () => $('#btnExport').click());
+
+/* Pedirle al navegador que no descarte el almacenamiento local: sin esto
+   Android puede vaciar la app y perder lo que aún no se sincronizó. */
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persisted().then(ok => { if (!ok) navigator.storage.persist(); });
+}

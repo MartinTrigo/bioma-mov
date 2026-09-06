@@ -27,12 +27,17 @@
 // Versión del protocolo. La app rechaza las respuestas que no la traigan:
 // así una implementación vieja que haya quedado publicada no puede
 // sobrescribir los datos del teléfono con un esquema que ya no existe.
-var API = 4;
+var API = 5;
 
 var COLUMNAS = {
   ingresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod'],
   egresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod'],
   deudas: ['id', 'fecha', 'persona', 'concepto', 'monto', 'direccion', 'estado', 'mod'],
+  // Solo se carga el precio de chacra; los otros tres quedan vacíos y los
+  // calcula la app con el porcentaje de la hoja "listas". Escribir un valor
+  // en comarca/bariloche/verduleria fija ese precio y rompe el porcentaje.
+  productos: ['id', 'nombre', 'unidad', 'presentacion', 'chacra',
+              'comarca', 'bariloche', 'verduleria', 'activo', 'mod'],
   borrados: ['id', 'mod']
 };
 
@@ -40,9 +45,21 @@ var ENCABEZADOS = {
   ingresos: ['id', 'fecha', 'punto de venta', 'monto', 'observaciones', 'mod'],
   egresos: ['id', 'fecha', 'concepto', 'monto', 'observaciones', 'mod'],
   deudas: ['id', 'fecha', 'persona', 'concepto', 'monto', 'tipo', 'estado', 'mod'],
+  productos: ['id', 'producto', 'unidad', 'presentación', 'precio chacra',
+              'comarca (fijo)', 'bariloche (fijo)', 'verdulerías (fijo)', 'activo', 'mod'],
   borrados: ['id', 'mod'],
-  conceptos: ['ingresos', 'egresos']
+  conceptos: ['ingresos', 'egresos'],
+  listas: ['clave', 'nombre', 'ajuste %']
 };
+
+// Las cuatro listas de precios. "chacra" es la base; las demás se calculan
+// como un porcentaje sobre ella. Se pueden cambiar en la hoja "listas".
+var LISTAS_DEFAULT = [
+  ['chacra', 'Chacra', 0],
+  ['comarca', 'Comarca', 30],
+  ['bariloche', 'Bariloche', 50],
+  ['verduleria', 'Verdulerías', -20]
+];
 
 var COLOR = {
   verde: '#3d6b35', verdeClaro: '#e7efe3',
@@ -90,6 +107,7 @@ function sincronizar_(entrada) {
 
   var movimientos = fusionar_(estado.movimientos, entrada.movimientos || [], borrados);
   var deudas = fusionar_(estado.deudas, entrada.deudas || [], borrados);
+  var productos = fusionar_(estado.productos, entrada.productos || [], borrados);
 
   // La hoja "conceptos" es la fuente de verdad; la app solo aporta
   // los agregados con "+ agregar nuevo…", que se anexan al final.
@@ -101,6 +119,7 @@ function sincronizar_(entrada) {
   escribirDatos_('ingresos', movimientos.filter(function (m) { return m.tipo !== 'egreso'; }));
   escribirDatos_('egresos', movimientos.filter(function (m) { return m.tipo === 'egreso'; }));
   escribirDatos_('deudas', deudas);
+  escribirDatos_('productos', productos);
   escribirBorrados_(borrados);
   escribirConceptos_(conceptos);
 
@@ -114,7 +133,9 @@ function sincronizar_(entrada) {
     api: API,
     movimientos: movimientos,
     deudas: deudas,
+    productos: productos,
     conceptos: conceptos,
+    listas: estado.listas,
     borrados: listaBorrados
   };
 }
@@ -127,7 +148,13 @@ function fusionar_(remotos, locales, borrados) {
     if (!previo || (item.mod || 0) > (previo.mod || 0)) porId[item.id] = item;
   });
   return Object.keys(porId).map(function (id) { return porId[id]; })
-    .sort(function (a, b) { return String(a.fecha).localeCompare(String(b.fecha)); });
+    .sort(function (a, b) {
+      // Los movimientos y deudas se ordenan por fecha; los productos, que
+      // no tienen fecha, por nombre.
+      var ka = a.fecha || a.nombre || '';
+      var kb = b.fecha || b.nombre || '';
+      return String(ka).localeCompare(String(kb));
+    });
 }
 
 function unir_(a, b) {
@@ -145,9 +172,81 @@ function leerEstado_() {
   return {
     movimientos: movimientos,
     deudas: leerDatos_('deudas', null),
+    productos: leerProductos_(),
     borrados: leerBorrados_(),
-    conceptos: leerConceptos_()
+    conceptos: leerConceptos_(),
+    listas: leerListas_()
   };
+}
+
+/* Los productos no tienen fecha ni monto, así que necesitan su propia
+   lectura. Como el resto, tolera filas escritas a mano: alcanza con poner
+   el nombre y el precio de chacra, el id y el mod los completa el script.
+   Los precios de comarca/bariloche/verdulerías se dejan vacíos salvo que
+   se quiera fijar uno a mano. */
+function leerProductos_() {
+  var h = hoja_('productos');
+  var valores = h.getDataRange().getValues();
+  var cols = COLUMNAS.productos;
+  var filas = [];
+  var contador = 0;
+  for (var i = 1; i < valores.length; i++) {
+    var v = valores[i];
+    var obj = {};
+    for (var j = 0; j < cols.length; j++) obj[cols[j]] = v[j];
+
+    obj.nombre = String(obj.nombre || '').trim();
+    if (!obj.nombre) continue; // fila vacía o decorativa
+
+    obj.id = String(obj.id || '').trim() || ('man' + Date.now().toString(36) + (contador++));
+    obj.mod = Number(obj.mod) || Date.now();
+    obj.unidad = String(obj.unidad || '').trim() || 'kg';
+    obj.presentacion = String(obj.presentacion || '').trim();
+    obj.chacra = normMonto_(obj.chacra);
+    ['comarca', 'bariloche', 'verduleria'].forEach(function (k) {
+      var n = normMonto_(obj[k]);
+      obj[k] = n > 0 ? n : ''; // vacío = lo calcula el porcentaje de la lista
+    });
+    obj.activo = normBool_(obj.activo);
+    filas.push(obj);
+  }
+  return filas;
+}
+
+// "SI", "TRUE", 1, vacío → activo. Solo "NO"/"FALSE"/0 lo desactivan.
+function normBool_(v) {
+  if (v === '' || v == null) return true;
+  if (typeof v === 'boolean') return v;
+  var s = String(v).trim().toLowerCase();
+  return !(s === 'no' || s === 'false' || s === '0' || s === 'inactivo');
+}
+
+function leerListas_() {
+  var h = hoja_('listas');
+  var valores = h.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < valores.length; i++) {
+    var clave = String(valores[i][0] || '').trim();
+    if (!clave) continue;
+    out.push({
+      clave: clave,
+      nombre: String(valores[i][1] || clave).trim(),
+      ajuste: Number(normMonto_(valores[i][2])) || 0
+    });
+  }
+  if (!out.length) { // hoja vacía: sembrar las cuatro listas de Bioma
+    escribirListas_(LISTAS_DEFAULT);
+    out = LISTAS_DEFAULT.map(function (l) {
+      return { clave: l[0], nombre: l[1], ajuste: l[2] };
+    });
+  }
+  return out;
+}
+
+function escribirListas_(filas) {
+  var h = hoja_('listas');
+  limpiarDatos_(h, 3);
+  if (filas.length) h.getRange(2, 1, filas.length, 3).setValues(filas);
 }
 
 // Lee una hoja de datos tolerando filas agregadas a mano:
@@ -317,10 +416,14 @@ function hoja_(nombre) {
 function asegurarEsquema_() {
   var props = PropertiesService.getDocumentProperties();
   var version = props.getProperty('esquema');
-  if (version !== 'v2' && version !== 'v3' && version !== 'v4') migrarV2_();
-  if (version !== 'v4') {
-    repararResumen_();
-    props.setProperty('esquema', 'v4');
+  var conocidas = ['v2', 'v3', 'v4', 'v5'];
+  if (conocidas.indexOf(version) < 0) migrarV2_();
+  if (version !== 'v4' && version !== 'v5') repararResumen_();
+  if (version !== 'v5') {
+    // v5 agrega el catálogo de productos y las listas de precios
+    estilizarProductos_();
+    leerListas_(); // crea y siembra la hoja "listas" si no existía
+    props.setProperty('esquema', 'v5');
   }
   // En cada petición: deshacer los efectos de una versión vieja del script
   // que hubiera quedado publicada (hoja "movimientos" recreada, conceptos
@@ -507,6 +610,60 @@ function estilizarHojaDatos_(nombre, colorFuerte, colorSuave) {
   // Ocultar columnas técnicas
   h.hideColumns(iId);
   h.hideColumns(iMod);
+}
+
+/* La hoja de productos tiene su propio formato: no hay fecha ni monto
+   único, sino un precio base y tres precios opcionales que solo se
+   completan cuando se quiere romper el porcentaje. */
+function estilizarProductos_() {
+  var h = hoja_('productos');
+  var cols = COLUMNAS.productos;
+  var n = cols.length;
+
+  h.setTabColor(COLOR.verde);
+  h.setFrozenRows(1);
+  h.getRange(1, 1, 1, n).setValues([ENCABEZADOS.productos])
+    .setBackground(COLOR.verde).setFontColor(COLOR.blanco)
+    .setFontWeight('bold').setFontSize(11);
+
+  if (h.getBandings().length === 0) {
+    h.getRange(1, 1, 500, n).applyRowBanding()
+      .setHeaderRowColor(COLOR.verde)
+      .setFirstRowColor(COLOR.blanco)
+      .setSecondRowColor(COLOR.verdeClaro);
+  }
+
+  var iChacra = cols.indexOf('chacra') + 1;
+  h.getRange(2, iChacra, 499, 4).setNumberFormat('"$"#,##0'); // chacra + los 3 fijos
+  h.setColumnWidth(cols.indexOf('nombre') + 1, 170);
+  h.setColumnWidth(cols.indexOf('presentacion') + 1, 140);
+
+  // Las tres columnas de precio fijo se marcan como opcionales
+  h.getRange(1, cols.indexOf('comarca') + 1, 1, 3)
+    .setNote('Dejar vacío para que el precio salga del porcentaje de la hoja "listas".\n' +
+             'Escribir un valor acá fija ese precio para este producto.');
+
+  var reglaUnidad = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['kg', 'atado', 'unidad', 'bandeja', 'bolsa', 'planta', 'docena'], true)
+    .setAllowInvalid(true).build();
+  h.getRange(2, cols.indexOf('unidad') + 1, 499).setDataValidation(reglaUnidad);
+
+  var reglaActivo = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['SI', 'NO'], true).setAllowInvalid(true).build();
+  h.getRange(2, cols.indexOf('activo') + 1, 499).setDataValidation(reglaActivo);
+
+  h.hideColumns(cols.indexOf('id') + 1);
+  h.hideColumns(cols.indexOf('mod') + 1);
+
+  var hl = hoja_('listas');
+  hl.setTabColor(COLOR.verde);
+  hl.setFrozenRows(1);
+  hl.getRange(1, 1, 1, 3).setValues([ENCABEZADOS.listas])
+    .setBackground(COLOR.verde).setFontColor(COLOR.blanco).setFontWeight('bold');
+  hl.setColumnWidth(1, 110);
+  hl.setColumnWidth(2, 140);
+  hl.getRange(1, 3).setNote('Porcentaje sobre el precio de chacra. ' +
+    'Ej: 30 = un 30% más caro; -20 = un 20% más barato.');
 }
 
 function estilizarConceptos_() {

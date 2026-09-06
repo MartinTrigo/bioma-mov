@@ -14,13 +14,36 @@ App para registrar **ingresos, egresos y deudas** del proyecto Bioma, con resúm
 
 ## Arquitectura
 
-- **PWA (Progressive Web App)** en HTML + CSS + JavaScript puro. Sin frameworks, sin dependencias, sin build. Un archivo de cada tipo:
-  - `index.html` — estructura y pantallas (Ingresos / Egresos / Deudas / Resumen)
+- **PWA (Progressive Web App)** en HTML + CSS + JavaScript puro. Sin frameworks,
+  sin dependencias, sin build:
+  - `index.html` — las pantallas
   - `styles.css` — estilo (paleta verde/tierra del logo)
-  - `app.js` — toda la lógica y los datos
-  - `logo.svg` — logo vectorial
-  - `manifest.json` + `sw.js` — instalación en Android y funcionamiento sin conexión
-- **Datos:** se guardan en el propio dispositivo (`localStorage`). Los conceptos de ingresos (puntos de venta) y egresos vienen de la validación de datos de la planilla original, y se pueden agregar nuevos desde la propia app ("+ agregar nuevo…").
+  - `js/` — un archivo por tema: `util`, `db`, `sincro`, `movimientos`,
+    `deudas`, `productos`, `resumen`, `respaldo`
+  - `app.js` — arranque y pestañas; se carga último
+  - `logo.svg`, `manifest.json`, `sw.js` — instalación y uso sin conexión
+- **Datos:** se guardan en el dispositivo (`localStorage`) y se sincronizan con
+  la planilla `bioma-db`.
+
+## Precios: una sola cifra por producto
+
+De cada producto se carga **un solo precio, el de chacra**. Los otros tres
+salen de un porcentaje sobre ese, configurable en la hoja `listas`:
+
+| Lista | Ajuste | Para qué |
+|---|---|---|
+| Chacra | base | mayorista en el establecimiento |
+| Comarca | +30% | ferias de la Comarca |
+| Bariloche | +50% | venta en Bariloche |
+| Verdulerías | −20% | reventa a verdulerías |
+
+Si un producto necesita un precio distinto en una lista (por su estado o por
+estrategia), se escribe a mano en esa columna y deja de seguir el porcentaje.
+Para volver al automático, se borra la celda. En la app esos precios fijados
+se ven con fondo tostado.
+
+`productos-inicial.csv` tiene el catálogo extraído de la planilla vieja de
+comercialización (65 productos, 38 con precio), listo para pegar en la hoja.
 
 ## Cómo probarla en la PC (solo para desarrollo)
 
