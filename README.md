@@ -1,5 +1,15 @@
 # Bioma · Registro de movimientos
 
+## 👉 Abrir la app
+
+**https://martintrigo.github.io/bioma-mov/**
+
+Funciona en cualquier dispositivo con navegador (notebook, teléfono, tablet).
+La primera vez en cada dispositivo hay que pegar la **URL de sincronización**
+en el botón ⭳ para que aparezcan los datos (ver más abajo).
+
+---
+
 App para registrar **ingresos, egresos y deudas** del proyecto Bioma, con resúmenes mensuales y generales. Reemplaza la planilla de Google Sheets.
 
 ## Arquitectura
@@ -12,14 +22,18 @@ App para registrar **ingresos, egresos y deudas** del proyecto Bioma, con resúm
   - `manifest.json` + `sw.js` — instalación en Android y funcionamiento sin conexión
 - **Datos:** se guardan en el propio dispositivo (`localStorage`). Los conceptos de ingresos (puntos de venta) y egresos vienen de la validación de datos de la planilla original, y se pueden agregar nuevos desde la propia app ("+ agregar nuevo…").
 
-## Cómo probarla en la PC
+## Cómo probarla en la PC (solo para desarrollo)
+
+Para usarla normalmente alcanza con el enlace de arriba. Esto es únicamente
+para probar cambios locales antes de publicarlos:
 
 ```
 cd C:\MonAgro\bioma
 python -m http.server 8642
 ```
 
-y abrir http://localhost:8642 en el navegador.
+y abrir http://localhost:8642 en el navegador. Ojo: esa dirección solo
+funciona en la misma máquina y mientras el comando esté corriendo.
 
 ## Cómo editarla en VS Code
 
@@ -29,12 +43,12 @@ y abrir http://localhost:8642 en el navegador.
 
 ## Cómo usarla en el teléfono (Android)
 
-La forma más simple y gratuita es publicarla en **GitHub Pages** o **Netlify Drop**:
+Ya está publicada en **GitHub Pages** desde la rama `main` del repositorio
+https://github.com/MartinTrigo/bioma-mov — cada `git push` la actualiza sola.
 
-- **Netlify Drop** (lo más rápido): entrar a https://app.netlify.com/drop y arrastrar la carpeta `bioma`. Te da una URL pública en segundos.
-- **GitHub Pages:** subir la carpeta a un repositorio y activar Pages en Settings.
-
-Luego, en el teléfono: abrir la URL en Chrome → menú ⋮ → **"Agregar a pantalla de inicio"**. Queda instalada como una app, con ícono, y funciona sin conexión.
+En el teléfono: abrir https://martintrigo.github.io/bioma-mov/ en Chrome →
+menú ⋮ → **"Agregar a pantalla de inicio"**. Queda instalada como una app,
+con ícono, y funciona sin conexión.
 
 ## Sincronización multiusuario con Google Sheets (Drive)
 
