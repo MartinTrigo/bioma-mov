@@ -150,6 +150,58 @@ $('#btnSyncSave').addEventListener('click', () => {
 
 $('#aviso-sync').addEventListener('click', () => $('#btnExport').click());
 
+/* Arma el enlace de alta para otro teléfono o computadora. Cuidado: lleva
+   la URL del Web App, que funciona como contraseña de los datos. Se manda
+   solo a quien tenga que usar la app. */
+$('#btnEnlaceDispositivo').addEventListener('click', async () => {
+  const url = urlSync();
+  if (!url) { toast('Primero configurá la sincronización acá'); return; }
+  const enlace = location.origin + location.pathname + '#sync=' + encodeURIComponent(url);
+  try {
+    await navigator.clipboard.writeText(enlace);
+    toast('Enlace copiado — mandalo solo a quien use la app');
+  } catch (e) {
+    prompt('Copiá este enlace y abrilo en el otro dispositivo:', enlace);
+  }
+});
+
+/* Configuración por enlace: abrir la app con
+     …/bioma-mov/#sync=<URL del Web App>
+   deja la sincronización lista sin tener que tipear la URL larga en el
+   teléfono. Sirve para dar de alta un dispositivo nuevo mandando el
+   enlace por WhatsApp. El hash no viaja al servidor y se borra apenas
+   se usa, para que no quede en la barra de direcciones. */
+function configurarDesdeEnlace() {
+  const h = location.hash || '';
+  const i = h.indexOf('sync=');
+  if (i < 0) return;
+
+  let url = '';
+  try { url = decodeURIComponent(h.slice(i + 5)); } catch (e) { url = ''; }
+  const limpiarHash = () =>
+    history.replaceState(null, '', location.pathname + location.search);
+
+  if (!url.startsWith('https://script.google.com/')) {
+    limpiarHash();
+    toast('El enlace no trae una dirección válida');
+    return;
+  }
+  if (url === urlSync()) { limpiarHash(); return; } // ya estaba configurada
+
+  const yaHabia = !!urlSync();
+  const msg = yaHabia
+    ? 'Este enlace apunta a otra planilla.\n¿Cambiar la sincronización de esta app?'
+    : '¿Conectar esta app con la planilla de Bioma?';
+  if (confirm(msg)) {
+    localStorage.setItem(SYNC_URL_KEY, url);
+    limpiarHash();
+    actualizarSyncInfo();
+    sincronizar(false);
+  } else {
+    limpiarHash();
+  }
+}
+
 /* Pedirle al navegador que no descarte el almacenamiento local: sin esto
    Android puede vaciar la app y perder lo que aún no se sincronizó. */
 if (navigator.storage && navigator.storage.persist) {

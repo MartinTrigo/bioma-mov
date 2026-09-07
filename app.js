@@ -38,7 +38,8 @@ function initAll() {
 }
 
 initAll();
-sincronizar(true); // al abrir, trae los cambios del otro dispositivo
+configurarDesdeEnlace(); // alta de un dispositivo nuevo con #sync=<URL>
+sincronizar(true);       // al abrir, trae los cambios del otro dispositivo
 
 /* ================= Service worker (PWA offline) ================= */
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
