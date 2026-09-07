@@ -209,6 +209,151 @@ $('#btnAumentar').addEventListener('click', () => {
   sincronizar(true);
 });
 
+/* ================= Importar catálogo desde CSV =================
+   Sirve para la carga inicial y para actualizaciones en bloque hechas
+   en una planilla. Se reconoce por el nombre del producto: los que ya
+   existen se actualizan, los nuevos se agregan. Nunca borra productos
+   ni pisa un precio existente con un valor vacío o cero. */
+
+// Divide una línea de CSV respetando las comillas dobles.
+function partirCsv(linea, sep) {
+  const out = [];
+  let campo = '', dentro = false;
+  for (let i = 0; i < linea.length; i++) {
+    const c = linea[i];
+    if (dentro) {
+      if (c === '"' && linea[i + 1] === '"') { campo += '"'; i++; }
+      else if (c === '"') dentro = false;
+      else campo += c;
+    } else if (c === '"') dentro = true;
+    else if (c === sep) { out.push(campo); campo = ''; }
+    else campo += c;
+  }
+  out.push(campo);
+  return out.map(s => s.trim());
+}
+
+// Nombre de columna sin acentos ni mayúsculas, para reconocer encabezados
+function clave(s) {
+  const ACENTOS = new RegExp('[\u0300-\u036f]', 'g');
+  return String(s || '').trim().toLowerCase().normalize('NFD').replace(ACENTOS, '');
+}
+
+function leerCsvProductos(texto) {
+  const limpio = texto.replace(/^﻿/, ''); // marca de orden de bytes
+  const lineas = limpio.split(/\r?\n/).filter(l => l.trim());
+  if (!lineas.length) throw new Error('el archivo está vacío');
+
+  // Separador: coma o punto y coma, el que más aparezca en el encabezado
+  const sep = (lineas[0].split(';').length > lineas[0].split(',').length) ? ';' : ',';
+  const cab = partirCsv(lineas[0], sep).map(clave);
+
+  const col = nombres => {
+    for (const n of nombres) {
+      const i = cab.indexOf(n);
+      if (i > -1) return i;
+    }
+    return -1;
+  };
+  const iNombre = col(['nombre', 'producto']);
+  if (iNombre < 0) throw new Error('no encuentro la columna "nombre" (o "producto")');
+  const idx = {
+    unidad: col(['unidad']),
+    presentacion: col(['presentacion']),
+    chacra: col(['chacra', 'precio chacra']),
+    comarca: col(['comarca', 'comarca (fijo)']),
+    bariloche: col(['bariloche', 'bariloche (fijo)']),
+    verduleria: col(['verduleria', 'verdulerias', 'verdulerias (fijo)']),
+    activo: col(['activo'])
+  };
+
+  const filas = [];
+  for (let i = 1; i < lineas.length; i++) {
+    const c = partirCsv(lineas[i], sep);
+    const nombre = (c[iNombre] || '').trim();
+    if (!nombre) continue;
+    const val = k => (idx[k] > -1 ? (c[idx[k]] || '').trim() : '');
+    filas.push({
+      nombre,
+      unidad: val('unidad'),
+      presentacion: val('presentacion'),
+      chacra: val('chacra'),
+      comarca: val('comarca'),
+      bariloche: val('bariloche'),
+      verduleria: val('verduleria'),
+      activo: val('activo')
+    });
+  }
+  return filas;
+}
+
+function aplicarImportacion(filas) {
+  const porNombre = {};
+  db.productos.forEach(p => { porNombre[clave(p.nombre)] = p; });
+
+  let nuevos = 0, actualizados = 0, sinPrecio = 0;
+  filas.forEach(f => {
+    const existente = porNombre[clave(f.nombre)];
+    const p = existente || { id: uid(), nombre: f.nombre, chacra: 0 };
+
+    if (f.unidad) p.unidad = f.unidad;
+    else if (!p.unidad) p.unidad = 'kg';
+    if (f.presentacion) p.presentacion = f.presentacion;
+    // Un precio vacío o en cero no pisa lo que ya había cargado
+    if (num(f.chacra) > 0) p.chacra = num(f.chacra);
+    ['comarca', 'bariloche', 'verduleria'].forEach(k => {
+      if (num(f[k]) > 0) p[k] = num(f[k]);
+      else if (p[k] === undefined) p[k] = '';
+    });
+    if (f.activo) p.activo = !/^(no|false|0|inactivo)$/i.test(f.activo);
+    else if (p.activo === undefined) p.activo = true;
+    p.mod = Date.now();
+
+    if (!num(p.chacra)) sinPrecio++;
+    if (existente) { actualizados++; } else {
+      db.productos.push(p);
+      porNombre[clave(p.nombre)] = p;
+      nuevos++;
+    }
+  });
+  return { nuevos, actualizados, sinPrecio };
+}
+
+$('#btnImportarProductos').addEventListener('click', () => $('#inputProductos').click());
+
+$('#inputProductos').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const filas = leerCsvProductos(String(reader.result));
+      if (!filas.length) { toast('El archivo no tiene productos'); return; }
+
+      const conocidos = new Set(db.productos.map(p => clave(p.nombre)));
+      const aCrear = filas.filter(f => !conocidos.has(clave(f.nombre))).length;
+      const aActualizar = filas.length - aCrear;
+      const msg = `El archivo tiene ${filas.length} productos:\n` +
+        `· ${aCrear} nuevos\n· ${aActualizar} que ya existen y se actualizan\n\n` +
+        'No se borra ningún producto ni se pisan precios con valores vacíos.\n¿Importar?';
+      if (!confirm(msg)) return;
+
+      const r = aplicarImportacion(filas);
+      save();
+      renderProductos();
+      toast(`${r.nuevos} nuevos, ${r.actualizados} actualizados ✓`);
+      if (r.sinPrecio) {
+        setTimeout(() => toast(`${r.sinPrecio} quedaron sin precio de chacra`), 2400);
+      }
+      sincronizar(true);
+    } catch (err) {
+      alert('No se pudo leer el archivo: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+  e.target.value = '';
+});
+
 /* Exportar el catálogo con los cuatro precios ya calculados: sirve para
    imprimir la lista o mandarla por WhatsApp. */
 $('#btnExportPrecios').addEventListener('click', () => {

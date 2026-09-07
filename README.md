@@ -42,8 +42,23 @@ estrategia), se escribe a mano en esa columna y deja de seguir el porcentaje.
 Para volver al automático, se borra la celda. En la app esos precios fijados
 se ven con fondo tostado.
 
+### Cargar o actualizar el catálogo en bloque
+
 `productos-inicial.csv` tiene el catálogo extraído de la planilla vieja de
-comercialización (65 productos, 38 con precio), listo para pegar en la hoja.
+comercialización (65 productos, 38 con precio de chacra).
+
+En la pantalla **Productos → Importar catálogo (CSV)** se carga de una. El
+archivo se reconoce por el nombre del producto:
+
+- los que ya existen se **actualizan**, los que no, se **agregan**;
+- **nunca borra** productos, y un precio vacío o en cero **no pisa** uno ya
+  cargado, así que se puede reimportar sin miedo;
+- columnas: `nombre, unidad, presentacion, chacra, comarca, bariloche,
+  verduleria, activo`. Solo `nombre` es obligatoria; las tres columnas de
+  precio derivado se dejan vacías salvo que se quiera fijar ese precio.
+
+También se puede pegar el CSV directamente en la hoja `productos` de la
+planilla, desde la columna B (la columna `id` la completa el script).
 
 ## Cómo probarla en la PC (solo para desarrollo)
 
