@@ -342,10 +342,20 @@ $('#inputProductos').addEventListener('change', e => {
       save();
       renderProductos();
       toast(`${r.nuevos} nuevos, ${r.actualizados} actualizados ✓`);
+
+      // Importar sin sincronización configurada dejaba el catálogo en un
+      // solo equipo sin que nada lo dijera: ahora se avisa fuerte.
+      if (!urlSync()) {
+        setTimeout(() => alert(
+          'Los productos quedaron guardados SOLO en este dispositivo.\n\n' +
+          'Para que lleguen a la planilla y a los demás teléfonos, configurá ' +
+          'la URL de sincronización en el botón ⭳.'), 300);
+        return;
+      }
       if (r.sinPrecio) {
         setTimeout(() => toast(`${r.sinPrecio} quedaron sin precio de chacra`), 2400);
       }
-      sincronizar(true);
+      sincronizar(false); // con aviso: importar es demasiado importante para fallar en silencio
     } catch (err) {
       alert('No se pudo leer el archivo: ' + err.message);
     }

@@ -73,7 +73,7 @@ async function sincronizar(silencioso) {
 
     db.borrados = db.borrados.filter(b => !tumbas.has(b.id));
     db.ultimaSync = new Date().toISOString();
-    save();
+    save(true); // la planilla ya tiene todo: no quedan cambios sin subir
     initAll();
     setSyncEstado('✓');
     if (!silencioso) toast('Sincronizado con Drive ✓');
@@ -112,15 +112,31 @@ function setSyncEstado(simbolo) {
   b.dataset.estado = simbolo;
   b.textContent = simbolo === '⟳' ? '⟳' : '↻';
   b.classList.toggle('sync-error', simbolo === '!');
+  marcarPendientes();
+}
+
+/* Punto naranja sobre el botón ↻ mientras haya cambios que la planilla
+   todavía no recibió. Es el aviso que faltaba: un catálogo importado sin
+   sincronización configurada parecía guardado y vivía en un solo equipo. */
+function marcarPendientes() {
+  const b = $('#btnSync');
+  if (!b) return;
+  const hay = !!db.pendientes && !!urlSync();
+  b.classList.toggle('pendiente', hay);
+  b.title = hay
+    ? 'Hay cambios sin subir a la planilla — tocá para sincronizar'
+    : 'Sincronizar con Drive';
 }
 
 function actualizarSyncInfo() {
   $('#sync-url').value = urlSync();
+  const pend = db.pendientes ? ' · ⚠ hay cambios sin subir' : '';
   $('#sync-status').textContent = urlSync()
     ? (db.ultimaSync
-      ? 'Última sincronización: ' + new Date(db.ultimaSync).toLocaleString('es-AR')
+      ? 'Última sincronización: ' + new Date(db.ultimaSync).toLocaleString('es-AR') + pend
       : 'Configurada, aún sin sincronizar')
     : 'Sin configurar — los datos solo viven en este dispositivo';
+  marcarPendientes();
   // Sin URL la app parece vacía aunque los datos estén a salvo en la
   // planilla: el aviso evita que se confunda con una pérdida de datos.
   $('#aviso-sync').classList.toggle('hidden', !!urlSync());

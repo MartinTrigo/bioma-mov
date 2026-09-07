@@ -321,6 +321,18 @@ input:focus, select:focus { border-color: var(--verde); }
 .modal-box h2 { color: var(--verde-oscuro); font-size: 1.1rem; margin-bottom: 8px; }
 .modal-box label { display: block; font-size: 0.8rem; color: var(--gris); margin-bottom: 10px; }
 .icon-btn.sync-error { border-color: var(--rojo); color: var(--rojo); }
+
+/* Punto naranja: hay cambios que la planilla todavía no recibió */
+.icon-btn.pendiente { position: relative; }
+.icon-btn.pendiente::after {
+  content: '';
+  position: absolute;
+  top: -3px; right: -3px;
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: var(--tierra);
+  border: 2px solid var(--blanco);
+}
 .hint { font-size: 0.8rem; color: var(--gris); margin-bottom: 12px; }
 .modal hr { border: none; border-top: 1px solid #eee8da; margin: 14px 0; }
 .hidden { display: none !important; }

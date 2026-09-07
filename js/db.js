@@ -81,14 +81,21 @@ function normalizar(d) {
   return d;
 }
 
-function save() {
+/* Guarda en el dispositivo y deja marcado que hay cambios sin subir.
+   `sincronizado` en true lo llama la sincronización cuando la planilla
+   ya recibió todo. Esa marca es la que enciende el aviso de la barra:
+   sin ella, cargar datos con la sincronización caída o sin configurar
+   parecía haber quedado guardado en todos lados. */
+function save(sincronizado) {
   db.actualizado = new Date().toISOString();
+  db.pendientes = !sincronizado;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch (e) {
     console.error('No se pudo guardar', e);
     toast('No se pudo guardar en el dispositivo');
   }
+  if (typeof marcarPendientes === 'function') marcarPendientes();
 }
 
 // Marca un registro como eliminado para que la baja viaje a los demás
