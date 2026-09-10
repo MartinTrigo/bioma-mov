@@ -1,0 +1,23 @@
+# ============================================================
+# Este repositorio es PÚBLICO. Nada de lo que se ignore acá
+# debe subirse nunca: la URL del Web App funciona como
+# contraseña de todos los datos de Bioma.
+# ============================================================
+
+# Configuración local de Claude Code: guarda comandos ejecutados,
+# y entre ellos la URL de sincronización.
+.claude/settings.local.json
+
+# Respaldos y exportaciones con datos reales del proyecto
+respaldo-*.json
+bioma-datos*.json
+bioma-movimientos*.csv
+bioma-deudas*.csv
+estado.json
+*.sqlite3
+
+# Archivos temporales
+_prueba*
+*.tmp
+.DS_Store
+Thumbs.db

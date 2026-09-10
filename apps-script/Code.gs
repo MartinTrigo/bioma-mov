@@ -445,14 +445,17 @@ function hoja_(nombre) {
 function asegurarEsquema_() {
   var props = PropertiesService.getDocumentProperties();
   var version = props.getProperty('esquema');
-  var conocidas = ['v2', 'v3', 'v4', 'v5'];
+  var conocidas = ['v2', 'v3', 'v4', 'v5', 'v6'];
   if (conocidas.indexOf(version) < 0) migrarV2_();
-  if (version !== 'v4' && version !== 'v5') repararResumen_();
-  if (version !== 'v5') {
+  if (version !== 'v5' && version !== 'v6') {
     // v5 agrega el catálogo de productos y las listas de precios
     estilizarProductos_();
     leerListas_(); // crea y siembra la hoja "listas" si no existía
-    props.setProperty('esquema', 'v5');
+  }
+  if (version !== 'v6') {
+    // v6 suma a "resumen" las tablas mes a mes y el flujo de fondos
+    repararResumen_();
+    props.setProperty('esquema', 'v6');
   }
   // En cada petición: deshacer los efectos de una versión vieja del script
   // que hubiera quedado publicada (hoja "movimientos" recreada, conceptos
@@ -752,9 +755,77 @@ function crearResumen_() {
   ['B10:B', 'E10:E', 'H10:H', 'K10:K', 'N10:N'].forEach(function (r) {
     h.getRange(r).setNumberFormat('"$"#,##0');
   });
+
+  agregarTablasMensuales_(h);
   ['A', 'D', 'G', 'J', 'M'].forEach(function (c) {
     h.setColumnWidth(h.getRange(c + '1').getColumn(), 170);
   });
+}
+
+/* Tablas mes a mes de la hoja "resumen".
+
+   Van más abajo en la misma hoja, separadas por bloques con aire de sobra
+   para que ninguna pise a la otra cuando aparezcan meses o conceptos nuevos.
+
+   Notas de las fórmulas (ya nos costaron errores antes, ver DECISIONES.md):
+   · la planilla está en español: separador ";" y "\" entre columnas de matriz;
+   · nada de year()/month() de QUERY, que fallan según el tipo de columna: se
+     agrupa por TEXT(fecha;"yyyy-mm"), que además ordena solo;
+   · rangos acotados (2000 filas) para que SUMPRODUCT no se arrastre. */
+function agregarTablasMensuales_(h) {
+  // Meses presentes en cualquiera de las dos hojas, del más nuevo al más viejo
+  var mesesIngresos = 'ARRAYFORMULA(IF(ingresos!B2:B="";"";TEXT(ingresos!B2:B;"yyyy-mm")))';
+  var mesesEgresos = 'ARRAYFORMULA(IF(egresos!B2:B="";"";TEXT(egresos!B2:B;"yyyy-mm")))';
+
+  /* ---------- FLUJO DE FONDOS MES A MES (fila 60) ---------- */
+  titulo_(h, 'A60', 'FLUJO DE FONDOS MES A MES', COLOR.verde);
+  h.getRange('A61:E61').setValues([['mes', 'ingresos', 'egresos', 'resultado', 'acumulado']])
+    .setFontWeight('bold').setBackground(COLOR.verdeClaro);
+
+  h.getRange('A62').setValue(
+    '=QUERY({' + mesesIngresos + ';' + mesesEgresos + '};' +
+    '"select Col1 where Col1 is not null and Col1 <> \'\' group by Col1 order by Col1 desc";0)');
+
+  // Una fila por mes; 60 alcanza para cinco temporadas
+  var filas = [];
+  for (var i = 62; i < 122; i++) {
+    var m = '$A' + i;
+    var ing = 'SUMPRODUCT((TEXT(ingresos!$B$2:$B$2000;"yyyy-mm")=' + m + ')*ingresos!$D$2:$D$2000)';
+    var egr = 'SUMPRODUCT((TEXT(egresos!$B$2:$B$2000;"yyyy-mm")=' + m + ')*egresos!$D$2:$D$2000)';
+    // El acumulado suma todos los meses hasta ese, sin depender del orden
+    var ingAcum = 'SUMPRODUCT((TEXT(ingresos!$B$2:$B$2000;"yyyy-mm")<=' + m + ')*(ingresos!$B$2:$B$2000<>"")*ingresos!$D$2:$D$2000)';
+    var egrAcum = 'SUMPRODUCT((TEXT(egresos!$B$2:$B$2000;"yyyy-mm")<=' + m + ')*(egresos!$B$2:$B$2000<>"")*egresos!$D$2:$D$2000)';
+    filas.push([
+      '=IF(' + m + '="";"";' + ing + ')',
+      '=IF(' + m + '="";"";' + egr + ')',
+      '=IF(' + m + '="";"";B' + i + '-C' + i + ')',
+      '=IF(' + m + '="";"";' + ingAcum + '-' + egrAcum + ')'
+    ]);
+  }
+  h.getRange('B62:E121').setValues(filas).setNumberFormat('"$"#,##0');
+
+  /* ---------- INGRESOS POR PUNTO DE VENTA, MES A MES (fila 125) ---------- */
+  titulo_(h, 'A125', 'INGRESOS POR PUNTO DE VENTA · MES A MES', COLOR.verde);
+  h.getRange('A126').setValue(
+    '=QUERY({' + mesesIngresos + '\\ingresos!C2:C\\ingresos!D2:D};' +
+    '"select Col2, sum(Col3) where Col1 <> \'\' and Col2 is not null ' +
+    'group by Col2 pivot Col1 label Col2 \'punto de venta\'";0)');
+
+  /* ---------- EGRESOS POR CONCEPTO, MES A MES (fila 170) ---------- */
+  titulo_(h, 'A170', 'EGRESOS POR CONCEPTO · MES A MES', COLOR.tierra);
+  h.getRange('A171').setValue(
+    '=QUERY({' + mesesEgresos + '\\egresos!C2:C\\egresos!D2:D};' +
+    '"select Col2, sum(Col3) where Col1 <> \'\' and Col2 is not null ' +
+    'group by Col2 pivot Col1 label Col2 \'concepto\'";0)');
+
+  h.getRange('B126:Z160').setNumberFormat('"$"#,##0');
+  h.getRange('B171:Z215').setNumberFormat('"$"#,##0');
+  h.setColumnWidth(1, 200);
+}
+
+function titulo_(h, celda, texto, color) {
+  h.getRange(celda).setValue(texto).setFontWeight('bold')
+    .setFontColor(color).setFontSize(12);
 }
 
 /* ================= Respaldos automáticos =================
