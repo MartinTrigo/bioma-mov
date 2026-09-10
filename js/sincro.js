@@ -11,7 +11,6 @@ const API_MINIMA = 4;   // por debajo de esto la respuesta se descarta
 const API_PRODUCTOS = 5; // desde acá el servidor entiende productos y listas
 
 let sincronizando = false;
-let reintentoConceptos = false;
 
 function urlSync() { return localStorage.getItem(SYNC_URL_KEY) || ''; }
 
@@ -34,6 +33,10 @@ async function sincronizar(silencioso) {
       // sin Content-Type: evita el preflight CORS que Apps Script no soporta
       body: JSON.stringify({
         action: 'sync',
+        // Identifica a esta versión de la app. El servidor solo acepta
+        // conceptos de clientes >= 2: los anteriores mandaban su lista
+        // entera y reponían lo que se borraba a mano en la planilla.
+        cliente: 2,
         movimientos: db.movimientos,
         deudas: db.deudas,
         productos: db.productos,
@@ -86,24 +89,22 @@ async function sincronizar(silencioso) {
   }
 }
 
+/* La hoja "conceptos" manda siempre: lo que diga la planilla es lo que
+   ve la app, con su orden y su forma de escribir.
+
+   Antes, si la planilla volvía sin conceptos, la app reponía su lista
+   local. Esa "reparación" terminó siendo el problema: reinyectaba la
+   lista por defecto del código y devolvía a la vida los conceptos que
+   se habían borrado a mano. Ahora la app nunca sube una lista completa;
+   solo los conceptos creados con "+ agregar nuevo…". */
 function adoptarConceptos(remoto, enviados) {
   const hay = remoto.conceptos &&
     (remoto.conceptos.ingresos.length || remoto.conceptos.egresos.length);
-  if (hay) {
-    db.conceptos = remoto.conceptos;
-    db.conceptosNuevos.ingresos = db.conceptosNuevos.ingresos.filter(c => !enviados.ingresos.includes(c));
-    db.conceptosNuevos.egresos = db.conceptosNuevos.egresos.filter(c => !enviados.egresos.includes(c));
-    return;
-  }
-  // La planilla quedó sin conceptos: reponer los de este dispositivo
-  db.conceptosNuevos = {
-    ingresos: [...db.conceptos.ingresos],
-    egresos: [...db.conceptos.egresos]
-  };
-  if (!reintentoConceptos) {
-    reintentoConceptos = true;
-    setTimeout(() => sincronizar(true), 1500);
-  }
+  if (!hay) return; // planilla sin conceptos: se deja como está, no se repone
+
+  db.conceptos = remoto.conceptos;
+  db.conceptosNuevos.ingresos = db.conceptosNuevos.ingresos.filter(c => !enviados.ingresos.includes(c));
+  db.conceptosNuevos.egresos = db.conceptosNuevos.egresos.filter(c => !enviados.egresos.includes(c));
 }
 
 function setSyncEstado(simbolo) {

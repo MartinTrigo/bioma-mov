@@ -27,7 +27,7 @@
 // Versión del protocolo. La app rechaza las respuestas que no la traigan:
 // así una implementación vieja que haya quedado publicada no puede
 // sobrescribir los datos del teléfono con un esquema que ya no existe.
-var API = 5;
+var API = 6;
 
 var COLUMNAS = {
   ingresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod'],
@@ -109,11 +109,18 @@ function sincronizar_(entrada) {
   var deudas = fusionar_(estado.deudas, entrada.deudas || [], borrados);
   var productos = fusionar_(estado.productos, entrada.productos || [], borrados);
 
-  // La hoja "conceptos" es la fuente de verdad; la app solo aporta
-  // los agregados con "+ agregar nuevo…", que se anexan al final.
+  /* La hoja "conceptos" es la fuente de verdad. La app solo aporta los
+     agregados con "+ agregar nuevo…".
+
+     Solo se aceptan de un cliente que se identifique (cliente >= 2): las
+     versiones viejas de la app mandaban su lista COMPLETA en cada
+     sincronización, así que reponían todo lo borrado a mano y volvían a
+     inyectar su lista por defecto en minúsculas. Un teléfono con la app
+     vieja en caché alcanzaba para deshacer la limpieza de la hoja. */
+  var aporta = Number(entrada.cliente || 0) >= 2 ? (entrada.conceptos || {}) : {};
   var conceptos = {
-    ingresos: unir_(estado.conceptos.ingresos, (entrada.conceptos || {}).ingresos),
-    egresos: unir_(estado.conceptos.egresos, (entrada.conceptos || {}).egresos)
+    ingresos: unirConceptos_(estado.conceptos.ingresos, aporta.ingresos),
+    egresos: unirConceptos_(estado.conceptos.egresos, aporta.egresos)
   };
 
   escribirDatos_('ingresos', movimientos.filter(function (m) { return m.tipo !== 'egreso'; }));
@@ -161,6 +168,28 @@ function unir_(a, b) {
   var visto = {}, out = [];
   (a || []).concat(b || []).forEach(function (x) {
     if (x && !visto[x]) { visto[x] = true; out.push(x); }
+  });
+  return out;
+}
+
+/* Une listas de conceptos ignorando mayúsculas y acentos, para que
+   "Semillas" y "semillas" no convivan como dos conceptos distintos
+   partiendo los totales del resumen. Gana la forma que ya está en la
+   hoja, que es la que el usuario escribió. */
+var ACENTOS_ = new RegExp('[\u0300-\u036f]', 'g');
+
+function normClave_(s) {
+  return String(s || '').trim().toLowerCase()
+    .normalize('NFD').replace(ACENTOS_, '');
+}
+
+function unirConceptos_(existentes, entrantes) {
+  var visto = {}, out = [];
+  (existentes || []).concat(entrantes || []).forEach(function (x) {
+    var nombre = String(x || '').trim();
+    if (!nombre) return;
+    var k = normClave_(nombre);
+    if (!visto[k]) { visto[k] = true; out.push(nombre); }
   });
   return out;
 }
@@ -726,6 +755,77 @@ function crearResumen_() {
   ['A', 'D', 'G', 'J', 'M'].forEach(function (c) {
     h.setColumnWidth(h.getRange(c + '1').getColumn(), 170);
   });
+}
+
+/* ================= Respaldos automáticos =================
+   Cada madrugada se guarda una copia completa de la planilla en una
+   carpeta "respaldos bioma-db", al lado de la original en Drive. Se
+   conservan los últimos 30 días; los más viejos van a la papelera.
+
+   Para activarlo, una sola vez: en el editor de Apps Script elegir la
+   función `instalarRespaldoDiario` y tocar Ejecutar. Pide autorización
+   para acceder a Drive porque tiene que crear la copia.
+
+   Para restaurar: abrir la copia del día que sirva y usar
+   "Archivo → Hacer una copia", o copiar las hojas que hagan falta a la
+   planilla original. Nunca se toca la planilla en uso.
+   ============================================================ */
+
+var CARPETA_RESPALDOS = 'respaldos bioma-db';
+var RESPALDOS_A_CONSERVAR = 30;
+
+function crearRespaldoDiario() {
+  var ss = SpreadsheetApp.getActive();
+  var archivo = DriveApp.getFileById(ss.getId());
+  var padres = archivo.getParents();
+  var padre = padres.hasNext() ? padres.next() : DriveApp.getRootFolder();
+
+  var carpetas = padre.getFoldersByName(CARPETA_RESPALDOS);
+  var carpeta = carpetas.hasNext() ? carpetas.next() : padre.createFolder(CARPETA_RESPALDOS);
+
+  var sello = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var nombre = 'bioma-db ' + sello;
+  if (carpeta.getFilesByName(nombre).hasNext()) return nombre + ' (ya estaba hecho)';
+
+  archivo.makeCopy(nombre, carpeta);
+  purgarRespaldos_(carpeta);
+  return nombre;
+}
+
+function purgarRespaldos_(carpeta) {
+  var lista = [];
+  var it = carpeta.getFiles();
+  while (it.hasNext()) {
+    var f = it.next();
+    lista.push({ f: f, t: f.getDateCreated().getTime() });
+  }
+  lista.sort(function (a, b) { return b.t - a.t; }); // del más nuevo al más viejo
+  for (var i = RESPALDOS_A_CONSERVAR; i < lista.length; i++) lista[i].f.setTrashed(true);
+}
+
+// Ejecutar UNA vez a mano desde el editor para dejarlo programado.
+function instalarRespaldoDiario() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'crearRespaldoDiario') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('crearRespaldoDiario').timeBased().atHour(3).everyDays(1).create();
+  var primero = crearRespaldoDiario(); // uno ya mismo, para no esperar a mañana
+  return 'Respaldo diario activado (3 de la mañana). Primera copia: ' + primero;
+}
+
+// Para mirar desde el editor qué respaldos hay disponibles.
+function listarRespaldos() {
+  var ss = SpreadsheetApp.getActive();
+  var padres = DriveApp.getFileById(ss.getId()).getParents();
+  var padre = padres.hasNext() ? padres.next() : DriveApp.getRootFolder();
+  var carpetas = padre.getFoldersByName(CARPETA_RESPALDOS);
+  if (!carpetas.hasNext()) return 'Todavía no hay respaldos.';
+  var it = carpetas.next().getFiles();
+  var nombres = [];
+  while (it.hasNext()) nombres.push(it.next().getName());
+  nombres.sort().reverse();
+  Logger.log(nombres.join('\n'));
+  return nombres.length + ' respaldos:\n' + nombres.join('\n');
 }
 
 /* ================= Salida ================= */
