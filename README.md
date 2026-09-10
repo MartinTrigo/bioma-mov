@@ -130,6 +130,38 @@ hojas; cualquier otra hoja agregada a mano no se toca):
 **Respaldo manual:** el botón ⭳ también permite exportar/importar JSON y
 exportar CSV de movimientos y deudas, compatibles con Google Sheets.
 
+## Respaldos automáticos
+
+El script guarda **una copia completa de la planilla por día** en una carpeta
+`respaldos bioma-db`, al lado de la original en Drive, y conserva los últimos
+30 días.
+
+**Activarlo** (una sola vez): en Extensiones → Apps Script, elegir la función
+`instalarRespaldoDiario` en el desplegable de arriba y tocar **Ejecutar**. Pide
+autorización para Drive, porque tiene que crear la copia. Deja hecha la primera
+copia en el momento y programa el resto para las 3 de la mañana.
+
+**Restaurar**: abrir la copia del día que sirva y copiar de ahí las hojas o
+filas que hagan falta. La planilla en uso nunca se toca sola.
+
+**Ver qué hay**: ejecutar `listarRespaldos` desde el mismo editor.
+
+Aparte de esto, Google guarda su propio historial (Archivo → Historial de
+versiones), y desde la app el botón ⭳ exporta un JSON con todo.
+
+## Reglas de los conceptos
+
+La hoja `conceptos` es la única fuente de verdad. Para que no se repita el
+problema de los conceptos duplicados:
+
+- La app **nunca** sube su lista completa: solo los que se crean con
+  "+ agregar nuevo…". Editar, borrar u ordenar se hace en la planilla.
+- El servidor **ignora los conceptos que manden versiones viejas de la app**
+  (las que sí subían la lista entera y reponían lo borrado). Se reconocen
+  porque no envían `cliente: 2`.
+- Al unir listas se ignoran mayúsculas y acentos, así `Semillas` y `semillas`
+  no pueden convivir partiendo los totales del resumen.
+
 ## Modelo de datos (`bioma-datos.json`)
 
 ```json
