@@ -47,6 +47,8 @@ js/sincro.js        sincronización con la planilla
 js/movimientos.js   ingresos y egresos
 js/deudas.js        deudas
 js/productos.js     catálogo y precios
+js/ventas.js        ventas por producto y punto de venta
+js/ventas-importar.js  importar la descarga de la tienda virtual
 js/resumen.js       resumen mensual
 js/respaldo.js      exportar / importar
 app.js              arranque y pestañas (se carga ÚLTIMO)
@@ -113,6 +115,24 @@ No volver a discutirlas salvo que el usuario las reabra (detalle en `PLAN.md`):
 
 ## Estado actual
 
-Hechas las fases 0 a 3: movimientos, deudas, catálogo de 118 productos con
-categorías y 4 listas de precio, resumen con tablas mes a mes, sincronización
-blindada y respaldos diarios. Lo que sigue, en `PLAN.md`.
+Hechas las fases 0 a 4 (carga): movimientos, deudas, catálogo de ~100
+productos con categorías y 4 listas de precio, **ventas por producto y punto
+de venta** con importador de la tienda virtual, resumen con tablas mes a mes,
+sincronización blindada y respaldos diarios.
+
+**Lo más importante que falta**, en orden: cargar los SKU en Whataform (hace
+confiable el importador), los bolsones abiertos en componentes, y la
+planificación semanal (Fase 4.7). Todo en `PLAN.md`.
+
+## Ventas: lo que hay que saber
+
+- Una hoja `ventas`, **un renglón por producto vendido**. `venta` agrupa los
+  renglones de una misma operación; `origen` dice si vino a mano, de una
+  planilla, o de abrir un bolsón (esos no se suman al facturado).
+- La app guarda y manda solo los **últimos 300 renglones**; la planilla los
+  conserva todos. No romper ese tope sin pensar.
+- La venta guarda el **nombre** del producto, no su id: sobrevive a que el
+  producto se renombre o se borre del catálogo.
+- El importador reconoce por **SKU → nombre → equivalencia aprendida**, y lo
+  que no reconoce lo deja pendiente. **Nunca inventar una equivalencia**: un
+  error acá ensucia el análisis de toda la temporada.

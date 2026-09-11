@@ -27,7 +27,12 @@
 // Versión del protocolo. La app rechaza las respuestas que no la traigan:
 // así una implementación vieja que haya quedado publicada no puede
 // sobrescribir los datos del teléfono con un esquema que ya no existe.
-var API = 6;
+var API = 7;
+
+/* Cuántos renglones de venta viaja la app. La hoja las guarda todas; el
+   teléfono solo necesita las últimas para mostrarlas y poder corregirlas.
+   Sin este tope, una temporada entera viajaría en cada sincronización. */
+var VENTANA_VENTAS = 300;
 
 var COLUMNAS = {
   ingresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod'],
@@ -39,7 +44,15 @@ var COLUMNAS = {
   // "categoria" va al final a propósito: agregarla en el medio correría
   // todas las columnas de las filas ya escritas y las leería mal.
   productos: ['id', 'nombre', 'unidad', 'presentacion', 'chacra',
-              'comarca', 'bariloche', 'verduleria', 'activo', 'mod', 'categoria'],
+              'comarca', 'bariloche', 'verduleria', 'activo', 'mod',
+              'categoria', 'sku'],
+  /* Un renglón por producto vendido. "venta" agrupa los renglones de una
+     misma operación (el remito); "origen" dice de dónde salió el renglón
+     (manual, planilla, o el bolsón que lo contiene) para no sumar dos veces
+     lo que ya se contó como bolsón. */
+  ventas: ['id', 'venta', 'fecha', 'cliente', 'lista', 'producto',
+           'presentacion', 'unidad', 'cantidad', 'precio', 'subtotal',
+           'origen', 'obs', 'mod'],
   borrados: ['id', 'mod']
 };
 
@@ -54,7 +67,10 @@ var ENCABEZADOS = {
   deudas: ['id', 'fecha', 'persona', 'concepto', 'monto', 'tipo', 'estado', 'mod'],
   productos: ['id', 'producto', 'unidad', 'presentación', 'precio chacra',
               'comarca (fijo)', 'bariloche (fijo)', 'verdulerías (fijo)',
-              'activo', 'mod', 'categoría'],
+              'activo', 'mod', 'categoría', 'SKU'],
+  ventas: ['id', 'venta', 'fecha', 'cliente', 'lista', 'producto',
+           'presentación', 'unidad', 'cantidad', 'precio', 'subtotal',
+           'origen', 'observaciones', 'mod'],
   borrados: ['id', 'mod'],
   conceptos: ['ingresos', 'egresos'],
   listas: ['clave', 'nombre', 'ajuste %']
@@ -116,6 +132,10 @@ function sincronizar_(entrada) {
   var movimientos = fusionar_(estado.movimientos, entrada.movimientos || [], borrados);
   var deudas = fusionar_(estado.deudas, entrada.deudas || [], borrados);
   var productos = fusionar_(estado.productos, entrada.productos || [], borrados);
+  /* Ventas: la app manda solo una ventana de las últimas, no todas. Acá se
+     fusionan contra la hoja completa (que las conserva todas) y se devuelven
+     solo las últimas, para que el teléfono no se baje una temporada entera. */
+  var ventas = fusionar_(estado.ventas, entrada.ventas || [], borrados);
 
   /* La hoja "conceptos" es la fuente de verdad. La app solo aporta los
      agregados con "+ agregar nuevo…".
@@ -135,6 +155,7 @@ function sincronizar_(entrada) {
   escribirDatos_('egresos', movimientos.filter(function (m) { return m.tipo === 'egreso'; }));
   escribirDatos_('deudas', deudas);
   escribirDatos_('productos', productos);
+  escribirDatos_('ventas', ventas);
   escribirBorrados_(borrados);
   escribirConceptos_(conceptos);
 
@@ -149,6 +170,8 @@ function sincronizar_(entrada) {
     movimientos: movimientos,
     deudas: deudas,
     productos: productos,
+    ventas: ventas.slice(-VENTANA_VENTAS),
+    ventasTotal: ventas.length,
     conceptos: conceptos,
     listas: estado.listas,
     borrados: listaBorrados
@@ -210,6 +233,7 @@ function leerEstado_() {
     movimientos: movimientos,
     deudas: leerDatos_('deudas', null),
     productos: leerProductos_(),
+    ventas: leerVentas_(),
     borrados: leerBorrados_(),
     conceptos: leerConceptos_(),
     listas: leerListas_()
@@ -246,6 +270,42 @@ function leerProductos_() {
     });
     obj.activo = normBool_(obj.activo);
     obj.categoria = String(obj.categoria || '').trim().toLowerCase() || 'hortaliza';
+    obj.sku = String(obj.sku || '').trim();
+    filas.push(obj);
+  }
+  return filas;
+}
+
+/* Un renglón por producto vendido. Tolera filas cargadas a mano, igual que
+   el resto: alcanza con fecha, cliente, producto y cantidad. */
+function leerVentas_() {
+  var h = hoja_('ventas');
+  var valores = h.getDataRange().getValues();
+  var cols = COLUMNAS.ventas;
+  var filas = [];
+  var contador = 0;
+  for (var i = 1; i < valores.length; i++) {
+    var v = valores[i];
+    var obj = {};
+    for (var j = 0; j < cols.length; j++) obj[cols[j]] = v[j];
+
+    obj.producto = String(obj.producto || '').trim();
+    obj.fecha = normFecha_(obj.fecha);
+    obj.cantidad = normMonto_(obj.cantidad);
+    if (!obj.producto || (!obj.fecha && !obj.cantidad)) continue;
+    if (!obj.fecha) obj.fecha = normFecha_(new Date());
+
+    obj.id = String(obj.id || '').trim() || ('man' + Date.now().toString(36) + (contador++));
+    obj.venta = String(obj.venta || '').trim() || obj.id;
+    obj.mod = Number(obj.mod) || Date.now();
+    obj.cliente = String(obj.cliente || '').trim() || 'sin cliente';
+    obj.lista = String(obj.lista || '').trim() || 'chacra';
+    obj.presentacion = String(obj.presentacion || '').trim();
+    obj.unidad = String(obj.unidad || '').trim() || 'unidad';
+    obj.precio = normMonto_(obj.precio);
+    obj.subtotal = normMonto_(obj.subtotal) || (obj.cantidad * obj.precio);
+    obj.origen = String(obj.origen || '').trim() || 'manual';
+    obj.obs = String(obj.obs || '');
     filas.push(obj);
   }
   return filas;
@@ -464,10 +524,15 @@ function asegurarEsquema_() {
     // v6 suma a "resumen" las tablas mes a mes y el flujo de fondos
     repararResumen_();
   }
-  if (version !== 'v7') {
+  if (version !== 'v7' && version !== 'v8') {
     // v7 agrega la categoría a los productos
     estilizarProductos_();
-    props.setProperty('esquema', 'v7');
+  }
+  if (version !== 'v8') {
+    // v8 agrega la hoja de ventas y el SKU de los productos
+    estilizarProductos_();
+    estilizarVentas_();
+    props.setProperty('esquema', 'v8');
   }
   // En cada petición: deshacer los efectos de una versión vieja del script
   // que hubiera quedado publicada (hoja "movimientos" recreada, conceptos
@@ -714,6 +779,38 @@ function estilizarProductos_() {
   hl.setColumnWidth(2, 140);
   hl.getRange(1, 3).setNote('Porcentaje sobre el precio de chacra. ' +
     'Ej: 30 = un 30% más caro; -20 = un 20% más barato.');
+}
+
+/* La hoja de ventas: un renglón por producto vendido. Es la que más va a
+   crecer (~6.000 renglones por temporada), así que se deja lista para
+   tabla dinámica: encabezados congelados y columnas con formato. */
+function estilizarVentas_() {
+  var h = hoja_('ventas');
+  var cols = COLUMNAS.ventas;
+  var n = cols.length;
+
+  h.setTabColor(COLOR.tierra);
+  h.setFrozenRows(1);
+  h.getRange(1, 1, 1, n).setValues([ENCABEZADOS.ventas])
+    .setBackground(COLOR.tierra).setFontColor(COLOR.blanco)
+    .setFontWeight('bold').setFontSize(11);
+
+  h.getRange(2, cols.indexOf('fecha') + 1, 4999).setNumberFormat('dd/mm/yyyy');
+  h.getRange(2, cols.indexOf('cantidad') + 1, 4999).setNumberFormat('#,##0.##');
+  h.getRange(2, cols.indexOf('precio') + 1, 4999).setNumberFormat('"$"#,##0');
+  h.getRange(2, cols.indexOf('subtotal') + 1, 4999).setNumberFormat('"$"#,##0');
+  h.setColumnWidth(cols.indexOf('producto') + 1, 190);
+  h.setColumnWidth(cols.indexOf('cliente') + 1, 140);
+  h.setColumnWidth(cols.indexOf('presentacion') + 1, 120);
+
+  h.hideColumns(cols.indexOf('id') + 1);
+  h.hideColumns(cols.indexOf('mod') + 1);
+
+  h.getRange(1, cols.indexOf('origen') + 1).setNote(
+    'De dónde salió el renglón: "manual" (cargado en la app), "planilla" ' +
+    '(importado de la tienda virtual) o el bolsón que lo contiene.\n' +
+    'Los renglones que vienen de abrir un bolsón NO se suman al total ' +
+    'facturado: ese importe ya está en el renglón del bolsón.');
 }
 
 function estilizarConceptos_() {

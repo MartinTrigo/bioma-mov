@@ -128,6 +128,7 @@ function abrirProducto(id) {
   f.categoria.value = p ? categoriaDe(p)
     : (($('#filtro-categoria') && $('#filtro-categoria').value) || 'hortaliza');
   f.presentacion.value = p ? (p.presentacion || '') : '';
+  f.sku.value = p ? (p.sku || '') : '';
   f.chacra.value = p && num(p.chacra) ? num(p.chacra) : '';
   f.activo.checked = p ? p.activo !== false : true;
 
@@ -180,6 +181,7 @@ $('#form-producto').addEventListener('submit', e => {
     unidad: f.unidad.value,
     categoria: f.categoria.value,
     presentacion: f.presentacion.value.trim(),
+    sku: f.sku.value.trim(),
     chacra: num(f.chacra.value),
     activo: f.activo.checked,
     mod: Date.now()
@@ -303,6 +305,7 @@ function leerCsvProductos(texto) {
   const idx = {
     unidad: col(['unidad']),
     categoria: col(['categoria', 'rubro']),
+    sku: col(['sku', 'codigo']),
     presentacion: col(['presentacion']),
     chacra: col(['chacra', 'precio chacra']),
     comarca: col(['comarca', 'comarca (fijo)']),
@@ -321,6 +324,7 @@ function leerCsvProductos(texto) {
       nombre,
       unidad: val('unidad'),
       categoria: val('categoria'),
+      sku: val('sku'),
       presentacion: val('presentacion'),
       chacra: val('chacra'),
       comarca: val('comarca'),
@@ -354,6 +358,8 @@ function aplicarImportacion(filas) {
     else if (!p.unidad) p.unidad = 'kg';
     if (f.categoria) p.categoria = f.categoria.trim().toLowerCase();
     else if (!p.categoria) p.categoria = 'hortaliza';
+    if (f.sku) p.sku = f.sku.trim();
+    else if (p.sku === undefined) p.sku = '';
     if (f.presentacion) p.presentacion = f.presentacion;
     // Un precio vacío o en cero no pisa lo que ya había cargado
     if (num(f.chacra) > 0) p.chacra = num(f.chacra);

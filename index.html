@@ -124,6 +124,53 @@
     <ul id="lista-deuda" class="mov-list"></ul>
   </section>
 
+  <!-- ============ TAB: VENTAS ============ -->
+  <section id="tab-venta" class="tab">
+    <form id="form-venta" class="card form" autocomplete="off">
+      <h2 id="venta-titulo">Nueva venta</h2>
+      <div class="row">
+        <label>Fecha
+          <input type="date" name="fecha" required>
+        </label>
+        <label>Punto de venta
+          <select name="cliente" required></select>
+        </label>
+      </div>
+      <label>Lista de precios
+        <select name="lista"></select>
+      </label>
+
+      <div id="venta-renglones"></div>
+      <datalist id="lista-productos-venta"></datalist>
+      <button type="button" id="btnAgregarRenglon" class="btn btn-sec">+ Agregar producto</button>
+
+      <label>Observaciones
+        <input type="text" name="obs" placeholder="opcional">
+      </label>
+
+      <div class="venta-total">
+        <span id="venta-cuenta">0 productos</span>
+        <strong id="venta-total">$0</strong>
+      </div>
+      <button type="submit" class="btn btn-in">Guardar venta</button>
+      <button type="button" id="btnCancelarVenta" class="btn btn-ghost hidden">Cancelar edición</button>
+    </form>
+
+    <div class="card">
+      <div class="prod-acciones">
+        <button id="btnImportarVentas" class="btn btn-sec">Importar planilla</button>
+        <button id="btnRemito" class="btn btn-sec">Compartir remito</button>
+      </div>
+      <input type="file" id="inputVentas" accept=".csv,text/csv" hidden>
+    </div>
+
+    <div class="list-head">
+      <h3>Últimas ventas</h3>
+      <span id="venta-resumen" class="hint"></span>
+    </div>
+    <ul id="lista-venta" class="mov-list"></ul>
+  </section>
+
   <!-- ============ TAB: PRODUCTOS ============ -->
   <section id="tab-producto" class="tab">
     <div class="card">
@@ -174,6 +221,7 @@
 <nav class="tabbar">
   <button data-tab="ingreso" class="active"><span class="t-ico">↑</span>Ingresos</button>
   <button data-tab="egreso"><span class="t-ico">↓</span>Egresos</button>
+  <button data-tab="venta"><span class="t-ico">⛬</span>Ventas</button>
   <button data-tab="deuda"><span class="t-ico">✦</span>Deudas</button>
   <button data-tab="producto"><span class="t-ico">☘</span>Productos</button>
   <button data-tab="resumen"><span class="t-ico">≡</span>Resumen</button>
@@ -221,9 +269,14 @@
           <select name="unidad"></select>
         </label>
       </div>
-      <label>Presentación
-        <input type="text" name="presentacion" placeholder="ej: atado 500g">
-      </label>
+      <div class="row">
+        <label>Presentación
+          <input type="text" name="presentacion" placeholder="ej: atado 500g">
+        </label>
+        <label>SKU <small>(código de la tienda)</small>
+          <input type="text" name="sku" placeholder="ej: ACE-500">
+        </label>
+      </div>
       <label>Precio chacra ($ por unidad)
         <input type="number" name="chacra" inputmode="decimal" step="1" min="0" placeholder="0">
       </label>
@@ -240,6 +293,28 @@
   </div>
 </div>
 
+<!-- ============ MODAL IMPORTAR VENTAS ============ -->
+<div id="modal-importar" class="modal hidden">
+  <div class="modal-box card modal-ancho">
+    <h2>Importar ventas</h2>
+    <p class="hint" id="rev-resumen"></p>
+    <div class="row">
+      <label>Fecha
+        <input type="date" id="rev-fecha">
+      </label>
+      <label>Punto de venta
+        <select id="rev-cliente"></select>
+      </label>
+    </div>
+    <label>Lista de precios
+      <select id="rev-lista"></select>
+    </label>
+    <div id="rev-filas" class="rev-lista"></div>
+    <button class="btn" id="btnConfirmarImportar">Importar</button>
+    <button class="btn btn-ghost" id="btnCerrarImportar">Cancelar</button>
+  </div>
+</div>
+
 <div id="toast" class="toast hidden"></div>
 
 <script src="js/util.js"></script>
@@ -248,6 +323,8 @@
 <script src="js/movimientos.js"></script>
 <script src="js/deudas.js"></script>
 <script src="js/productos.js"></script>
+<script src="js/ventas.js"></script>
+<script src="js/ventas-importar.js"></script>
 <script src="js/resumen.js"></script>
 <script src="js/respaldo.js"></script>
 <script src="app.js"></script>

@@ -9,6 +9,11 @@
 const SYNC_URL_KEY = 'bioma-sync-url';
 const API_MINIMA = 4;   // por debajo de esto la respuesta se descarta
 const API_PRODUCTOS = 5; // desde acá el servidor entiende productos y listas
+const API_VENTAS = 7;    // desde acá entiende la hoja de ventas
+/* La app guarda solo los últimos renglones de venta: la planilla los tiene
+   todos. Sin este tope, una temporada entera viajaría en cada sincronización
+   y en cada carga del teléfono. */
+const VENTANA_VENTAS = 300;
 
 let sincronizando = false;
 
@@ -40,6 +45,7 @@ async function sincronizar(silencioso) {
         movimientos: db.movimientos,
         deudas: db.deudas,
         productos: db.productos,
+        ventas: db.ventas,
         borrados: db.borrados,
         conceptos: conceptosEnviados
       })
@@ -57,7 +63,8 @@ async function sincronizar(silencioso) {
     const idsRemotos = new Set([
       ...(remoto.movimientos || []).map(x => x.id),
       ...(remoto.deudas || []).map(x => x.id),
-      ...(remoto.productos || []).map(x => x.id)
+      ...(remoto.productos || []).map(x => x.id),
+      ...(remoto.ventas || []).map(x => x.id)
     ]);
     const conservar = x => !idsRemotos.has(x.id) && !tumbas.has(x.id);
 
@@ -70,6 +77,17 @@ async function sincronizar(silencioso) {
     if (remoto.api >= API_PRODUCTOS) {
       db.productos = [...(remoto.productos || []), ...db.productos.filter(conservar)];
       if (remoto.listas && remoto.listas.length) db.listas = remoto.listas;
+    }
+    if (remoto.api >= API_VENTAS) {
+      /* La respuesta trae solo las últimas ventas, no todas: lo que falta no
+         está borrado, está más atrás en la planilla. Por eso acá no se
+         conserva "lo que no vino" salvo que sea más nuevo que la ventana, y
+         se recorta al final para que el dispositivo no crezca sin límite. */
+      const ventas = [...(remoto.ventas || []), ...db.ventas.filter(conservar)];
+      ventas.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) ||
+        (a.mod || 0) - (b.mod || 0));
+      db.ventas = ventas.slice(-VENTANA_VENTAS);
+      db.ventasTotal = remoto.ventasTotal || db.ventas.length;
     }
 
     adoptarConceptos(remoto, conceptosEnviados);

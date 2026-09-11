@@ -11,7 +11,8 @@
 /* ================= Pestañas ================= */
 const AL_ENTRAR = {
   resumen: () => renderResumen(),
-  producto: () => renderProductos()
+  producto: () => renderProductos(),
+  venta: () => { renderFormVenta(); renderUltimasVentas(); }
 };
 
 document.querySelectorAll('.tabbar button').forEach(btn => {
@@ -33,6 +34,8 @@ function initAll() {
   renderLista('egreso');
   renderDeudas();
   renderProductos();
+  renderFormVenta();
+  renderUltimasVentas();
   renderResumen();
   actualizarSyncInfo();
 }

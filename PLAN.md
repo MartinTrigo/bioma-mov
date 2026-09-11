@@ -51,65 +51,42 @@ pisaba entre sí.
 Varios elaborados (chucrut, kimchi, pickles) son **de Cocina Viva**: Bioma los
 revende. Es el primer punto de contacto real entre las dos apps del ecosistema.
 
-## Fase 4 — Ventas por producto y punto de venta · **falta** · prioridad alta
-El objetivo grande: poder responder *"¿cuántos kg de acelga vendió Península en
-enero?"*, *"¿cuánto choclo se vendió en toda la temporada?"*. No se trata de
-hacer remitos (aunque de paso salgan): se trata de **decidir con datos**.
+## Fase 4 — Ventas por producto y punto de venta · **carga hecha**
+Permite responder *"¿cuántos kg de acelga vendió Península en enero?"*.
 
-### Dónde se guardan — decidido
-Una sola hoja **`ventas`** por temporada (`ventas 26-27`), **un renglón por
-producto vendido**:
+**Hecho:**
+- Hoja `ventas` (esquema v8, API 7): un renglón por producto vendido, con
+  `venta` agrupando los de una misma operación y `origen` diciendo de dónde
+  salió (manual, planilla o el bolsón que lo contiene).
+- Pantalla **Ventas**: fecha, punto de venta, lista de precios y renglones con
+  buscador de producto (datalist nativo, anda igual en el teléfono).
+  El precio sale solo de la lista elegida. Total en vivo.
+  Últimas 10 ventas con lápiz y tacho. Compartir remito por WhatsApp.
+- **Ventana de 300 renglones**: la app solo guarda y manda los últimos; la
+  planilla los conserva todos. Sin esto, una temporada entera viajaría en cada
+  sincronización.
+- **Importador de la tienda virtual** listo, con tres niveles de
+  reconocimiento: **SKU** (exacto, aguanta cualquier cambio de nombre), nombre
+  del catálogo, y equivalencia aprendida. Lo que no reconoce queda pendiente y
+  lo resuelve la persona; lo resuelto se recuerda. La app nunca inventa una
+  equivalencia.
+- Campo **SKU** en los productos, y columna SKU en la hoja.
 
-```
-id | remito | fecha | cliente | producto | presentacion | cantidad |
-kg_total | precio | subtotal | origen | bolson_ref | obs | mod
-```
-
-Se descartó la idea de una hoja por cliente con productos en filas o columnas:
-con ~118 productos y ~10 clientes, agregar un producto obligaría a tocar todas
-las hojas, y sumar un total exigiría leerlas todas. La vista "productos contra
-fechas para un cliente" sale como **tabla dinámica** sobre esta hoja, sin
-duplicar nada.
-
-**La app no se baja todas las ventas.** Manda las nuevas y se trae resúmenes.
-Con ~6.000 renglones por temporada, bajarlas enteras en cada sincronización
-rompería el celular. Requiere un endpoint que **solo agrega**, distinto del
-mecanismo de estado completo que usan movimientos y deudas.
-
-### Cómo se cargan — decidido (A3)
-Dos caminos, según el caso:
-
-1. **A mano en el celular**, para feria y verdulerías: elegir cliente, agregar
-   renglones con buscador de producto, cantidad y presentación. Guardar,
-   imprimir/compartir, editar. Abajo las últimas 10 cargas con lápiz y tacho.
-2. **Importando el archivo de la tienda virtual (Whataform)**, para los
-   núcleos: 70-80 productos por semana, imposible a mano.
-
-### El problema difícil: los nombres
-Whataform entrega los nombres **como están publicados**, y cambian cada semana:
-`Acelga Arco Iris (x500g)`, `Acelga x 500g`, `Albahaca 30%OFF! x200g`,
-`Papas Blanca OFF!!! x5Kg`. En 15 listas aparecieron **181 nombres distintos**
-para unos pocos productos reales.
-
-Solución: una hoja **`equivalencias`** que traduce nombre publicado →
-producto del catálogo + presentación. La primera vez que aparece un nombre
-nuevo, la app pregunta y lo aprende; después lo reconoce solo. La app nunca
-inventa una equivalencia: si no la sabe, la deja pendiente y avisa.
-
-### Los bolsones — decidido (B3)
-Los bolsones son el grueso de la venta de núcleos y **esconden los kilos** de
-lo que llevan adentro. Se registran **de las dos formas**:
-
-- como **unidad vendida** (40 bolsones a tal precio), para la venta comercial;
-- **abiertos en sus componentes**, para que los kilos de acelga, cebolla y
-  brócoli aparezcan en el análisis. Los renglones que salen de un bolsón se
-  marcan en `origen` y apuntan al bolsón en `bolson_ref`, así nunca se suman
-  dos veces.
-
-La composición cambia todas las semanas y **ya existe** en el generador de
-listas (hoja con la columna `Bolson`). Hace falta una hoja
-**`bolsones`** con la receta de cada semana: fecha, bolsón, producto,
-cantidad.
+**Falta:**
+- **Cargar los SKU en Whataform** y en el catálogo. Es lo que convierte el
+  importador en algo confiable: mientras no existan, cada nombre nuevo hay que
+  resolverlo a mano.
+- Los archivos de Whataform vienen en `.xlsx`; hay que guardarlos como CSV
+  antes de importar. Leer `.xlsx` directo exigiría una librería externa y
+  rompería la regla de no tener dependencias.
+- **Las equivalencias aprendidas viven solo en el dispositivo**, no en la
+  planilla. Con dos teléfonos, cada uno aprende por su lado. Pasarlas a una
+  hoja `equivalencias` cuando el importador entre en uso real.
+- **Bolsones**: falta la hoja `bolsones` con la receta de cada semana y la
+  lógica que abre el bolsón en sus componentes (decisión B3). Depende de la
+  Fase 4.7, que es de donde sale la composición.
+- Al sincronizar se reescribe la hoja `ventas` entera. Con miles de renglones
+  se va a poner lento; habrá que pasar a escritura incremental.
 
 ## Fase 4.5 — Análisis de ventas · **falta**
 Tablas dinámicas armadas en la planilla (kg por producto y mes, por punto de

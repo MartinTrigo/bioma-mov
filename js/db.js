@@ -46,8 +46,13 @@ function estadoInicial() {
     //  estado:'pendiente'|'saldada', mod}
     deudas: [],
     // {id, nombre, unidad, presentacion, chacra, comarca, bariloche,
-    //  verduleria, activo, mod} — precios vacíos = calculados por porcentaje
+    //  verduleria, activo, mod, categoria, sku}
+    // precios vacíos = calculados por porcentaje sobre chacra
     productos: [],
+    /* Un renglón por producto vendido, igual que la hoja. "venta" agrupa los
+       renglones de una misma operación. La app guarda solo los últimos
+       (VENTANA_VENTAS): la planilla los conserva todos. */
+    ventas: [],
     listas: structuredClone(LISTAS_DEFAULT),
     // tumbas {id, mod}: propagan las eliminaciones entre dispositivos
     borrados: [],
@@ -72,6 +77,7 @@ function normalizar(d) {
   d.movimientos = d.movimientos || [];
   d.deudas = d.deudas || [];
   d.productos = d.productos || [];
+  d.ventas = d.ventas || [];
   d.borrados = d.borrados || [];
   d.conceptos = d.conceptos || base.conceptos;
   d.conceptosNuevos = d.conceptosNuevos || { ingresos: [], egresos: [] };
