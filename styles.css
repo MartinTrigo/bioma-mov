@@ -290,31 +290,36 @@ input:focus, select:focus { border-color: var(--verde); }
 #precios-derivados label { flex: 1 1 45%; }
 
 /* ===== Ventas ===== */
+/* Un renglón = una línea. Son muchos productos por venta (los núcleos
+   llegan a 80), así que cada fila tiene que ocupar lo mínimo posible. */
 .renglon {
-  background: var(--crema); border-radius: 10px;
-  padding: 8px 10px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 4px;
+  background: var(--crema); border-radius: 8px;
+  padding: 4px 6px; margin-bottom: 4px;
 }
-.renglon-fila { display: flex; gap: 6px; align-items: center; }
-.renglon-cant { margin-top: 6px; }
-.renglon .r-prod { flex: 1 1 auto; min-width: 0; margin: 0; background: var(--blanco); }
+.renglon input, .renglon select {
+  margin: 0; background: var(--blanco);
+  padding: 7px 6px; font-size: 0.84rem; border-radius: 7px;
+}
+.renglon .r-prod { flex: 1 1 40px; min-width: 0; }
 .renglon .r-pres {
-  flex: 0 0 auto; width: auto; max-width: 42%; margin: 0;
-  font-size: 0.8rem; padding: 8px; background: var(--blanco);
+  flex: 0 1 auto; width: auto; max-width: 30%;
+  font-size: 0.74rem; padding: 7px 2px;
 }
-.renglon .r-cant {
-  flex: 0 0 86px; margin: 0; text-align: right; background: var(--blanco);
+.renglon .r-cant { flex: 0 0 50px; text-align: right; padding: 7px 4px; }
+.renglon .r-unidad {
+  flex: 0 0 auto; font-size: 0.66rem; line-height: 1.15;
+  color: var(--gris); white-space: nowrap; max-width: 62px;
+  overflow: hidden; text-overflow: ellipsis;
 }
-.renglon .r-unidad { font-size: 0.8rem; color: var(--gris); white-space: nowrap; }
-.renglon .r-kg {
-  font-size: 0.74rem; color: var(--tierra); font-weight: 700; white-space: nowrap;
-}
+.renglon .r-unidad b { color: var(--tierra); display: block; }
 .renglon .r-sub {
   margin-left: auto; text-align: right; font-weight: 700;
-  font-size: 0.88rem; color: var(--verde-oscuro); white-space: nowrap;
+  font-size: 0.8rem; color: var(--verde-oscuro); white-space: nowrap;
 }
 .renglon .r-del {
   flex: 0 0 auto; background: none; border: none;
-  color: #b9b2a2; font-size: 1rem; cursor: pointer; padding: 4px 2px;
+  color: #b9b2a2; font-size: 0.95rem; cursor: pointer; padding: 2px;
 }
 .renglon .r-del:active { color: var(--rojo); }
 .venta-total {

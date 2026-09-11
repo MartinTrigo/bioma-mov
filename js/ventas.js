@@ -89,6 +89,21 @@ function unidadPlural(p, cantidad) {
   return num(cantidad) === 1 ? u : (u.endsWith('s') ? u : u + 's');
 }
 
+/* Lo que se muestra al lado de la cantidad, en una sola línea y lo más
+   corto posible: son muchos renglones por venta y cada uno tiene que
+   entrar en el ancho de un teléfono.
+     · vendido por kg      → "kg"
+     · con peso derivable  → "frascos · 1,5 kg"
+     · sin peso (10 ml)    → "frascos" */
+function textoUnidad(p, cantidad) {
+  if (!p) return '';
+  const u = unidadPlural(p, cantidad);
+  if (u === 'kg') return 'kg';
+  const kg = num(cantidad) ? kgDe(p, cantidad) : null;
+  if (kg == null) return esc(u);
+  return `${esc(u)} <b>${String(kg).replace('.', ',')} kg</b>`;
+}
+
 /* ================= Formulario ================= */
 
 function renderFormVenta() {
@@ -128,25 +143,16 @@ function pintarRenglones() {
             >${esc(o.presentacion || 'sin presentación')}</option>`).join('')}
         </select>` : '';
 
-    const kg = p && num(l.cantidad) ? kgDe(p, l.cantidad) : null;
-    const equivale = (kg != null && clave(p.unidad) !== 'kg')
-      ? `<span class="r-kg">= ${kg} kg</span>` : '';
-
     return `
       <div class="renglon" data-i="${i}">
-        <div class="renglon-fila">
-          <input type="text" class="r-prod" list="lista-productos-venta"
-                 placeholder="Buscar producto…" value="${esc(l.nombre)}">
-          ${selPres}
-          <button type="button" class="r-del" title="Quitar">✕</button>
-        </div>
-        <div class="renglon-fila renglon-cant">
-          <input type="number" class="r-cant" inputmode="decimal" step="0.01" min="0"
-                 placeholder="cantidad" value="${esc(l.cantidad)}">
-          <span class="r-unidad">${p ? esc(unidadPlural(p, l.cantidad)) : ''}</span>
-          ${equivale}
-          <span class="r-sub">${p && l.cantidad ? fmt(subtotalDe(l)) : ''}</span>
-        </div>
+        <input type="text" class="r-prod" list="lista-productos-venta"
+               placeholder="Buscar producto…" value="${esc(l.nombre)}">
+        ${selPres}
+        <input type="number" class="r-cant" inputmode="decimal" step="0.01" min="0"
+               placeholder="0" value="${esc(l.cantidad)}">
+        <span class="r-unidad">${textoUnidad(p, l.cantidad)}</span>
+        <span class="r-sub">${p && l.cantidad ? fmt(subtotalDe(l)) : ''}</span>
+        <button type="button" class="r-del" title="Quitar">✕</button>
       </div>`;
   }).join('');
 
@@ -175,20 +181,13 @@ function pintarRenglones() {
 
     /* Al tipear la cantidad se actualizan solo los textos de ese renglón.
        Repintar la lista entera perdería el foco en mitad del número. */
+    /* Al tipear la cantidad se actualizan solo los textos de ese renglón.
+       Repintar la lista entera perdería el foco en mitad del número. */
     div.querySelector('.r-cant').addEventListener('input', e => {
       const l = borrador.lineas[i];
       l.cantidad = e.target.value;
       const p = l.prodId ? db.productos.find(x => x.id === l.prodId) : null;
-      const kg = p && num(l.cantidad) ? kgDe(p, l.cantidad) : null;
-      div.querySelector('.r-unidad').textContent = p ? unidadPlural(p, l.cantidad) : '';
-      const spanKg = div.querySelector('.r-kg');
-      const texto = (kg != null && p && clave(p.unidad) !== 'kg') ? `= ${kg} kg` : '';
-      if (spanKg) spanKg.textContent = texto;
-      else if (texto) {
-        const s = document.createElement('span');
-        s.className = 'r-kg'; s.textContent = texto;
-        div.querySelector('.renglon-cant').insertBefore(s, div.querySelector('.r-sub'));
-      }
+      div.querySelector('.r-unidad').innerHTML = textoUnidad(p, l.cantidad);
       div.querySelector('.r-sub').textContent = p && l.cantidad ? fmt(subtotalDe(l)) : '';
       recalcularTotal();
     });
