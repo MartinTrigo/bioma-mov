@@ -1,0 +1,161 @@
+function crearResumen_() {
+  var ss = SpreadsheetApp.getActive();
+  if (ss.getSheetByName('resumen')) return;
+  var h = ss.insertSheet('resumen', 0);
+  h.setTabColor(COLOR.verde);
+
+  h.getRange('A1:N1').merge().setValue('BIOMA · RESUMEN')
+    .setBackground(COLOR.verde).setFontColor(COLOR.blanco)
+    .setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center');
+
+  // Nota: la planilla está configurada en español, así que las fórmulas
+  // usan ";" como separador de argumentos.
+  h.getRange('A3:B7').setValues([
+    ['Ingresos totales', '=SUM(ingresos!D2:D)'],
+    ['Egresos totales', '=SUM(egresos!D2:D)'],
+    ['Balance', '=B3-B4'],
+    ['Debemos (pendiente)', '=SUMIFS(deudas!E2:E;deudas!G2:G;"pendiente";deudas!F2:F;"debemos")'],
+    ['Nos deben (pendiente)', '=SUMIFS(deudas!E2:E;deudas!G2:G;"pendiente";deudas!F2:F;"nos deben")']
+  ]);
+  h.getRange('A3:A7').setFontWeight('bold');
+  h.getRange('B3:B7').setNumberFormat('"$"#,##0');
+
+  var titulos = [
+    ['A9', 'INGRESOS POR PUNTO DE VENTA', COLOR.verde],
+    ['D9', 'EGRESOS POR CONCEPTO', COLOR.tierra],
+    ['G9', 'INGRESOS POR MES', COLOR.verde],
+    ['J9', 'EGRESOS POR MES', COLOR.tierra],
+    ['M9', 'DEUDA PENDIENTE POR PERSONA', COLOR.rojo]
+  ];
+  titulos.forEach(function (t) {
+    h.getRange(t[0]).setValue(t[1]).setFontWeight('bold').setFontColor(t[2]);
+  });
+
+  h.getRange('A10').setValue('=QUERY(ingresos!C2:D;"select C, sum(D) where C is not null group by C order by sum(D) desc label C \'punto de venta\', sum(D) \'total\'";0)');
+  h.getRange('D10').setValue('=QUERY(egresos!C2:D;"select C, sum(D) where C is not null group by C order by sum(D) desc label C \'concepto\', sum(D) \'total\'";0)');
+  // Meses como texto "yyyy-mm" (evita funciones de fecha de QUERY, que
+  // fallan según el tipo de columna). El "\" separa columnas en la
+  // sintaxis de matrices de las planillas en español.
+  h.getRange('G10').setValue('=QUERY({ARRAYFORMULA(IF(ingresos!B2:B="";"";TEXT(ingresos!B2:B;"yyyy-mm")))\\ingresos!D2:D};"select Col1, sum(Col2) where Col1<>\'\' group by Col1 order by Col1 desc label Col1 \'mes\', sum(Col2) \'total\'";0)');
+  h.getRange('J10').setValue('=QUERY({ARRAYFORMULA(IF(egresos!B2:B="";"";TEXT(egresos!B2:B;"yyyy-mm")))\\egresos!D2:D};"select Col1, sum(Col2) where Col1<>\'\' group by Col1 order by Col1 desc label Col1 \'mes\', sum(Col2) \'total\'";0)');
+  h.getRange('M10').setValue('=QUERY(deudas!C2:G;"select C, sum(E) where G=\'pendiente\' and C is not null group by C order by sum(E) desc label C \'persona\', sum(E) \'pendiente\'";0)');
+
+  ['B10:B', 'E10:E', 'H10:H', 'K10:K', 'N10:N'].forEach(function (r) {
+    h.getRange(r).setNumberFormat('"$"#,##0');
+  });
+
+  agregarTablasMensuales_(h);
+  ['A', 'D', 'G', 'J', 'M'].forEach(function (c) {
+    h.setColumnWidth(h.getRange(c + '1').getColumn(), 170);
+  });
+}
+
+/* Tablas mes a mes de la hoja "resumen".
+
+   Van más abajo en la misma hoja, separadas por bloques con aire de sobra
+   para que ninguna pise a la otra cuando aparezcan meses o conceptos nuevos.
+
+   Notas de las fórmulas (ya nos costaron errores antes, ver DECISIONES.md):
+   · la planilla está en español: separador ";" y "\" entre columnas de matriz;
+   · nada de year()/month() de QUERY, que fallan según el tipo de columna: se
+     agrupa por TEXT(fecha;"yyyy-mm"), que además ordena solo;
+   · rangos acotados (2000 filas) para que SUMPRODUCT no se arrastre. */
+function agregarTablasMensuales_(h) {
+  // Meses presentes en cualquiera de las dos hojas, del más nuevo al más viejo
+  var mesesIngresos = 'ARRAYFORMULA(IF(ingresos!B2:B="";"";TEXT(ingresos!B2:B;"yyyy-mm")))';
+  var mesesEgresos = 'ARRAYFORMULA(IF(egresos!B2:B="";"";TEXT(egresos!B2:B;"yyyy-mm")))';
+
+  /* ---------- FLUJO DE FONDOS MES A MES (fila 60) ---------- */
+  titulo_(h, 'A60', 'FLUJO DE FONDOS MES A MES', COLOR.verde);
+  h.getRange('A61:E61').setValues([['mes', 'ingresos', 'egresos', 'resultado', 'acumulado']])
+    .setFontWeight('bold').setBackground(COLOR.verdeClaro);
+
+  /* La lista de meses NO es una fórmula. La escribe el script en cada
+     sincronización (ver actualizarFlujo_). El QUERY que apilaba los meses
+     de las dos hojas con {A;B} devolvía #VALUE! en la planilla real, y
+     una fórmula que falla deja toda la tabla en blanco. Escribir valores
+     es menos elegante y no se rompe. */
+
+  // Una fila por mes; 60 alcanza para cinco temporadas
+  var filas = [];
+  for (var i = 62; i < 122; i++) {
+    var m = '$A' + i;
+    var ing = 'SUMPRODUCT((TEXT(ingresos!$B$2:$B$2000;"yyyy-mm")=' + m + ')*ingresos!$D$2:$D$2000)';
+    var egr = 'SUMPRODUCT((TEXT(egresos!$B$2:$B$2000;"yyyy-mm")=' + m + ')*egresos!$D$2:$D$2000)';
+    // El acumulado suma todos los meses hasta ese, sin depender del orden
+    var ingAcum = 'SUMPRODUCT((TEXT(ingresos!$B$2:$B$2000;"yyyy-mm")<=' + m + ')*(ingresos!$B$2:$B$2000<>"")*ingresos!$D$2:$D$2000)';
+    var egrAcum = 'SUMPRODUCT((TEXT(egresos!$B$2:$B$2000;"yyyy-mm")<=' + m + ')*(egresos!$B$2:$B$2000<>"")*egresos!$D$2:$D$2000)';
+    filas.push([
+      '=IF(' + m + '="";"";' + ing + ')',
+      '=IF(' + m + '="";"";' + egr + ')',
+      '=IF(' + m + '="";"";B' + i + '-C' + i + ')',
+      '=IF(' + m + '="";"";' + ingAcum + '-' + egrAcum + ')'
+    ]);
+  }
+  h.getRange('B62:E121').setValues(filas).setNumberFormat('"$"#,##0');
+
+  /* ---------- INGRESOS POR PUNTO DE VENTA, MES A MES (fila 125) ---------- */
+  titulo_(h, 'A125', 'INGRESOS POR PUNTO DE VENTA · MES A MES', COLOR.verde);
+  h.getRange('A126').setValue(
+    '=QUERY({' + mesesIngresos + '\\ingresos!C2:C\\ingresos!D2:D};' +
+    '"select Col2, sum(Col3) where Col1 <> \'\' and Col2 is not null ' +
+    'group by Col2 pivot Col1 label Col2 \'punto de venta\'";0)');
+
+  /* ---------- EGRESOS POR CONCEPTO, MES A MES (fila 170) ---------- */
+  titulo_(h, 'A170', 'EGRESOS POR CONCEPTO · MES A MES', COLOR.tierra);
+  h.getRange('A171').setValue(
+    '=QUERY({' + mesesEgresos + '\\egresos!C2:C\\egresos!D2:D};' +
+    '"select Col2, sum(Col3) where Col1 <> \'\' and Col2 is not null ' +
+    'group by Col2 pivot Col1 label Col2 \'concepto\'";0)');
+
+  h.getRange('B126:Z160').setNumberFormat('"$"#,##0');
+  h.getRange('B171:Z215').setNumberFormat('"$"#,##0');
+  h.setColumnWidth(1, 200);
+}
+
+/* Escribe la lista de meses del flujo de fondos y, si hiciera falta, las
+   fórmulas que la acompañan. Corre en cada sincronización: es barato
+   (60 celdas) y mantiene la tabla al día sin depender de una fórmula
+   frágil. Nunca toca el resto de la hoja. */
+function actualizarFlujo_(movimientos) {
+  var ss = SpreadsheetApp.getActive();
+  var h = ss.getSheetByName('resumen');
+  if (!h) return;
+  // Si alguien movió el bloque, no se pisa nada
+  if (String(h.getRange('A60').getValue()).indexOf('FLUJO') < 0) return;
+
+  var vistos = {};
+  (movimientos || []).forEach(function (m) {
+    var k = String(m.fecha || '').slice(0, 7);
+    if (k.length === 7) vistos[k] = true;
+  });
+  // Del más viejo al más nuevo: así se lee cómo se construye la temporada
+  var meses = Object.keys(vistos).sort();
+
+  var filas = [];
+  for (var i = 0; i < 60; i++) filas.push([meses[i] || '']);
+  h.getRange('A62:A121').setNumberFormat('@').setValues(filas);
+
+  // Si las fórmulas de al lado no están (hoja creada por una versión
+  // anterior, o borradas sin querer), se reponen
+  if (!String(h.getRange('B62').getFormula())) escribirFormulasFlujo_(h);
+}
+
+function escribirFormulasFlujo_(h) {
+  var filas = [];
+  for (var i = 62; i < 122; i++) {
+    var m = '$A' + i;
+    var ing = 'SUMPRODUCT((TEXT(ingresos!$B$2:$B$2000;"yyyy-mm")=' + m + ')*ingresos!$D$2:$D$2000)';
+    var egr = 'SUMPRODUCT((TEXT(egresos!$B$2:$B$2000;"yyyy-mm")=' + m + ')*egresos!$D$2:$D$2000)';
+    var ingAcum = 'SUMPRODUCT((TEXT(ingresos!$B$2:$B$2000;"yyyy-mm")<=' + m + ')*(ingresos!$B$2:$B$2000<>"")*ingresos!$D$2:$D$2000)';
+    var egrAcum = 'SUMPRODUCT((TEXT(egresos!$B$2:$B$2000;"yyyy-mm")<=' + m + ')*(egresos!$B$2:$B$2000<>"")*egresos!$D$2:$D$2000)';
+    filas.push([
+      '=IF(' + m + '="";"";' + ing + ')',
+      '=IF(' + m + '="";"";' + egr + ')',
+      '=IF(' + m + '="";"";B' + i + '-C' + i + ')',
+      '=IF(' + m + '="";"";' + ingAcum + '-' + egrAcum + ')'
+    ]);
+  }
+  h.getRange('B62:E121').setValues(filas).setNumberFormat('"$"#,##0');
+}
+

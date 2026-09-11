@@ -1,0 +1,102 @@
+/* ================= Gráficos =================
+   Los arma el script en la hoja "gráficos" y les ajusta el rango cuando
+   aparecen meses o conceptos nuevos, así se actualizan solos.
+
+   Se rehacen únicamente cuando cambia la cantidad de datos (se guarda la
+   firma en una propiedad): no en cada sincronización, que sería lento y
+   haría parpadear la hoja. Son del script, así que los retoques manuales
+   sobre ellos se pierden al rehacerse; para gráficos propios conviene
+   una hoja aparte. */
+
+// Última fila con contenido dentro de un bloque acotado
+function ultimaFilaCon_(h, col, desde, hasta) {
+  var v = h.getRange(desde, col, hasta - desde + 1, 1).getValues();
+  var ultima = desde - 1;
+  for (var i = 0; i < v.length; i++) {
+    if (String(v[i][0]).trim() !== '') ultima = desde + i;
+  }
+  return ultima;
+}
+
+function actualizarGraficos_() {
+  var ss = SpreadsheetApp.getActive();
+  var res = ss.getSheetByName('resumen');
+  if (!res) return;
+
+  var finFlujo = ultimaFilaCon_(res, 1, 62, 121);   // meses del flujo
+  var finPuntos = ultimaFilaCon_(res, 1, 11, 50);   // ingresos por punto
+  var finConceptos = ultimaFilaCon_(res, 4, 11, 55); // egresos por concepto
+  if (finFlujo < 62) return; // todavía no hay datos
+
+  var firma = [finFlujo, finPuntos, finConceptos].join('-');
+  var props = PropertiesService.getDocumentProperties();
+  if (props.getProperty('graficos') === firma) return; // nada cambió
+
+  var h = ss.getSheetByName('gráficos');
+  if (!h) { h = ss.insertSheet('gráficos'); h.setTabColor(COLOR.verde); }
+  h.getCharts().forEach(function (c) { h.removeChart(c); });
+
+  var r = function (a1) { return res.getRange(a1); };
+
+  // 1. Ingresos y egresos mes a mes
+  h.insertChart(h.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(r('A61:C' + finFlujo))
+    .setPosition(2, 1, 0, 0)
+    .setOption('title', 'Ingresos y egresos mes a mes')
+    .setOption('colors', [COLOR.verde, COLOR.tierra])
+    .setOption('legend', { position: 'top' })
+    .setOption('width', 620).setOption('height', 340)
+    .build());
+
+  // 2. Resultado del mes: se ve de un vistazo cuándo se gasta más de lo que entra
+  h.insertChart(h.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(r('A61:A' + finFlujo)).addRange(r('D61:D' + finFlujo))
+    .setPosition(2, 7, 0, 0)
+    .setOption('title', 'Resultado del mes (entró − salió)')
+    .setOption('colors', [COLOR.verde])
+    .setOption('legend', { position: 'none' })
+    .setOption('width', 620).setOption('height', 340)
+    .build());
+
+  // 3. Acumulado: cómo se construye la temporada
+  h.insertChart(h.newChart()
+    .setChartType(Charts.ChartType.LINE)
+    .addRange(r('A61:A' + finFlujo)).addRange(r('E61:E' + finFlujo))
+    .setPosition(20, 1, 0, 0)
+    .setOption('title', 'Acumulado de la temporada')
+    .setOption('colors', [COLOR.verde])
+    .setOption('legend', { position: 'none' })
+    .setOption('curveType', 'function')
+    .setOption('pointSize', 5)
+    .setOption('width', 620).setOption('height', 340)
+    .build());
+
+  // 4. De dónde viene la plata
+  if (finPuntos >= 11) {
+    h.insertChart(h.newChart()
+      .setChartType(Charts.ChartType.PIE)
+      .addRange(r('A10:B' + finPuntos))
+      .setPosition(20, 7, 0, 0)
+      .setOption('title', 'Ingresos por punto de venta')
+      .setOption('pieSliceText', 'percentage')
+      .setOption('width', 620).setOption('height', 340)
+      .build());
+  }
+
+  // 5. En qué se va
+  if (finConceptos >= 11) {
+    h.insertChart(h.newChart()
+      .setChartType(Charts.ChartType.PIE)
+      .addRange(r('D10:E' + finConceptos))
+      .setPosition(38, 1, 0, 0)
+      .setOption('title', 'Egresos por concepto')
+      .setOption('pieSliceText', 'percentage')
+      .setOption('width', 620).setOption('height', 340)
+      .build());
+  }
+
+  props.setProperty('graficos', firma);
+}
+

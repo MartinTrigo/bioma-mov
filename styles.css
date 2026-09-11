@@ -357,6 +357,38 @@ input:focus, select:focus { border-color: var(--verde); }
 .rev-via { font-size: 0.62rem; color: var(--gris); white-space: nowrap; }
 .prod-resumen .alerta, .hint .alerta { color: var(--tierra); font-weight: 700; }
 
+/* ===== Flujo de fondos mes a mes ===== */
+.flujo-grafico {
+  display: flex; align-items: flex-end; gap: 6px;
+  height: 130px; margin-bottom: 12px;
+  overflow-x: auto; padding-bottom: 2px;
+}
+.fg-mes { flex: 1 0 34px; display: flex; flex-direction: column; align-items: center; }
+.fg-barras {
+  display: flex; align-items: flex-end; justify-content: center; gap: 2px;
+  height: 106px; width: 100%;
+}
+.fg-barras span { width: 45%; border-radius: 3px 3px 0 0; min-height: 2px; }
+.fg-in { background: var(--verde); }
+.fg-out { background: var(--tierra); }
+.fg-lbl { font-size: 0.6rem; color: var(--gris); margin-top: 3px; white-space: nowrap; }
+
+.tabla-flujo { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+.tabla-flujo th {
+  text-align: right; font-weight: 700; color: var(--gris);
+  font-size: 0.66rem; text-transform: uppercase;
+  border-bottom: 1px solid #eee8da; padding: 4px 3px;
+}
+.tabla-flujo th:first-child, .tabla-flujo td:first-child {
+  text-align: left; white-space: nowrap;
+}
+.tabla-flujo td { padding: 5px 3px; border-bottom: 1px solid #f4f1e8; }
+.tabla-flujo td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tabla-flujo td.in { color: var(--verde-oscuro); }
+.tabla-flujo td.out { color: var(--tierra); }
+.tabla-flujo td.pos { font-weight: 700; color: var(--verde-oscuro); }
+.tabla-flujo td.neg { font-weight: 700; color: var(--rojo); }
+
 /* ===== Tab bar inferior ===== */
 .tabbar {
   position: fixed;
