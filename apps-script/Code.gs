@@ -981,10 +981,17 @@ function escribirResumen_() {
   escribirResumenHoras_();
 }
 
-// Encabezado de bloque: una barra de color con el título
+/* Encabezado de bloque: una barra de color con el título.
+
+   Se deshacen las combinaciones antes de combinar: clearContent() no las
+   borra, así que una tabla anterior dejaba celdas combinadas de otro
+   ancho y merge() fallaba. Al fallar acá se abortaba toda la función y
+   las tablas quedaban vacías, sin título y sin ningún mensaje. */
 function bloque_(h, celda, texto, color, ancho) {
   var r = h.getRange(celda);
-  h.getRange(r.getRow(), r.getColumn(), 1, ancho).merge().setValue(texto)
+  var barra = h.getRange(r.getRow(), r.getColumn(), 1, Math.max(ancho, 1));
+  try { barra.breakApart(); } catch (e) { /* no estaba combinada */ }
+  barra.merge().setValue(texto)
     .setBackground(color).setFontColor(COLOR.blanco)
     .setFontWeight('bold').setFontSize(10).setVerticalAlignment('middle');
   h.setRowHeight(r.getRow(), 24);
@@ -1390,10 +1397,13 @@ function resumirHoras_() {
   for (var i = 0; i < v.length; i++) {
     var mes = String(v[i][1] || '');
     var quien = String(v[i][2] || '');
+    var act = String(v[i][4] || '').trim() || 'sin actividad';
     var area = String(v[i][5] || '');
     if (!mes || !quien) continue;
-    var k = mes + '|' + quien + '|' + area;
-    if (!acum[k]) acum[k] = { mes: mes, trabajador: quien, area: area, horas: 0, devengado: 0 };
+    var k = mes + '|' + quien + '|' + area + '|' + act;
+    if (!acum[k]) {
+      acum[k] = { mes: mes, trabajador: quien, area: area, actividad: act, horas: 0, devengado: 0 };
+    }
     acum[k].horas += Number(v[i][3]) || 0;
     acum[k].devengado += Number(v[i][7]) || 0;
   }
@@ -1446,11 +1456,15 @@ function escribirResumenHoras_() {
   if (!h) return;
   var datos = leerHojaHoras_();
 
-  h.getRange('A100:N145').clearContent();
-  h.getRange('J100:N125').clearContent();
+  /* breakApart además de clearContent: las combinaciones sobreviven al
+     borrado y hacen fallar el merge de la tabla siguiente. */
+  var zona = h.getRange('A100:N175');
+  try { zona.breakApart(); } catch (e) { /* nada combinado */ }
+  zona.clearContent();
 
   pivotHoras_(h, 'A100', 'HORAS POR TRABAJADOR · MES A MES', datos, 'trabajador');
   pivotHoras_(h, 'A120', 'HORAS POR ÁREA · MES A MES', datos, 'area');
+  areaYActividad_(h, 'A140', datos);
   liquidacionHoras_(h, datos);
 }
 
@@ -1466,6 +1480,7 @@ function leerHojaHoras_() {
       mes: String(v[i][1] || ''),
       trabajador: String(v[i][2] || ''),
       horas: Number(v[i][3]) || 0,
+      actividad: String(v[i][4] || '').trim() || 'sin actividad',
       area: String(v[i][5] || 'sin área'),
       devengado: Number(v[i][7]) || 0
     });
@@ -1519,6 +1534,65 @@ function pivotHoras_(h, celda, titulo, datos, campo) {
   h.getRange(fila0 + 1, col0, 1, tabla[0].length)
     .setFontWeight('bold').setBackground(COLOR.tierraClaro);
   h.getRange(fila0 + tabla.length, col0, 1, tabla[0].length).setFontWeight('bold');
+}
+
+/* Horas abiertas por actividad dentro de cada área: no alcanza saber que
+   hay 156 horas hortícolas, hace falta saber cuántas fueron de siembra,
+   de trasplante o de cosecha. El área va en negrita con su total y
+   debajo, indentadas, sus actividades ordenadas de mayor a menor. */
+function areaYActividad_(h, celda, datos) {
+  var r = h.getRange(celda);
+  var fila0 = r.getRow(), col0 = r.getColumn();
+
+  if (!datos.length) {
+    bloque_(h, celda, 'HORAS POR ÁREA Y ACTIVIDAD', COLOR.tierra, 3);
+    h.getRange(fila0 + 1, col0).setValue('Todavía no hay horas importadas');
+    return;
+  }
+
+  var meses = {}, porArea = {}, porPar = {}, totArea = {};
+  datos.forEach(function (d) {
+    if (d.mes) meses[d.mes] = true;
+    var act = d.actividad || 'sin actividad';
+    totArea[d.area] = (totArea[d.area] || 0) + d.horas;
+    if (!porArea[d.area]) porArea[d.area] = {};
+    porArea[d.area][act] = (porArea[d.area][act] || 0) + d.horas;
+    porPar[d.area + '|' + act + '|' + d.mes] = (porPar[d.area + '|' + act + '|' + d.mes] || 0) + d.horas;
+    porPar[d.area + '||' + d.mes] = (porPar[d.area + '||' + d.mes] || 0) + d.horas;
+  });
+  var lm = Object.keys(meses).sort();
+  var areas = Object.keys(totArea).sort(function (a, b) { return totArea[b] - totArea[a]; });
+
+  bloque_(h, celda, 'HORAS POR ÁREA Y ACTIVIDAD', COLOR.tierra, lm.length + 2);
+
+  var tabla = [['área / actividad'].concat(lm).concat(['TOTAL'])];
+  var negritas = [0];
+  areas.forEach(function (a) {
+    var fila = [a];
+    lm.forEach(function (m) { fila.push(porPar[a + '||' + m] || ''); });
+    fila.push(totArea[a]);
+    negritas.push(tabla.length);
+    tabla.push(fila);
+
+    var acts = Object.keys(porArea[a]).sort(function (x, y) {
+      return porArea[a][y] - porArea[a][x];
+    });
+    acts.forEach(function (act) {
+      var f = ['    ' + act];   // indentada, para que se lea la jerarquía
+      lm.forEach(function (m) { f.push(porPar[a + '|' + act + '|' + m] || ''); });
+      f.push(porArea[a][act]);
+      tabla.push(f);
+    });
+  });
+
+  h.getRange(fila0 + 1, col0, tabla.length, tabla[0].length)
+    .setValues(tabla).setNumberFormat('#,##0.##');
+  h.getRange(fila0 + 1, col0, 1, tabla[0].length)
+    .setFontWeight('bold').setBackground(COLOR.tierraClaro);
+  negritas.forEach(function (i) {
+    if (i === 0) return;
+    h.getRange(fila0 + 1 + i, col0, 1, tabla[0].length).setFontWeight('bold');
+  });
 }
 
 /* Cuánto se le debe a cada persona: lo devengado sale de las horas, lo

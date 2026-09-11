@@ -91,9 +91,16 @@ function renderHoras(periodo) {
     return;
   }
 
+  /* Por actividad se muestra "Área · actividad": saber que hubo 30 horas
+     de "Planificación" sirve poco; lo que importa es de qué área fueron. */
+  const etiqueta = h => {
+    if (vista === 'area') return h.area || 'sin área';
+    if (vista === 'trabajador') return h.trabajador || 'sin nombre';
+    return `${h.area || 'sin área'} · ${h.actividad || 'sin actividad'}`;
+  };
   const por = {};
   items.forEach(h => {
-    const k = (vista === 'area' ? (h.area || 'sin área') : (h.trabajador || 'sin nombre'));
+    const k = etiqueta(h);
     por[k] = (por[k] || 0) + num(h.horas);
   });
   const filas = Object.entries(por).sort((a, b) => b[1] - a[1]);
