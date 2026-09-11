@@ -8,6 +8,11 @@
 # y entre ellos la URL de sincronización.
 .claude/settings.local.json
 
+# Descargas de la tienda virtual (Whataform) y planillas con ventas reales
+*.xlsx
+*.xls
+~$*
+
 # Respaldos y exportaciones con datos reales del proyecto
 respaldo-*.json
 bioma-datos*.json
