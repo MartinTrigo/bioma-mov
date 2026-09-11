@@ -1305,6 +1305,55 @@ function formasCanonicas_(valores, columnas) {
   return canon;
 }
 
+/* Hace obligatorios los campos del formulario de carga de horas.
+
+   Un registro sin área o sin actividad no se puede analizar, y limpiarlo
+   después es trabajo manual: mejor que el formulario no deje cargarlo.
+
+   Se ejecuta A MANO, a propósito: cambia el formulario que completan los
+   socios, así que es una decisión, no un efecto secundario de sincronizar.
+   Pide autorización nueva la primera vez (acceso a Formularios). */
+function exigirCamposDelFormulario() {
+  var libro = SpreadsheetApp.openById(ID_PLANILLA_HORAS);
+  var url = libro.getFormUrl();
+  if (!url) {
+    return 'La planilla de horas no tiene un formulario vinculado. ' +
+      'Si el formulario existe pero está enlazado a otra hoja, hay que ' +
+      'marcarlo obligatorio desde el editor del formulario.';
+  }
+
+  var form = FormApp.openByUrl(url);
+  var obligatorios = ['actividad', 'area', 'horas', 'fecha'];
+  var cambiados = [], yaEstaban = [];
+
+  form.getItems().forEach(function (item) {
+    var titulo = normClave_(item.getTitle());
+    var hayQue = obligatorios.some(function (o) { return titulo.indexOf(o) > -1; });
+    if (!hayQue) return;
+    // No todos los tipos de pregunta admiten setRequired
+    var tipado;
+    try {
+      tipado = item.asListItem();
+    } catch (e) {
+      try { tipado = item.asMultipleChoiceItem(); } catch (e2) {
+        try { tipado = item.asTextItem(); } catch (e3) {
+          try { tipado = item.asDateItem(); } catch (e4) { return; }
+        }
+      }
+    }
+    if (tipado.isRequired()) { yaEstaban.push(item.getTitle()); return; }
+    tipado.setRequired(true);
+    cambiados.push(item.getTitle());
+  });
+
+  var aviso = cambiados.length
+    ? 'Ahora son obligatorios: ' + cambiados.join(', ')
+    : 'No hubo cambios';
+  if (yaEstaban.length) aviso += ' · ya lo eran: ' + yaEstaban.join(', ');
+  Logger.log(aviso);
+  return aviso;
+}
+
 function importarHoras() {
   var libro = SpreadsheetApp.openById(ID_PLANILLA_HORAS);
   var origen = libro.getSheets()[0];   // la hoja del formulario
@@ -1340,7 +1389,7 @@ function importarHoras() {
     return canon[normClave_(texto)] || String(texto || '').trim();
   };
 
-  var filas = [], sinFecha = 0, sinArea = 0;
+  var filas = [], sinFecha = 0, sinArea = 0, sinActividad = 0;
   for (var i = 1; i < valores.length; i++) {
     var f = valores[i];
     var quien = unificar(f[iQuien]);
@@ -1352,9 +1401,12 @@ function importarHoras() {
     var area = iArea > -1 ? unificar(f[iArea]) : '';
     if (!area) { area = 'sin área'; sinArea++; }
 
+    var actividad = iAct > -1 ? unificar(f[iAct]) : '';
+    if (!actividad) { actividad = 'sin actividad'; sinActividad++; }
+
     filas.push([
       fecha, fecha.slice(0, 7), quien, horas,
-      iAct > -1 ? String(f[iAct] || '').trim() : '',
+      actividad,
       area,
       tarifas[normClave_(quien)] || TARIFA_POR_DEFECTO,
       horas * (tarifas[normClave_(quien)] || TARIFA_POR_DEFECTO),
@@ -1377,7 +1429,9 @@ function importarHoras() {
     aviso += ' (¡ninguna! se usó $' + TARIFA_POR_DEFECTO + ' para todos)';
   }
   if (sinFecha) aviso += ' · ' + sinFecha + ' sin fecha entendible (quedaron afuera)';
-  if (sinArea) aviso += ' · ' + sinArea + ' sin área';
+  if (sinArea) aviso += ' · ⚠ ' + sinArea + ' SIN ÁREA';
+  if (sinActividad) aviso += ' · ⚠ ' + sinActividad + ' SIN ACTIVIDAD';
+  if (!sinArea && !sinActividad) aviso += ' · todos con área y actividad ✓';
 
   // Se escribe en el registro: ejecutada a mano, el valor devuelto no se ve
   Logger.log(aviso);
