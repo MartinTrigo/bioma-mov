@@ -93,7 +93,26 @@ curl -sL "<URL del Web App>" | python -m json.tool
 La URL del Web App **no está en el repo**. Pedírsela al usuario, o sacarla de
 la app: botón ⭳ → campo "URL de sincronización".
 
+## Decisiones ya tomadas sobre lo que viene
+
+No volver a discutirlas salvo que el usuario las reabra (detalle en `PLAN.md`):
+
+- **Ventas**: una hoja `ventas` por temporada, un renglón por producto vendido.
+  No una hoja por cliente. La app no se baja todas las ventas: manda las nuevas
+  y se trae resúmenes.
+- **Carga**: a mano en el celular para feria y verdulerías; importando el
+  archivo de **Whataform** (la tienda virtual) para los núcleos.
+- **Nombres**: Whataform entrega nombres publicados que cambian cada semana
+  (181 variantes vistas). Hace falta una hoja `equivalencias` que la app va
+  aprendiendo; nunca inventar una equivalencia.
+- **Bolsones**: se registran como unidad vendida **y** abiertos en sus
+  componentes, marcados para no sumar dos veces.
+- **Nombre de la app**: "Bioma · Gestión Económica" es lo que se ve. La
+  dirección sigue siendo `bioma-mov` a propósito: cambiarla obliga a
+  reinstalar la app en cada teléfono.
+
 ## Estado actual
 
-Fases 0 y 1 hechas: movimientos, deudas, productos con 4 listas de precio,
-sincronización blindada, respaldos diarios. Lo que sigue, en `PLAN.md`.
+Hechas las fases 0 a 3: movimientos, deudas, catálogo de 118 productos con
+categorías y 4 listas de precio, resumen con tablas mes a mes, sincronización
+blindada y respaldos diarios. Lo que sigue, en `PLAN.md`.

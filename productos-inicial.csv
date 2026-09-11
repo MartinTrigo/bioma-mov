@@ -1,66 +1,119 @@
-﻿nombre,unidad,presentacion,chacra,comarca,bariloche,verduleria,activo
-Acelga,kg,,2100,,,,SI
-Ajo,kg,,16000,,,,SI
-Ajo de verdeo,atado,,4500,,,,SI
-Albahaca,kg,,10000,,,,SI
-Alcaucil,kg,,0,,,,SI
-Apio,kg,,0,,,,SI
-Apionabo,kg,,0,,,,SI
-Arveja,kg,,0,,,,SI
-Berenjena,kg,,3500,,,,SI
-Broccoli,kg,,4500,,,,SI
-Brotes,kg,,0,,,,SI
-Cebolla,kg,,2500,,,,SI
-Cebolla verdeo,kg,,5200,,,,SI
-Chalota,kg,,0,,,,SI
-Chaucha,kg,,0,,,,SI
-Chirivía,kg,,0,,,,SI
-Choclo,kg,,3500,,,,SI
-Ciboulette,kg,,0,,,,SI
-Cilantro,atado,,0,,,,SI
-Coliflor,kg,,3600,,,,SI
-Eneldo,kg,,0,,,,SI
-Espinaca,kg,,4000,,,,SI
-Habas,kg,,0,,,,SI
-Hakusai,kg,,3000,,,,SI
-Hinojo,kg,,0,,,,SI
-Kale,kg,,3000,,,,SI
-Lechuga,kg,,2900,,,,SI
-Mix de hojas (pack 250g),unidad,pack 250g,1200,,,,SI
-Mix de hojas,kg,,6000,,,,SI
-Morron,kg,,5300,,,,SI
-Nabo Colinabo,kg,,2900,,,,SI
-Nabo Hakurei,kg,,2300,,,,SI
-Nabo Daicon,kg,,2900,,,,SI
-Nabo Cuello Violeta,kg,,2900,,,,SI
-Pack choi,kg,,0,,,,SI
-Pan de azucar,kg,,0,,,,SI
-Papa,kg,,1600,,,,SI
-Papin,kg,,0,,,,SI
-Papa Andina,kg,,0,,,,SI
-Pepinillo,kg,,0,,,,SI
-Pepino,kg,,0,,,,SI
-Perejil,atado,atado 100g,1000,,,,SI
-Puerro,kg,,0,,,,SI
-Rabanito,kg,,1400,,,,SI
-Radicchio,kg,,0,,,,SI
-Remolacha,kg,,2650,,,,SI
-Repollos,kg,,2500,,,,SI
-Rucula,atado,,800,,,,SI
-Tomate,kg,,2700,,,,SI
-Tomate Cherry,kg,,4900,,,,SI
-Zanahoria,kg,,2000,,,,SI
-Zapallito,kg,,1900,,,,SI
-Zapallo,kg,,1950,,,,SI
-Zucchini,kg,,1800,,,,SI
-H.I.O Trigo,kg,,0,,,,SI
-H.I.O Mestal,kg,,0,,,,SI
-H.I.O Centeno,kg,,0,,,,SI
-Frutilla,kg,,6000,,,,SI
-Cereza,kg,,5000,,,,SI
-Frambuesa,kg,,5000,,,,SI
-Manzana,kg,,0,,,,SI
-Ciruela,kg,,0,,,,SI
-Durazno,kg,,0,,,,SI
-Limón,kg,,2500,,,,SI
-Pelon,kg,,2500,,,,SI
+﻿nombre,categoria,unidad,presentacion,chacra,comarca,bariloche,verduleria,activo
+Acelga,hortaliza,kg,,2100,,,,SI
+Ajo,hortaliza,kg,,16000,,,,SI
+Ajo de verdeo,hortaliza,atado,,4500,,,,SI
+Albahaca,hortaliza,kg,,10000,,,,SI
+Alcaucil,hortaliza,kg,,0,,,,SI
+Apio,hortaliza,kg,,0,,,,SI
+Apionabo,hortaliza,kg,,0,,,,SI
+Arveja,hortaliza,kg,,0,,,,SI
+Berenjena,hortaliza,kg,,3500,,,,SI
+Broccoli,hortaliza,kg,,4500,,,,SI
+Brotes,hortaliza,kg,,0,,,,SI
+Cebolla,hortaliza,kg,,2500,,,,SI
+Cebolla verdeo,hortaliza,kg,,5200,,,,SI
+Chalota,hortaliza,kg,,0,,,,SI
+Chaucha,hortaliza,kg,,0,,,,SI
+Chirivía,hortaliza,kg,,0,,,,SI
+Choclo,hortaliza,kg,,3500,,,,SI
+Ciboulette,hortaliza,kg,,0,,,,SI
+Cilantro,hortaliza,atado,,0,,,,SI
+Coliflor,hortaliza,kg,,3600,,,,SI
+Eneldo,hortaliza,kg,,0,,,,SI
+Espinaca,hortaliza,kg,,4000,,,,SI
+Habas,hortaliza,kg,,0,,,,SI
+Hakusai,hortaliza,kg,,3000,,,,SI
+Hinojo,hortaliza,kg,,0,,,,SI
+Kale,hortaliza,kg,,3000,,,,SI
+Lechuga,hortaliza,kg,,2900,,,,SI
+Mix de hojas (pack 250g),hortaliza,unidad,pack 250g,1200,,,,SI
+Mix de hojas,hortaliza,kg,,6000,,,,SI
+Morron,hortaliza,kg,,5300,,,,SI
+Nabo Colinabo,hortaliza,kg,,2900,,,,SI
+Nabo Hakurei,hortaliza,kg,,2300,,,,SI
+Nabo Daicon,hortaliza,kg,,2900,,,,SI
+Nabo Cuello Violeta,hortaliza,kg,,2900,,,,SI
+Pack choi,hortaliza,kg,,0,,,,SI
+Pan de azucar,hortaliza,kg,,0,,,,SI
+Papa,hortaliza,kg,,1600,,,,SI
+Papin,hortaliza,kg,,0,,,,SI
+Papa Andina,hortaliza,kg,,0,,,,SI
+Pepinillo,hortaliza,kg,,0,,,,SI
+Pepino,hortaliza,kg,,0,,,,SI
+Perejil,hortaliza,atado,atado 100g,1000,,,,SI
+Puerro,hortaliza,kg,,0,,,,SI
+Rabanito,hortaliza,kg,,1400,,,,SI
+Radicchio,hortaliza,kg,,0,,,,SI
+Remolacha,hortaliza,kg,,2650,,,,SI
+Repollos,hortaliza,kg,,2500,,,,SI
+Rucula,hortaliza,atado,,800,,,,SI
+Tomate,hortaliza,kg,,2700,,,,SI
+Tomate Cherry,hortaliza,kg,,4900,,,,SI
+Zanahoria,hortaliza,kg,,2000,,,,SI
+Zapallito,hortaliza,kg,,1900,,,,SI
+Zapallo,hortaliza,kg,,1950,,,,SI
+Zucchini,hortaliza,kg,,1800,,,,SI
+H.I.O Trigo,hortaliza,kg,,0,,,,SI
+H.I.O Mestal,hortaliza,kg,,0,,,,SI
+H.I.O Centeno,hortaliza,kg,,0,,,,SI
+Frutilla,hortaliza,kg,,6000,,,,SI
+Cereza,hortaliza,kg,,5000,,,,SI
+Frambuesa,hortaliza,kg,,5000,,,,SI
+Manzana,hortaliza,kg,,0,,,,SI
+Ciruela,hortaliza,kg,,0,,,,SI
+Durazno,hortaliza,kg,,0,,,,SI
+Limón,hortaliza,kg,,2500,,,,SI
+Pelon,hortaliza,kg,,2500,,,,SI
+Frutilla,fruta,kg,500 g,3900,,,,SI
+Cereza,fruta,kg,500 g,3900,,,,SI
+Frambuesa,fruta,kg,500 g,6825,,,,SI
+Manzana roja,fruta,kg,1 kg,6500,,,,SI
+Mora Black,fruta,kg,500 g,5200,,,,SI
+Ciruela,fruta,kg,1 kg,6825,,,,SI
+Cereza IQF,congelado,kg,1 kg,6000,,,,SI
+Corinto IQF,congelado,kg,1 kg,10000,,,,SI
+Frambuesa IQF,congelado,kg,1 kg,13000,,,,SI
+Frambuesa p/dulce,congelado,kg,1 kg,8500,,,,SI
+Frambuesa partida,congelado,kg,1 kg,8000,,,,SI
+Frambuesa partida humus,congelado,kg,1 kg,12000,,,,SI
+Frutilla IQF,congelado,kg,1 kg,9000,,,,SI
+Grosella IQF,congelado,kg,1 kg,9000,,,,SI
+Guinda c/carozo IQF,congelado,kg,1 kg,7000,,,,SI
+Mix de fruta congelada,congelado,kg,1 kg,13000,,,,SI
+Moras IQF,congelado,kg,1 kg,10000,,,,SI
+Pulpa de Frambuesa,congelado,kg,1 kg,12000,,,,SI
+Miel,elaborado,frasco,500 g,4840,,,,SI
+Miel,elaborado,frasco,1 kg,9100,,,,SI
+Miel balde,elaborado,unidad,12 kg,71500,,,,SI
+Tintura de propóleo,elaborado,frasco,,5850,,,,SI
+Kimchi,elaborado,frasco,360 g,6890,,,,SI
+Kimchi,elaborado,frasco,660 g,11570,,,,SI
+Chucrut,elaborado,frasco,360 g,6270,,,,SI
+Chucrut,elaborado,frasco,660 g,11180,,,,SI
+Pickles,elaborado,frasco,360 g,6270,,,,SI
+Pickles,elaborado,frasco,660 g,11180,,,,SI
+Pastita de Kale,elaborado,frasco,180 g,6050,,,,SI
+Pasta de nuez y maní,elaborado,frasco,360 g,12760,,,,SI
+Jugo de manzana,elaborado,botella,1 L,7800,,,,SI
+Jugo de manzana,elaborado,botella,0.5 L,2750,,,,SI
+Jugo de ciruela,elaborado,botella,1 L,6050,,,,SI
+Vinagre de manzana,elaborado,botella,,7670,,,,SI
+Mermelada de frambuesa,elaborado,frasco,,5850,,,,SI
+Dulce de leche,elaborado,frasco,440 g,6380,,,,SI
+Yogurt,elaborado,frasco,,2990,,,,SI
+Queso Cordillerano,elaborado,unidad,,7593,,,,SI
+Queso especiado,elaborado,unidad,,10897,,,,SI
+Queso ahumado,elaborado,unidad,,30810,,,,SI
+Harina integral,elaborado,bolsa,1.5 kg,4125,,,,SI
+Pan integral,elaborado,unidad,700 g,5280,,,,SI
+Aceite esencial,elaborado,frasco,10 ml,8250,,,,SI
+Hidrolato,elaborado,botella,,4400,,,,SI
+Arroz con hongos,elaborado,unidad,,13090,,,,SI
+Guiso de lentejas,elaborado,unidad,,13090,,,,SI
+Bioesencial,bioinsumo,botella,,10500,,,,SI
+MML,bioinsumo,botella,,0,,,,SI
+Biorepelente,bioinsumo,botella,,0,,,,SI
+Huevos agroecológicos,animal,maple,maple x30,11200,,,,SI
+Bolsón #1,bolsón,unidad,,0,,,,SI
+Bolsón #2,bolsón,unidad,,0,,,,SI
+Bolsón Familiar,bolsón,unidad,,0,,,,SI

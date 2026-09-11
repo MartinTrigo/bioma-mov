@@ -257,6 +257,18 @@ input:focus, select:focus { border-color: var(--verde); }
   cursor: pointer;
 }
 .prod-item.inactivo { opacity: 0.5; }
+.prod-item { position: relative; }
+.prod-cat {
+  position: absolute; top: 10px; right: 12px;
+  font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.3px;
+  color: var(--gris); background: var(--crema);
+  border-radius: 5px; padding: 2px 6px;
+}
+.prod-cat.cat-fruta, .prod-cat.cat-congelado { color: var(--rojo); background: #f7e8e4; }
+.prod-cat.cat-elaborado, .prod-cat.cat-animal { color: var(--tierra); background: var(--tierra-claro); }
+.prod-cat.cat-bolsón { color: var(--blanco); background: var(--verde); }
+.prod-cab .prod-unidad { margin-right: 74px; }
+#filtro-categoria { margin-top: 8px; }
 .prod-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .prod-nombre { font-weight: 700; font-size: 0.92rem; }
 .prod-unidad { font-size: 0.74rem; color: var(--gris); white-space: nowrap; }

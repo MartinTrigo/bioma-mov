@@ -36,17 +36,25 @@ var COLUMNAS = {
   // Solo se carga el precio de chacra; los otros tres quedan vacíos y los
   // calcula la app con el porcentaje de la hoja "listas". Escribir un valor
   // en comarca/bariloche/verduleria fija ese precio y rompe el porcentaje.
+  // "categoria" va al final a propósito: agregarla en el medio correría
+  // todas las columnas de las filas ya escritas y las leería mal.
   productos: ['id', 'nombre', 'unidad', 'presentacion', 'chacra',
-              'comarca', 'bariloche', 'verduleria', 'activo', 'mod'],
+              'comarca', 'bariloche', 'verduleria', 'activo', 'mod', 'categoria'],
   borrados: ['id', 'mod']
 };
+
+// Rubros del catálogo. "bolsón" es un producto compuesto: se vende como
+// unidad y además se abre en lo que lleva adentro (ver PLAN.md, Fase 4).
+var CATEGORIAS = ['hortaliza', 'fruta', 'congelado', 'elaborado',
+                  'bioinsumo', 'animal', 'bolsón', 'otro'];
 
 var ENCABEZADOS = {
   ingresos: ['id', 'fecha', 'punto de venta', 'monto', 'observaciones', 'mod'],
   egresos: ['id', 'fecha', 'concepto', 'monto', 'observaciones', 'mod'],
   deudas: ['id', 'fecha', 'persona', 'concepto', 'monto', 'tipo', 'estado', 'mod'],
   productos: ['id', 'producto', 'unidad', 'presentación', 'precio chacra',
-              'comarca (fijo)', 'bariloche (fijo)', 'verdulerías (fijo)', 'activo', 'mod'],
+              'comarca (fijo)', 'bariloche (fijo)', 'verdulerías (fijo)',
+              'activo', 'mod', 'categoría'],
   borrados: ['id', 'mod'],
   conceptos: ['ingresos', 'egresos'],
   listas: ['clave', 'nombre', 'ajuste %']
@@ -237,6 +245,7 @@ function leerProductos_() {
       obj[k] = n > 0 ? n : ''; // vacío = lo calcula el porcentaje de la lista
     });
     obj.activo = normBool_(obj.activo);
+    obj.categoria = String(obj.categoria || '').trim().toLowerCase() || 'hortaliza';
     filas.push(obj);
   }
   return filas;
@@ -445,17 +454,20 @@ function hoja_(nombre) {
 function asegurarEsquema_() {
   var props = PropertiesService.getDocumentProperties();
   var version = props.getProperty('esquema');
-  var conocidas = ['v2', 'v3', 'v4', 'v5', 'v6'];
+  var conocidas = ['v2', 'v3', 'v4', 'v5', 'v6', 'v7'];
   if (conocidas.indexOf(version) < 0) migrarV2_();
-  if (version !== 'v5' && version !== 'v6') {
+  if (version !== 'v5' && version !== 'v6' && version !== 'v7') {
     // v5 agrega el catálogo de productos y las listas de precios
-    estilizarProductos_();
     leerListas_(); // crea y siembra la hoja "listas" si no existía
   }
-  if (version !== 'v6') {
+  if (version !== 'v6' && version !== 'v7') {
     // v6 suma a "resumen" las tablas mes a mes y el flujo de fondos
     repararResumen_();
-    props.setProperty('esquema', 'v6');
+  }
+  if (version !== 'v7') {
+    // v7 agrega la categoría a los productos
+    estilizarProductos_();
+    props.setProperty('esquema', 'v7');
   }
   // En cada petición: deshacer los efectos de una versión vieja del script
   // que hubiera quedado publicada (hoja "movimientos" recreada, conceptos
@@ -683,6 +695,12 @@ function estilizarProductos_() {
   var reglaActivo = SpreadsheetApp.newDataValidation()
     .requireValueInList(['SI', 'NO'], true).setAllowInvalid(true).build();
   h.getRange(2, cols.indexOf('activo') + 1, 499).setDataValidation(reglaActivo);
+
+  var reglaCat = SpreadsheetApp.newDataValidation()
+    .requireValueInList(CATEGORIAS, true).setAllowInvalid(true).build();
+  var iCat = cols.indexOf('categoria') + 1;
+  h.getRange(2, iCat, 499).setDataValidation(reglaCat);
+  h.setColumnWidth(iCat, 120);
 
   h.hideColumns(cols.indexOf('id') + 1);
   h.hideColumns(cols.indexOf('mod') + 1);

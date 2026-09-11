@@ -38,63 +38,106 @@ Se activa ejecutando `instalarRespaldoDiario` una vez.
 
 # Lo que sigue
 
-## Fase 3 — Catálogo completo · **falta** · prioridad alta
-Hoy el catálogo tiene solo hortalizas (65 productos). Faltan las otras
-categorías que Bioma comercializa, y que están en la planilla de
-comercialización 26-27:
+## Fase 3 — Catálogo completo · **hecha**
+El catálogo pasó de 65 a **118 productos**, con un campo **categoría** que lo
+hace navegable: hortaliza (65), elaborado (28), congelado (12), fruta (6),
+bioinsumo (3), bolsón (3) y animal (1). Filtro por categoría en la pantalla y
+etiqueta de rubro en cada producto.
 
-- **Fruta fresca**: frutilla, cereza, frambuesa, manzana, mora, ciruela
-- **Fruta congelada (IQF)**: cereza, corinto, frambuesa, frutilla, grosella,
-  moras, pulpas, mix
-- **Elaborados**: miel, kimchi, chucrut, pickles, jugos, mermeladas, dulce de
-  leche, quesos, pastas, harina, vinagre
-- **Bioinsumos**: bioesencial, MML
+Un producto se identifica por **nombre + presentación**, no solo por el nombre:
+"Miel 500 g" y "Miel 1 kg" son productos distintos. Antes el importador los
+pisaba entre sí.
 
-Se agrega el campo **categoría** a los productos, para poder filtrar y para que
-los resúmenes de venta se puedan agrupar por rubro. Es requisito de la Fase 4:
-sin categorías, un desplegable de 120 productos es inusable.
+Varios elaborados (chucrut, kimchi, pickles) son **de Cocina Viva**: Bioma los
+revende. Es el primer punto de contacto real entre las dos apps del ecosistema.
 
-## Fase 4 — Remitos por cliente · **falta** · prioridad alta
-El objetivo grande: saber **cuántos kg de cada producto se vendieron en cada
-punto de venta**.
+## Fase 4 — Ventas por producto y punto de venta · **falta** · prioridad alta
+El objetivo grande: poder responder *"¿cuántos kg de acelga vendió Península en
+enero?"*, *"¿cuánto choclo se vendió en toda la temporada?"*. No se trata de
+hacer remitos (aunque de paso salgan): se trata de **decidir con datos**.
 
-Pantalla de carga: fecha, cliente, y una lista de renglones donde cada uno
-tiene producto (con buscador), cantidad, presentación (la del producto, o
-modificable), subtotal en kg/unidades y subtotal en $. Botón para agregar
-renglones. Guardar, imprimir/compartir el remito, y editar lo cargado.
-Abajo, las últimas 10 entradas con lápiz y tacho.
-
-### Cómo se guardan los datos — decisión
-
-Se propuso **una hoja por cliente** con los productos en filas o en columnas.
-**La recomendación es no hacerlo así**, por tres motivos:
-
-1. Con ~120 productos y ~10 clientes, agregar un producto obliga a tocar todas
-   las hojas. Es la clase de estructura que se rompe sola.
-2. Sumar "cuántos kg de kale se vendieron en total" obliga a leer todas las
-   hojas y sumarlas a mano.
-3. Es lo que ya complicaba la planilla vieja de comercialización.
-
-En su lugar: **una sola hoja `ventas`, un renglón por producto vendido**.
+### Dónde se guardan — decidido
+Una sola hoja **`ventas`** por temporada (`ventas 26-27`), **un renglón por
+producto vendido**:
 
 ```
-id | remito | fecha | cliente | producto | cantidad | unidad |
-presentacion | kg_total | precio | subtotal | obs | mod
+id | remito | fecha | cliente | producto | presentacion | cantidad |
+kg_total | precio | subtotal | origen | bolson_ref | obs | mod
 ```
 
-Con eso, la vista que se pidió (productos contra fechas, para un cliente) sale
-como **tabla dinámica** en una hoja aparte, sin duplicar datos: se elige el
-cliente en un filtro y los productos quedan en las filas y los meses en las
-columnas. Y además se puede responder cualquier otra pregunta: qué producto
-rinde más, qué punto de venta compra qué, cómo evoluciona un precio.
+Se descartó la idea de una hoja por cliente con productos en filas o columnas:
+con ~118 productos y ~10 clientes, agregar un producto obligaría a tocar todas
+las hojas, y sumar un total exigiría leerlas todas. La vista "productos contra
+fechas para un cliente" sale como **tabla dinámica** sobre esta hoja, sin
+duplicar nada.
 
-Es el mismo modelo que usa Cocina Viva para sus ventas, que ya lleva un año
-funcionando.
+**La app no se baja todas las ventas.** Manda las nuevas y se trae resúmenes.
+Con ~6.000 renglones por temporada, bajarlas enteras en cada sincronización
+rompería el celular. Requiere un endpoint que **solo agrega**, distinto del
+mecanismo de estado completo que usan movimientos y deudas.
 
-### Antes de empezar la Fase 4
-Necesita la Fase 3 (catálogo completo con categorías) y una definición de
-**clientes/puntos de venta como entidad** (hoy son solo texto en la lista de
-conceptos de ingresos).
+### Cómo se cargan — decidido (A3)
+Dos caminos, según el caso:
+
+1. **A mano en el celular**, para feria y verdulerías: elegir cliente, agregar
+   renglones con buscador de producto, cantidad y presentación. Guardar,
+   imprimir/compartir, editar. Abajo las últimas 10 cargas con lápiz y tacho.
+2. **Importando el archivo de la tienda virtual (Whataform)**, para los
+   núcleos: 70-80 productos por semana, imposible a mano.
+
+### El problema difícil: los nombres
+Whataform entrega los nombres **como están publicados**, y cambian cada semana:
+`Acelga Arco Iris (x500g)`, `Acelga x 500g`, `Albahaca 30%OFF! x200g`,
+`Papas Blanca OFF!!! x5Kg`. En 15 listas aparecieron **181 nombres distintos**
+para unos pocos productos reales.
+
+Solución: una hoja **`equivalencias`** que traduce nombre publicado →
+producto del catálogo + presentación. La primera vez que aparece un nombre
+nuevo, la app pregunta y lo aprende; después lo reconoce solo. La app nunca
+inventa una equivalencia: si no la sabe, la deja pendiente y avisa.
+
+### Los bolsones — decidido (B3)
+Los bolsones son el grueso de la venta de núcleos y **esconden los kilos** de
+lo que llevan adentro. Se registran **de las dos formas**:
+
+- como **unidad vendida** (40 bolsones a tal precio), para la venta comercial;
+- **abiertos en sus componentes**, para que los kilos de acelga, cebolla y
+  brócoli aparezcan en el análisis. Los renglones que salen de un bolsón se
+  marcan en `origen` y apuntan al bolsón en `bolson_ref`, así nunca se suman
+  dos veces.
+
+La composición cambia todas las semanas y **ya existe** en el generador de
+listas (hoja con la columna `Bolson`). Hace falta una hoja
+**`bolsones`** con la receta de cada semana: fecha, bolsón, producto,
+cantidad.
+
+## Fase 4.5 — Análisis de ventas · **falta**
+Tablas dinámicas armadas en la planilla (kg por producto y mes, por punto de
+venta, por rubro) y una pantalla de resumen de ventas en la app alimentada por
+agregados, no por la tabla completa.
+
+Pensado para **escritorio** (gráficos, tablas, catálogo) manteniendo el celular
+para cargar y consultar rápido.
+
+## Fase 4.7 — Planificación semanal y distribución · **falta** · el pedido más ambicioso
+Es la tarea más difícil de la gestión comercial, hoy resuelta a mano en la
+planilla de comercialización (hojas `stock` y `distribución ventas`):
+
+1. **Censo de campo**: se anotan unidades y formato de lo que hay, y sale el
+   total de kg disponibles por variedad.
+2. **Armado del bolsón de la semana** según esa disponibilidad, con su precio.
+3. **Asignación a cada punto de venta**: bolsones núcleos, Barilu, Feria Puelo,
+   Al Margen… y la columna `sckf` (stock final) mostrando cuánto queda. **Si se
+   pone en rojo o negativo, no alcanza la verdura.**
+4. Al cierre, **comparar lo planificado con lo que realmente se vendió** y
+   ajustar la próxima semana.
+
+Automatizar esto —o al menos hacerlo visible— es lo que más trabajo ahorraría.
+Además deja al sistema sabiendo de antemano **qué lleva el bolsón de la semana
+y qué se asignó a cada punto de venta**, que es justo lo que la Fase 4 necesita
+para explotar los bolsones sin cargar la receta a mano.
+
+Depende de las fases 4 y 6 (stock). Es la culminación natural del proyecto.
 
 ## Fase 5 — Clientes y puntos de venta · **falta** · prioridad media
 Hoja `clientes`: nombre, tipo (feria, verdulería, núcleo, restaurante), lista

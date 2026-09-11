@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#3d6b35">
-<title>Bioma · Movimientos</title>
+<title>Bioma · Gestión Económica</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="apple-touch-icon" href="logo.svg">
@@ -16,7 +16,7 @@
   <img src="logo.svg" alt="Bioma" class="logo">
   <div class="brand">
     <h1>bioma</h1>
-    <span class="subtitle">gestión económica</span>
+    <span class="subtitle">Gestión Económica</span>
   </div>
   <div class="topbar-actions">
     <button id="btnSync" class="icon-btn" title="Sincronizar con Drive">↻</button>
@@ -132,6 +132,7 @@
         <button id="btnNuevoProducto" class="btn-mini">+ Nuevo</button>
       </div>
       <input type="search" id="buscar-producto" placeholder="Buscar producto…">
+      <select id="filtro-categoria"></select>
       <div id="producto-resumen" class="prod-resumen"></div>
       <div class="prod-acciones">
         <button id="btnAumentar" class="btn btn-sec">Aumentar %</button>
@@ -213,13 +214,16 @@
         <input type="text" name="nombre" placeholder="ej: Acelga" required>
       </label>
       <div class="row">
+        <label>Categoría
+          <select name="categoria"></select>
+        </label>
         <label>Unidad
           <select name="unidad"></select>
         </label>
-        <label>Presentación
-          <input type="text" name="presentacion" placeholder="ej: atado 500g">
-        </label>
       </div>
+      <label>Presentación
+        <input type="text" name="presentacion" placeholder="ej: atado 500g">
+      </label>
       <label>Precio chacra ($ por unidad)
         <input type="number" name="chacra" inputmode="decimal" step="1" min="0" placeholder="0">
       </label>

@@ -10,7 +10,16 @@
    queda escrito y deja de seguir el porcentaje hasta que se borre.
    ============================================================ */
 
-const UNIDADES = ['kg', 'atado', 'unidad', 'bandeja', 'bolsa', 'planta', 'docena'];
+const UNIDADES = ['kg', 'atado', 'unidad', 'bandeja', 'bolsa', 'planta', 'docena',
+  'pack', 'frasco', 'botella', 'maple'];
+
+/* Rubros del catálogo. Con ~120 productos, un desplegable sin filtrar es
+   inusable: la categoría es lo que hace navegable el catálogo y lo que
+   después permite mirar las ventas por rubro.
+   "bolsón" es un producto compuesto: se vende como unidad y además se
+   abre en lo que lleva adentro (Fase 4). */
+const CATEGORIAS = ['hortaliza', 'fruta', 'congelado', 'elaborado',
+  'bioinsumo', 'animal', 'bolsón', 'otro'];
 
 function listaPorClave(clave) {
   return db.listas.find(l => l.clave === clave) || { clave, nombre: clave, ajuste: 0 };
@@ -30,15 +39,42 @@ function precioDe(p, clave) {
   return Math.round(base * (1 + num(listaPorClave(clave).ajuste) / 100));
 }
 
+function categoriaDe(p) {
+  return String(p.categoria || 'hortaliza').trim().toLowerCase();
+}
+
 function productosOrdenados() {
-  const q = ($('#buscar-producto').value || '').trim().toLowerCase();
+  const q = clave($('#buscar-producto').value || '');
+  const cat = $('#filtro-categoria') ? $('#filtro-categoria').value : '';
   return db.productos
-    .filter(p => !q || String(p.nombre).toLowerCase().includes(q))
+    .filter(p => !cat || categoriaDe(p) === cat)
+    .filter(p => !q || clave(p.nombre).includes(q))
     .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+}
+
+// Rellena el filtro con las categorías que realmente tienen productos
+function initFiltroCategorias() {
+  const sel = $('#filtro-categoria');
+  if (!sel) return;
+  const actual = sel.value;
+  const cuenta = {};
+  db.productos.forEach(p => {
+    const c = categoriaDe(p);
+    cuenta[c] = (cuenta[c] || 0) + 1;
+  });
+  sel.innerHTML = '<option value="">Todas las categorías</option>';
+  CATEGORIAS.filter(c => cuenta[c]).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c;
+    o.textContent = c.charAt(0).toUpperCase() + c.slice(1) + ' (' + cuenta[c] + ')';
+    sel.appendChild(o);
+  });
+  if (actual && [...sel.options].some(o => o.value === actual)) sel.value = actual;
 }
 
 function renderProductos() {
   const cont = $('#lista-producto');
+  initFiltroCategorias();
   const items = productosOrdenados();
   const activos = db.productos.filter(p => p.activo !== false).length;
   const sinPrecio = db.productos.filter(p => !num(p.chacra)).length;
@@ -68,7 +104,8 @@ function renderProductos() {
         <span class="prod-nombre">${esc(p.nombre)}</span>
         <span class="prod-unidad">${esc(p.presentacion || p.unidad || '')}</span>
       </div>
-      <div class="prod-precios">${precios}</div>`;
+      <div class="prod-precios">${precios}</div>
+      <span class="prod-cat cat-${esc(categoriaDe(p))}">${esc(categoriaDe(p))}</span>`;
     li.addEventListener('click', () => abrirProducto(p.id));
     cont.appendChild(li);
   });
@@ -84,8 +121,12 @@ function abrirProducto(id) {
   const f = $('#form-producto');
 
   llenarSelect(f.unidad, UNIDADES, false);
+  llenarSelect(f.categoria, CATEGORIAS, false);
   f.nombre.value = p ? p.nombre : '';
   f.unidad.value = p && p.unidad ? p.unidad : 'kg';
+  // Al crear, se propone la categoría que está filtrada en pantalla
+  f.categoria.value = p ? categoriaDe(p)
+    : (($('#filtro-categoria') && $('#filtro-categoria').value) || 'hortaliza');
   f.presentacion.value = p ? (p.presentacion || '') : '';
   f.chacra.value = p && num(p.chacra) ? num(p.chacra) : '';
   f.activo.checked = p ? p.activo !== false : true;
@@ -137,6 +178,7 @@ $('#form-producto').addEventListener('submit', e => {
   const datos = {
     nombre,
     unidad: f.unidad.value,
+    categoria: f.categoria.value,
     presentacion: f.presentacion.value.trim(),
     chacra: num(f.chacra.value),
     activo: f.activo.checked,
@@ -171,6 +213,7 @@ $('#modal-producto').addEventListener('click', e => {
 });
 $('#btnNuevoProducto').addEventListener('click', () => abrirProducto(null));
 $('#buscar-producto').addEventListener('input', renderProductos);
+$('#filtro-categoria').addEventListener('change', renderProductos);
 
 $('#btnBorrarProducto').addEventListener('click', () => {
   const p = db.productos.find(x => x.id === productoEditando);
@@ -259,6 +302,7 @@ function leerCsvProductos(texto) {
   if (iNombre < 0) throw new Error('no encuentro la columna "nombre" (o "producto")');
   const idx = {
     unidad: col(['unidad']),
+    categoria: col(['categoria', 'rubro']),
     presentacion: col(['presentacion']),
     chacra: col(['chacra', 'precio chacra']),
     comarca: col(['comarca', 'comarca (fijo)']),
@@ -276,6 +320,7 @@ function leerCsvProductos(texto) {
     filas.push({
       nombre,
       unidad: val('unidad'),
+      categoria: val('categoria'),
       presentacion: val('presentacion'),
       chacra: val('chacra'),
       comarca: val('comarca'),
@@ -287,17 +332,28 @@ function leerCsvProductos(texto) {
   return filas;
 }
 
+/* Un producto se identifica por nombre + presentación, no solo por nombre:
+   "Miel 500 g" y "Miel 1 kg" son dos productos distintos con el mismo
+   nombre. Identificarlos solo por el nombre hacía que uno pisara al otro
+   al importar. */
+function claveProducto(nombre, presentacion) {
+  return clave(nombre) + '|' + clave(presentacion || '');
+}
+
 function aplicarImportacion(filas) {
-  const porNombre = {};
-  db.productos.forEach(p => { porNombre[clave(p.nombre)] = p; });
+  const porClave = {};
+  db.productos.forEach(p => { porClave[claveProducto(p.nombre, p.presentacion)] = p; });
 
   let nuevos = 0, actualizados = 0, sinPrecio = 0;
   filas.forEach(f => {
-    const existente = porNombre[clave(f.nombre)];
+    const k = claveProducto(f.nombre, f.presentacion);
+    const existente = porClave[k];
     const p = existente || { id: uid(), nombre: f.nombre, chacra: 0 };
 
     if (f.unidad) p.unidad = f.unidad;
     else if (!p.unidad) p.unidad = 'kg';
+    if (f.categoria) p.categoria = f.categoria.trim().toLowerCase();
+    else if (!p.categoria) p.categoria = 'hortaliza';
     if (f.presentacion) p.presentacion = f.presentacion;
     // Un precio vacío o en cero no pisa lo que ya había cargado
     if (num(f.chacra) > 0) p.chacra = num(f.chacra);
@@ -312,7 +368,7 @@ function aplicarImportacion(filas) {
     if (!num(p.chacra)) sinPrecio++;
     if (existente) { actualizados++; } else {
       db.productos.push(p);
-      porNombre[clave(p.nombre)] = p;
+      porClave[claveProducto(p.nombre, p.presentacion)] = p;
       nuevos++;
     }
   });
@@ -330,8 +386,8 @@ $('#inputProductos').addEventListener('change', e => {
       const filas = leerCsvProductos(String(reader.result));
       if (!filas.length) { toast('El archivo no tiene productos'); return; }
 
-      const conocidos = new Set(db.productos.map(p => clave(p.nombre)));
-      const aCrear = filas.filter(f => !conocidos.has(clave(f.nombre))).length;
+      const conocidos = new Set(db.productos.map(p => claveProducto(p.nombre, p.presentacion)));
+      const aCrear = filas.filter(f => !conocidos.has(claveProducto(f.nombre, f.presentacion))).length;
       const aActualizar = filas.length - aCrear;
       const msg = `El archivo tiene ${filas.length} productos:\n` +
         `· ${aCrear} nuevos\n· ${aActualizar} que ya existen y se actualizan\n\n` +
@@ -367,12 +423,13 @@ $('#inputProductos').addEventListener('change', e => {
 /* Exportar el catálogo con los cuatro precios ya calculados: sirve para
    imprimir la lista o mandarla por WhatsApp. */
 $('#btnExportPrecios').addEventListener('click', () => {
-  const cab = ['producto', 'unidad', 'presentación', ...db.listas.map(l => l.nombre)];
+  const cab = ['categoría', 'producto', 'unidad', 'presentación',
+    ...db.listas.map(l => l.nombre)];
   const filas = [cab];
   productosOrdenados()
     .filter(p => p.activo !== false && num(p.chacra))
     .forEach(p => filas.push([
-      p.nombre, p.unidad, p.presentacion || '',
+      categoriaDe(p), p.nombre, p.unidad, p.presentacion || '',
       ...db.listas.map(l => precioDe(p, l.clave))
     ]));
   if (filas.length === 1) { toast('No hay productos con precio'); return; }
