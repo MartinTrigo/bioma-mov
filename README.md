@@ -42,6 +42,16 @@ estrategia), se escribe a mano en esa columna y deja de seguir el porcentaje.
 Para volver al automático, se borra la celda. En la app esos precios fijados
 se ven con fondo tostado.
 
+### ⚠ `productos-inicial.csv` es una semilla, no un respaldo
+
+Sirvió para la **carga inicial** del catálogo. Una vez que se empieza a curar
+la lista en la app o en la planilla (borrar productos que no se usan, corregir
+precios), **volver a importarlo resucita todo lo borrado**. A partir de ahí, la
+planilla es la que manda; el archivo queda solo como referencia de origen.
+
+Para una actualización masiva de precios, exportar primero la lista actual
+(Productos → Descargar lista), editarla y volver a importar eso.
+
 ### Cargar o actualizar el catálogo en bloque
 
 `productos-inicial.csv` tiene el catálogo extraído de la planilla vieja de

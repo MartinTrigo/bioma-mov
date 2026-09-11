@@ -113,6 +113,22 @@ estaba a salvo en la planilla.
 **Lección:** se pide `navigator.storage.persist()` y hay un aviso visible
 cuando falta la configuración, con acceso directo a cargarla.
 
+## 8. Sembrar un catálogo sin mirar lo que ya había
+**Qué pasó:** al completar el catálogo con frutas y elaborados, se agregaron
+`Cereza`, `Frutilla`, `Frambuesa`, `Ciruela` y `Manzana roja` como productos
+nuevos, sin ver que esos productos **ya estaban en la lista** —mal clasificados
+como hortalizas, que era el error a corregir, pero con los precios reales que
+el proyecto venía usando. Quedaron pares del mismo producto con precios
+distintos.
+
+Además, la lista original traía frutas metidas entre las hortalizas (ciruela,
+durazno, frutilla, limón, pelón), heredado de la planilla vieja.
+
+**Lección:** antes de sembrar datos, **cruzar con lo que ya existe** y mostrar
+los choques en vez de resolverlos por las buenas. Y los archivos semilla
+(`productos-inicial.csv`) dejan de ser válidos apenas el usuario empieza a
+curar la lista: reimportarlos resucita lo borrado.
+
 ---
 
 # Reglas de trabajo que salieron de todo esto
