@@ -176,3 +176,9 @@ planificación semanal (Fase 4.7). Todo en `PLAN.md`.
 - **Lo devengado no es un egreso hasta que se paga.** Mientras tanto es
   plata que el proyecto debe. Por eso se muestra aparte del balance y no
   se suma al flujo de fondos.
+- **Liquidar = un egreso con concepto `sueldos`** y la persona en la
+  columna `persona` de la hoja `egresos`. El saldo de cada trabajador es
+  devengado − pagado. Sin la persona no se puede saber a quién se le debe,
+  así que la app no deja guardar un egreso de sueldos sin ella.
+- Los conceptos `jornal` y `hs jornal` (duplicados entre sí) se unificaron
+  en `sueldos`.

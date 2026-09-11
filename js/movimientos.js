@@ -6,8 +6,25 @@
    pantallas obligaba a cargar la misma venta dos veces.
    ============================================================ */
 
+/* Conceptos que pagan trabajo: al elegirlos hay que decir a quién se le
+   paga, porque de ahí sale el saldo pendiente de cada persona. */
+const CONCEPTOS_SUELDO = ['sueldos'];
+
+function esConceptoSueldo(c) {
+  return CONCEPTOS_SUELDO.includes(clave(c));
+}
+
 function initConceptos() {
   llenarSelect($('#form-egreso select[name=concepto]'), db.conceptos.egresos, true);
+  // Los nombres salen de las horas registradas: no hay que tipearlos
+  const gente = [...new Set((db.horas || []).map(h => h.trabajador).filter(Boolean))].sort();
+  $('#lista-trabajadores').innerHTML = gente.map(n => `<option value="${esc(n)}">`).join('');
+  mostrarPersona();
+}
+
+function mostrarPersona() {
+  const f = $('#form-egreso');
+  $('#label-persona').classList.toggle('hidden', !esConceptoSueldo(f.concepto.value));
 }
 
 // "+ agregar nuevo…" en los desplegables de concepto
@@ -29,13 +46,22 @@ function initConceptos() {
     } else {
       e.target.value = lista[0] || '';
     }
+    mostrarPersona();
   });
 });
+
+$('#form-egreso select[name=concepto]').addEventListener('change', mostrarPersona);
 
 ['egreso'].forEach(tipo => {
   $(`#form-${tipo}`).addEventListener('submit', e => {
     e.preventDefault();
     const f = e.target;
+    const esSueldo = esConceptoSueldo(f.concepto.value);
+    if (esSueldo && !f.persona.value.trim()) {
+      toast('Decí a quién se le paga');
+      f.persona.focus();
+      return;
+    }
     db.movimientos.push({
       id: uid(),
       tipo,
@@ -43,11 +69,13 @@ function initConceptos() {
       concepto: f.concepto.value,
       monto: num(f.monto.value),
       obs: f.obs.value.trim(),
+      persona: esSueldo ? f.persona.value.trim() : '',
       mod: Date.now()
     });
     save();
     f.monto.value = '';
     f.obs.value = '';
+    f.persona.value = '';
     renderLista(tipo);
     toast(tipo === 'ingreso' ? 'Ingreso registrado ✓' : 'Egreso registrado ✓');
     sincronizar(true);

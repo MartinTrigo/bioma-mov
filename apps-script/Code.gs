@@ -36,7 +36,10 @@ var VENTANA_VENTAS = 300;
 
 var COLUMNAS = {
   ingresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod'],
-  egresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod'],
+  /* "persona" va al final (agregarla en el medio correría las columnas ya
+     escritas). Se usa al liquidar horas: un egreso con concepto "sueldos"
+     dice a quién se le pagó, y con eso sale el saldo de cada trabajador. */
+  egresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod', 'persona'],
   deudas: ['id', 'fecha', 'persona', 'concepto', 'monto', 'direccion', 'estado', 'mod'],
   // Solo se carga el precio de chacra; los otros tres quedan vacíos y los
   // calcula la app con el porcentaje de la hoja "listas". Escribir un valor
@@ -63,7 +66,7 @@ var CATEGORIAS = ['hortaliza', 'fruta', 'congelado', 'elaborado',
 
 var ENCABEZADOS = {
   ingresos: ['id', 'fecha', 'punto de venta', 'monto', 'observaciones', 'mod'],
-  egresos: ['id', 'fecha', 'concepto', 'monto', 'observaciones', 'mod'],
+  egresos: ['id', 'fecha', 'concepto', 'monto', 'observaciones', 'mod', 'persona'],
   deudas: ['id', 'fecha', 'persona', 'concepto', 'monto', 'tipo', 'estado', 'mod'],
   productos: ['id', 'producto', 'unidad', 'presentación', 'precio chacra',
               'comarca (fijo)', 'bariloche (fijo)', 'verdulerías (fijo)',
@@ -378,6 +381,7 @@ function leerDatos_(nombre, tipo) {
       obj.tipo = tipo;
       obj.concepto = String(obj.concepto || '').trim() || 'varios';
       obj.obs = String(obj.obs || '');
+      obj.persona = String(obj.persona || '').trim();
     } else {
       obj.persona = String(obj.persona || '').trim() || 'sin nombre';
       obj.concepto = String(obj.concepto || '');
@@ -547,10 +551,16 @@ function asegurarEsquema_() {
     escribirResumen_();
     PropertiesService.getDocumentProperties().deleteProperty('graficos');
   }
-  if (version !== 'v11') {
+  if (version !== 'v11' && version !== 'v12') {
     // v11 suma las tablas de horas de trabajo al resumen
     escribirResumenHoras_();
-    props.setProperty('esquema', 'v11');
+  }
+  if (version !== 'v12') {
+    /* v12: los egresos ganan la columna "persona" (para liquidar horas) y
+       se unifican los conceptos de trabajo en "sueldos". */
+    estilizarHojaDatos_('egresos', COLOR.tierra, COLOR.tierraClaro);
+    escribirResumenHoras_();
+    props.setProperty('esquema', 'v12');
   }
   /* Reparación de los efectos de una versión vieja del script (hoja
      "movimientos" recreada, conceptos vueltos al formato tipo|nombre).
@@ -1337,12 +1347,30 @@ function escribirResumenHoras_() {
     '"select Col2, sum(Col3) where Col2 is not null ' +
     'group by Col2 pivot Col1 label Col2 \'área\'";0);"sin datos")');
 
-  // En horas!C2:H -> A=trabajador, B=horas, C=actividad, D=área, E=tarifa, F=devengado
-  bloque_(h, 'J100', 'A LIQUIDAR POR TRABAJADOR', COLOR.rojo, 3);
+  /* A liquidar: lo devengado sale de las horas, lo pagado de los egresos
+     con concepto "sueldos" y la persona en su columna. El saldo es la
+     resta. Mientras no se pague, eso es plata que el proyecto debe y que
+     NO aparece en el balance: por eso se mira acá.
+     En horas!C2:H -> A=trabajador, B=horas, C=actividad, D=área, E=tarifa, F=devengado */
+  bloque_(h, 'J100', 'A LIQUIDAR POR TRABAJADOR', COLOR.rojo, 5);
   h.getRange('J101').setValue(
     '=IFERROR(QUERY(horas!C2:H;"select A, sum(B), sum(F) where A is not null ' +
     'group by A order by sum(F) desc ' +
     'label A \'trabajador\', sum(B) \'horas\', sum(F) \'devengado\'";0);"sin datos")');
+
+  h.getRange('M101:N101').setValues([['pagado', 'saldo']])
+    .setFontWeight('bold').setBackground(COLOR.verdeClaro)
+    .setHorizontalAlignment('center');
+  var pagos = [];
+  for (var i = 102; i < 122; i++) {
+    var pagado = 'SUMIFS(egresos!$D$2:$D$2000;egresos!$C$2:$C$2000;"sueldos";' +
+                 'egresos!$G$2:$G$2000;$J' + i + ')';
+    pagos.push([
+      '=IF($J' + i + '="";"";' + pagado + ')',
+      '=IF($J' + i + '="";"";L' + i + '-M' + i + ')'
+    ]);
+  }
+  h.getRange('M102:N121').setValues(pagos).setNumberFormat('"$"#,##0');
 
   h.getRange('B101:N118').setNumberFormat('#,##0.##');
   h.getRange('B121:N140').setNumberFormat('#,##0.##');

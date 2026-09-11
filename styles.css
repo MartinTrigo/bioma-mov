@@ -397,6 +397,13 @@ input:focus, select:focus { border-color: var(--verde); }
 }
 .horas-total strong { color: var(--tinta); font-size: 0.95rem; }
 .dg-bar.horas { background: #8a7fb0; }
+.horas-saldo {
+  display: flex; justify-content: space-between; align-items: baseline;
+  border-top: 1px solid #eee8da; margin-top: 10px; padding-top: 9px;
+  font-size: 0.78rem; color: var(--gris);
+}
+.horas-saldo strong { font-size: 1.05rem; color: var(--tinta); }
+.horas-saldo strong.neg { color: var(--rojo); }
 #horas-vista { width: auto; margin: 0; padding: 6px 10px; font-size: 0.85rem; }
 #card-horas .resumen-selector { margin-bottom: 10px; }
 #card-horas h3 { margin: 0; }

@@ -69,9 +69,21 @@ function renderHoras(periodo) {
 
   const totHoras = items.reduce((s, h) => s + num(h.horas), 0);
   const totPlata = items.reduce((s, h) => s + num(h.devengado), 0);
+  /* El saldo se mira siempre sobre TODA la temporada, no sobre el mes
+     elegido: lo que se debe no se reinicia cada mes. */
+  const devengadoTotal = horas.reduce((s, h) => s + num(h.devengado), 0);
+  const pagado = db.movimientos
+    .filter(m => m.tipo === 'egreso' && esConceptoSueldo(m.concepto))
+    .reduce((s, m) => s + num(m.monto), 0);
+  const saldo = devengadoTotal - pagado;
+
   $('#horas-total').innerHTML = items.length
     ? `<span><strong>${totHoras.toLocaleString('es-AR')}</strong> horas</span>
        <span>devengado <strong>${fmt(totPlata)}</strong></span>`
+    : '';
+  $('#horas-saldo').innerHTML = devengadoTotal
+    ? `<span>Pendiente de liquidar en toda la temporada</span>
+       <strong class="${saldo > 0 ? 'neg' : ''}">${fmt(saldo)}</strong>`
     : '';
 
   if (!items.length) {

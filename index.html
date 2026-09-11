@@ -45,6 +45,13 @@
       <label>Concepto
         <select name="concepto" required></select>
       </label>
+      <!-- Solo aparece al liquidar horas: es lo que permite saber cuánto
+           se le pagó a cada persona y cuánto le queda pendiente. -->
+      <label id="label-persona" class="hidden">Persona
+        <input type="text" name="persona" list="lista-trabajadores"
+               placeholder="a quién se le paga">
+        <datalist id="lista-trabajadores"></datalist>
+      </label>
       <label>Observaciones
         <input type="text" name="obs" placeholder="detalle (opcional)">
       </label>
@@ -206,6 +213,7 @@
       </div>
       <div id="horas-total" class="horas-total"></div>
       <div id="horas-desglose" class="desglose"></div>
+      <div id="horas-saldo" class="horas-saldo"></div>
     </div>
   </section>
 
