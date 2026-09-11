@@ -20,13 +20,17 @@ function ventaVacia() {
     cliente: '',
     lista: 'chacra',
     obs: '',
-    lineas: [{ prodId: '', cantidad: '' }]
+    // nombre + prodId: se elige el nombre y, si hay varias presentaciones,
+    // el prodId termina de decidir cuál de ellas es
+    lineas: [{ nombre: '', prodId: '', cantidad: '' }]
   };
 }
 
 /* ================= Catálogo disponible ================= */
 
-// Etiqueta única por producto: es lo que se escribe en el buscador
+// Etiqueta única por producto (nombre + presentación). Se usa donde hace
+// falta distinguir dos presentaciones del mismo producto, NO en el buscador
+// de la venta: ahí se elige por nombre y la presentación va aparte.
 function etiquetaProducto(p) {
   return p.presentacion ? `${p.nombre} · ${p.presentacion}` : p.nombre;
 }
@@ -37,9 +41,52 @@ function productosVendibles() {
     .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
 }
 
+// Nombres sin repetir: lo que se ve en el desplegable del renglón
+function nombresProductos() {
+  const vistos = new Set();
+  const out = [];
+  productosVendibles().forEach(p => {
+    const k = clave(p.nombre);
+    if (!vistos.has(k)) { vistos.add(k); out.push(p.nombre); }
+  });
+  return out;
+}
+
+// Las presentaciones que existen para un nombre (Miel: 500 g y 1 kg)
+function presentacionesDe(nombre) {
+  return productosVendibles().filter(p => clave(p.nombre) === clave(nombre));
+}
+
 function buscarPorEtiqueta(texto) {
   const t = clave(texto);
   return productosVendibles().find(p => clave(etiquetaProducto(p)) === t) || null;
+}
+
+/* Cuántos kg pesa una unidad del producto.
+   · Si se vende por kg, una unidad es un kg.
+   · Si no, se saca de la presentación: "500 g", "atado 500g", "pack 250g".
+   · Si la presentación no dice peso (10 ml, maple x30), devuelve null: no se
+     inventa, simplemente no hay equivalencia en kg. */
+function pesoUnitarioKg(p) {
+  if (!p) return null;
+  if (clave(p.unidad) === 'kg') return 1;
+  const m = String(p.presentacion || '').match(/(\d+(?:[.,]\d+)?)\s*(kg|kgs|g|gr|grs|gramos)\b/i);
+  if (!m) return null;
+  const n = num(m[1]);
+  return /^k/i.test(m[2]) ? n : n / 1000;
+}
+
+function kgDe(p, cantidad) {
+  const peso = pesoUnitarioKg(p);
+  return peso == null ? null : Math.round(peso * num(cantidad) * 1000) / 1000;
+}
+
+// Cómo se llama lo que se está contando: "kg", "frascos", "atados"…
+function unidadPlural(p, cantidad) {
+  if (!p) return '';
+  const u = String(p.unidad || 'unidad');
+  if (clave(u) === 'kg') return 'kg';
+  return num(cantidad) === 1 ? u : (u.endsWith('s') ? u : u + 's');
 }
 
 /* ================= Formulario ================= */
@@ -58,10 +105,12 @@ function renderFormVenta() {
   f.fecha.value = borrador.fecha;
   f.obs.value = borrador.obs;
 
-  // El buscador de productos es un datalist: nativo, con autocompletado,
-  // y funciona igual en el teléfono que en la computadora.
-  $('#lista-productos-venta').innerHTML = productosVendibles()
-    .map(p => `<option value="${esc(etiquetaProducto(p))}">`).join('');
+  /* El buscador es un datalist: al tocarlo abre la lista completa y al
+     escribir la filtra, igual en el teléfono que en la computadora.
+     Muestra SOLO el nombre del producto ("Acelga", "Aceite esencial"):
+     la presentación se elige aparte, y únicamente cuando hay más de una. */
+  $('#lista-productos-venta').innerHTML = nombresProductos()
+    .map(n => `<option value="${esc(n)}">`).join('');
 
   $('#venta-titulo').textContent = borrador.venta ? 'Editar venta' : 'Nueva venta';
   $('#btnCancelarVenta').classList.toggle('hidden', !borrador.venta);
@@ -71,41 +120,83 @@ function renderFormVenta() {
 function pintarRenglones() {
   $('#venta-renglones').innerHTML = borrador.lineas.map((l, i) => {
     const p = l.prodId ? db.productos.find(x => x.id === l.prodId) : null;
+    const opciones = l.nombre ? presentacionesDe(l.nombre) : [];
+    // El selector de presentación aparece solo cuando hay más de una
+    const selPres = opciones.length > 1 ? `
+        <select class="r-pres">
+          ${opciones.map(o => `<option value="${o.id}" ${o.id === l.prodId ? 'selected' : ''}
+            >${esc(o.presentacion || 'sin presentación')}</option>`).join('')}
+        </select>` : '';
+
+    const kg = p && num(l.cantidad) ? kgDe(p, l.cantidad) : null;
+    const equivale = (kg != null && clave(p.unidad) !== 'kg')
+      ? `<span class="r-kg">= ${kg} kg</span>` : '';
+
     return `
       <div class="renglon" data-i="${i}">
-        <input type="text" class="r-prod" list="lista-productos-venta"
-               placeholder="Buscar producto…" value="${p ? esc(etiquetaProducto(p)) : ''}">
-        <input type="number" class="r-cant" inputmode="decimal" step="0.01" min="0"
-               placeholder="cant." value="${esc(l.cantidad)}">
-        <span class="r-sub">${p && l.cantidad ? fmt(subtotalDe(l)) : ''}</span>
-        <button type="button" class="r-del" title="Quitar">✕</button>
+        <div class="renglon-fila">
+          <input type="text" class="r-prod" list="lista-productos-venta"
+                 placeholder="Buscar producto…" value="${esc(l.nombre)}">
+          ${selPres}
+          <button type="button" class="r-del" title="Quitar">✕</button>
+        </div>
+        <div class="renglon-fila renglon-cant">
+          <input type="number" class="r-cant" inputmode="decimal" step="0.01" min="0"
+                 placeholder="cantidad" value="${esc(l.cantidad)}">
+          <span class="r-unidad">${p ? esc(unidadPlural(p, l.cantidad)) : ''}</span>
+          ${equivale}
+          <span class="r-sub">${p && l.cantidad ? fmt(subtotalDe(l)) : ''}</span>
+        </div>
       </div>`;
   }).join('');
 
   $$('#venta-renglones .renglon').forEach(div => {
     const i = Number(div.dataset.i);
+
     div.querySelector('.r-prod').addEventListener('change', e => {
-      const p = buscarPorEtiqueta(e.target.value);
-      borrador.lineas[i].prodId = p ? p.id : '';
-      if (!p && e.target.value.trim()) {
+      const texto = e.target.value.trim();
+      const opciones = presentacionesDe(texto);
+      if (!opciones.length && texto) {
         toast('Ese producto no está en el catálogo');
-        e.target.value = '';
+        e.target.value = borrador.lineas[i].nombre;
+        return;
       }
+      borrador.lineas[i].nombre = opciones.length ? opciones[0].nombre : '';
+      // Con una sola presentación queda elegida sola; con varias, la primera
+      borrador.lineas[i].prodId = opciones.length ? opciones[0].id : '';
       pintarRenglones();
-      recalcularTotal();
     });
+
+    const pres = div.querySelector('.r-pres');
+    if (pres) pres.addEventListener('change', e => {
+      borrador.lineas[i].prodId = e.target.value;
+      pintarRenglones();
+    });
+
+    /* Al tipear la cantidad se actualizan solo los textos de ese renglón.
+       Repintar la lista entera perdería el foco en mitad del número. */
     div.querySelector('.r-cant').addEventListener('input', e => {
-      borrador.lineas[i].cantidad = e.target.value;
       const l = borrador.lineas[i];
+      l.cantidad = e.target.value;
       const p = l.prodId ? db.productos.find(x => x.id === l.prodId) : null;
+      const kg = p && num(l.cantidad) ? kgDe(p, l.cantidad) : null;
+      div.querySelector('.r-unidad').textContent = p ? unidadPlural(p, l.cantidad) : '';
+      const spanKg = div.querySelector('.r-kg');
+      const texto = (kg != null && p && clave(p.unidad) !== 'kg') ? `= ${kg} kg` : '';
+      if (spanKg) spanKg.textContent = texto;
+      else if (texto) {
+        const s = document.createElement('span');
+        s.className = 'r-kg'; s.textContent = texto;
+        div.querySelector('.renglon-cant').insertBefore(s, div.querySelector('.r-sub'));
+      }
       div.querySelector('.r-sub').textContent = p && l.cantidad ? fmt(subtotalDe(l)) : '';
       recalcularTotal();
     });
+
     div.querySelector('.r-del').addEventListener('click', () => {
       borrador.lineas.splice(i, 1);
-      if (!borrador.lineas.length) borrador.lineas.push({ prodId: '', cantidad: '' });
+      if (!borrador.lineas.length) borrador.lineas.push({ nombre: '', prodId: '', cantidad: '' });
       pintarRenglones();
-      recalcularTotal();
     });
   });
   recalcularTotal();
@@ -128,7 +219,7 @@ function recalcularTotal() {
 }
 
 $('#btnAgregarRenglon').addEventListener('click', () => {
-  borrador.lineas.push({ prodId: '', cantidad: '' });
+  borrador.lineas.push({ nombre: '', prodId: '', cantidad: '' });
   pintarRenglones();
   // Foco en el renglón nuevo, para poder encadenar la carga sin tocar nada
   const ultimos = $$('#venta-renglones .r-prod');
@@ -170,6 +261,10 @@ $('#form-venta').addEventListener('submit', e => {
       presentacion: p.presentacion || '',
       unidad: p.unidad || 'unidad',
       cantidad: num(l.cantidad),
+      // Guardado, no calculado después: es LA métrica que se quiere analizar
+      // (cuántos kg de acelga se vendieron), y la presentación del producto
+      // puede cambiar más adelante sin que esta venta deba cambiar con ella.
+      kg: kgDe(p, l.cantidad),
       precio: precioLinea(l),
       subtotal: subtotalDe(l),
       origen: 'manual',
@@ -257,7 +352,11 @@ function editarVenta(idVenta) {
       const p = db.productos.find(x =>
         clave(x.nombre) === clave(l.producto) &&
         clave(x.presentacion || '') === clave(l.presentacion || ''));
-      return { prodId: p ? p.id : '', cantidad: String(l.cantidad) };
+      return {
+        nombre: p ? p.nombre : l.producto,
+        prodId: p ? p.id : '',
+        cantidad: String(l.cantidad)
+      };
     })
   };
   renderFormVenta();

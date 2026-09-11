@@ -51,7 +51,7 @@ var COLUMNAS = {
      (manual, planilla, o el bolsón que lo contiene) para no sumar dos veces
      lo que ya se contó como bolsón. */
   ventas: ['id', 'venta', 'fecha', 'cliente', 'lista', 'producto',
-           'presentacion', 'unidad', 'cantidad', 'precio', 'subtotal',
+           'presentacion', 'unidad', 'cantidad', 'kg', 'precio', 'subtotal',
            'origen', 'obs', 'mod'],
   borrados: ['id', 'mod']
 };
@@ -69,7 +69,7 @@ var ENCABEZADOS = {
               'comarca (fijo)', 'bariloche (fijo)', 'verdulerías (fijo)',
               'activo', 'mod', 'categoría', 'SKU'],
   ventas: ['id', 'venta', 'fecha', 'cliente', 'lista', 'producto',
-           'presentación', 'unidad', 'cantidad', 'precio', 'subtotal',
+           'presentación', 'unidad', 'cantidad', 'kg', 'precio', 'subtotal',
            'origen', 'observaciones', 'mod'],
   borrados: ['id', 'mod'],
   conceptos: ['ingresos', 'egresos'],
@@ -302,6 +302,7 @@ function leerVentas_() {
     obj.lista = String(obj.lista || '').trim() || 'chacra';
     obj.presentacion = String(obj.presentacion || '').trim();
     obj.unidad = String(obj.unidad || '').trim() || 'unidad';
+    obj.kg = normMonto_(obj.kg) || '';
     obj.precio = normMonto_(obj.precio);
     obj.subtotal = normMonto_(obj.subtotal) || (obj.cantidad * obj.precio);
     obj.origen = String(obj.origen || '').trim() || 'manual';
@@ -797,6 +798,11 @@ function estilizarVentas_() {
 
   h.getRange(2, cols.indexOf('fecha') + 1, 4999).setNumberFormat('dd/mm/yyyy');
   h.getRange(2, cols.indexOf('cantidad') + 1, 4999).setNumberFormat('#,##0.##');
+  h.getRange(2, cols.indexOf('kg') + 1, 4999).setNumberFormat('#,##0.###');
+  h.getRange(1, cols.indexOf('kg') + 1).setNote(
+    'Kilos reales vendidos, ya calculados: cantidad × peso de la presentación.\n' +
+    'Queda vacío cuando la presentación no dice peso (10 ml, maple x30).\n' +
+    'Es la columna para preguntar "cuántos kg de acelga se vendieron".');
   h.getRange(2, cols.indexOf('precio') + 1, 4999).setNumberFormat('"$"#,##0');
   h.getRange(2, cols.indexOf('subtotal') + 1, 4999).setNumberFormat('"$"#,##0');
   h.setColumnWidth(cols.indexOf('producto') + 1, 190);

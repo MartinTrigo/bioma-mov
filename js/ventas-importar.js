@@ -182,6 +182,7 @@ $('#btnConfirmarImportar').addEventListener('click', () => {
       id: uid(), venta: idVenta, fecha, cliente, lista,
       producto: p.nombre, presentacion: p.presentacion || '',
       unidad: p.unidad || 'unidad', cantidad: x.cantidad,
+      kg: kgDe(p, x.cantidad),
       precio, subtotal: Math.round(x.cantidad * precio),
       origen: 'planilla', obs: x.nombre, mod: ahora + i
     });

@@ -133,6 +133,15 @@ planificación semanal (Fase 4.7). Todo en `PLAN.md`.
   conserva todos. No romper ese tope sin pensar.
 - La venta guarda el **nombre** del producto, no su id: sobrevive a que el
   producto se renombre o se borre del catálogo.
+- En el renglón se **elige por nombre** ("Acelga", "Miel"), nunca
+  "Acelga · 1 kg". La presentación aparece en un selector aparte y **solo
+  cuando el producto tiene más de una**. Al lado de la cantidad se muestra la
+  unidad que corresponde según la hoja `productos` (kg, frascos, atados) y,
+  si la presentación dice peso, el equivalente en kg.
+- La columna **`kg` se guarda calculada** (cantidad × peso de la
+  presentación), no se deduce al analizar: es la métrica que se quiere mirar y
+  no debe cambiar si mañana cambia la presentación del producto. Queda vacía
+  cuando no hay peso (10 ml, maple x30).
 - El importador reconoce por **SKU → nombre → equivalencia aprendida**, y lo
   que no reconoce lo deja pendiente. **Nunca inventar una equivalencia**: un
   error acá ensucia el análisis de toda la temporada.
