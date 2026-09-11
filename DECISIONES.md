@@ -129,18 +129,6 @@ los choques en vez de resolverlos por las buenas. Y los archivos semilla
 (`productos-inicial.csv`) dejan de ser válidos apenas el usuario empieza a
 curar la lista: reimportarlos resucita lo borrado.
 
----
-
-# Reglas de trabajo que salieron de todo esto
-
-1. Antes de publicar, **ejercitar el cambio en el navegador**, no solo leerlo.
-2. Ante un problema, **mirar los datos reales primero** (la planilla, el
-   endpoint), no teorizar sobre el código.
-3. Las defensas van **en el servidor**, que es el único punto que no depende
-   de qué versión tenga cada teléfono.
-4. Preferir **no hacer nada** antes que una reparación automática que adivine.
-5. Cambios grandes: una fase por vez, verificada, antes de la siguiente.
-
 ## 9. Dos pantallas para la misma plata
 **Qué pasó:** al agregar Ventas quedaron dos entradas de ingresos: la pantalla
 vieja escribía en la hoja `ingresos` y la nueva en `ventas`. La misma venta
@@ -156,3 +144,15 @@ préstamos, talleres y "varias" —ninguno era venta de productos—, y que la l
 de conceptos incluye "rendimiento financiero". Borrar sin mirar habría dejado
 al proyecto sin forma de registrar un préstamo. Por eso el formulario acepta un
 monto a mano cuando no hay productos.
+
+---
+
+# Reglas de trabajo que salieron de todo esto
+
+1. Antes de publicar, **ejercitar el cambio en el navegador**, no solo leerlo.
+2. Ante un problema, **mirar los datos reales primero** (la planilla, el
+   endpoint), no teorizar sobre el código.
+3. Las defensas van **en el servidor**, que es el único punto que no depende
+   de qué versión tenga cada teléfono.
+4. Preferir **no hacer nada** antes que una reparación automática que adivine.
+5. Cambios grandes: una fase por vez, verificada, antes de la siguiente.
