@@ -541,11 +541,15 @@ function asegurarEsquema_() {
        siendo el anterior: la columna de kilos decía "precio". */
     estilizarVentas_();
   }
-  if (version !== 'v10') {
+  if (version !== 'v10' && version !== 'v11') {
     // v10 rearma la hoja resumen con el diseño compacto
     escribirResumen_();
     PropertiesService.getDocumentProperties().deleteProperty('graficos');
-    props.setProperty('esquema', 'v10');
+  }
+  if (version !== 'v11') {
+    // v11 suma las tablas de horas de trabajo al resumen
+    escribirResumenHoras_();
+    props.setProperty('esquema', 'v11');
   }
   /* Reparación de los efectos de una versión vieja del script (hoja
      "movimientos" recreada, conceptos vueltos al formato tipo|nombre).
@@ -1146,6 +1150,178 @@ function titulo_(h, celda, texto, color) {
     .setFontColor(color).setFontSize(12);
 }
 
+/* ================= Horas de trabajo =================
+   Las horas se registran en OTRA planilla (un formulario que llenan los
+   socios) y son el grueso del costo de la temporada. Acá se traen para
+   poder liquidarlas y para ver en qué se trabaja.
+
+   No se copian a mano ni con IMPORTRANGE: las lee el script, las
+   normaliza y las deja en la hoja `horas` de bioma-db. El motivo de
+   normalizar es que las fechas vienen en tres formatos distintos
+   (d/m/aaaa, d/m/aa y d/m/aaaa 12:00:00, según se cargue por formulario
+   o a mano), y sin arreglarlas los meses salen mal.
+
+   NO corre en cada sincronización: leer otra planilla es lento. Corre
+   con el respaldo diario, y se puede ejecutar a mano desde el editor
+   (función `importarHoras`).
+   ============================================================ */
+
+// Planilla "Registro de horas". Si alguna vez se cambia, es el único lugar.
+var ID_PLANILLA_HORAS = '1tx8V0VLciiTLFvAmSViAR6KV9LL9hXzvX6-qy30Ubpg';
+
+// Si un trabajador no tiene su hoja "Cuenta individual", se usa esta
+var TARIFA_POR_DEFECTO = 10000;
+
+/* Fechas: d/m/aaaa, d/m/aa o d/m/aaaa hh:mm:ss, y también Date real.
+   Devuelve 'yyyy-mm-dd' o '' si no se entiende. Nunca adivina. */
+function fechaHoras_(v) {
+  if (v instanceof Date && !isNaN(v)) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  var m = String(v || '').trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (!m) return '';
+  var a = Number(m[3]);
+  if (a < 100) a += 2000;
+  return a + '-' + pad2_(m[2]) + '-' + pad2_(m[1]);
+}
+
+// Tarifa de cada trabajador, de sus hojas "Cuenta individual — Nombre"
+function tarifasPorTrabajador_(libro) {
+  var tarifas = {};
+  libro.getSheets().forEach(function (h) {
+    var nombre = h.getName();
+    if (nombre.toLowerCase().indexOf('cuenta individual') < 0) return;
+    var v = h.getRange(1, 1, 6, 2).getValues();
+    var quien = '', tarifa = 0;
+    for (var i = 0; i < v.length; i++) {
+      var etiqueta = String(v[i][0]).toLowerCase();
+      if (etiqueta.indexOf('trabajador') > -1) quien = String(v[i][1]).trim();
+      if (etiqueta.indexOf('tarifa') > -1) tarifa = normMonto_(v[i][1]);
+    }
+    if (quien && tarifa) tarifas[normClave_(quien)] = tarifa;
+  });
+  return tarifas;
+}
+
+function importarHoras() {
+  var libro = SpreadsheetApp.openById(ID_PLANILLA_HORAS);
+  var origen = libro.getSheets()[0];   // la hoja del formulario
+  var valores = origen.getDataRange().getValues();
+  if (valores.length < 2) return 'La planilla de horas está vacía';
+
+  // Se ubican las columnas por su nombre: el formulario puede reordenarlas
+  var cab = valores[0].map(function (x) { return normClave_(x); });
+  var col = function (nombres) {
+    for (var i = 0; i < nombres.length; i++) {
+      var j = cab.indexOf(nombres[i]);
+      if (j > -1) return j;
+    }
+    return -1;
+  };
+  var iFecha = col(['fecha']);
+  var iQuien = col(['biomere', 'trabajador', 'integrante', 'persona']);
+  var iHoras = col(['horas']);
+  var iAct = col(['actividad [fila 1]', 'actividad', 'actividades']);
+  var iArea = col(['area', 'área']);
+  var iObs = col(['observaciones', 'obs']);
+  if (iFecha < 0 || iQuien < 0 || iHoras < 0) {
+    throw new Error('La planilla de horas no tiene las columnas fecha, trabajador y horas');
+  }
+
+  var tarifas = tarifasPorTrabajador_(libro);
+  var filas = [], sinFecha = 0, sinArea = 0;
+  for (var i = 1; i < valores.length; i++) {
+    var f = valores[i];
+    var quien = String(f[iQuien] || '').trim();
+    var horas = normMonto_(f[iHoras]);
+    if (!quien || !horas) continue;
+
+    var fecha = fechaHoras_(f[iFecha]);
+    if (!fecha) { sinFecha++; continue; }   // sin fecha no se puede imputar al mes
+    var area = iArea > -1 ? String(f[iArea] || '').trim() : '';
+    if (!area) { area = 'sin área'; sinArea++; }
+
+    filas.push([
+      fecha, fecha.slice(0, 7), quien, horas,
+      iAct > -1 ? String(f[iAct] || '').trim() : '',
+      area,
+      tarifas[normClave_(quien)] || TARIFA_POR_DEFECTO,
+      horas * (tarifas[normClave_(quien)] || TARIFA_POR_DEFECTO),
+      iObs > -1 ? String(f[iObs] || '').trim() : ''
+    ]);
+  }
+
+  filas.sort(function (a, b) { return String(a[0]).localeCompare(String(b[0])); });
+  escribirHoras_(filas);
+  escribirResumenHoras_();
+
+  var aviso = filas.length + ' registros importados';
+  if (sinFecha) aviso += ' · ' + sinFecha + ' sin fecha entendible (quedaron afuera)';
+  if (sinArea) aviso += ' · ' + sinArea + ' sin área';
+  return aviso;
+}
+
+function escribirHoras_(filas) {
+  var ss = SpreadsheetApp.getActive();
+  var h = ss.getSheetByName('horas');
+  if (!h) { h = ss.insertSheet('horas'); }
+  h.clear();
+  h.setTabColor(COLOR.tierra);
+  h.setFrozenRows(1);
+  h.getRange(1, 1, 1, 9).setValues([[
+    'fecha', 'mes', 'trabajador', 'horas', 'actividad', 'área',
+    'tarifa $/h', 'devengado $', 'observaciones'
+  ]]).setBackground(COLOR.tierra).setFontColor(COLOR.blanco).setFontWeight('bold');
+
+  if (filas.length) {
+    h.getRange(2, 1, filas.length, 9).setValues(filas);
+    h.getRange(2, 1, filas.length, 1).setNumberFormat('@');
+    h.getRange(2, 2, filas.length, 1).setNumberFormat('@');
+    h.getRange(2, 4, filas.length, 1).setNumberFormat('#,##0.##');
+    h.getRange(2, 7, filas.length, 2).setNumberFormat('"$"#,##0');
+  }
+  h.setColumnWidth(3, 110);
+  h.setColumnWidth(5, 170);
+  h.setColumnWidth(6, 140);
+  h.setColumnWidth(9, 240);
+  h.getRange(1, 1).setNote('Esta hoja la reescribe el script desde la planilla ' +
+    'de registro de horas. No editarla a mano: los cambios se pierden en la ' +
+    'próxima importación. Corregir en la planilla de origen.');
+}
+
+/* Las tablas de horas van en la misma hoja "resumen", debajo de todo, para
+   que la gestión económica se mire en un solo lugar. */
+function escribirResumenHoras_() {
+  var ss = SpreadsheetApp.getActive();
+  var h = ss.getSheetByName('resumen');
+  if (!h) return;
+
+  /* Ojo con las letras: dentro de QUERY se cuentan desde el inicio del
+     rango, no desde la hoja. En horas!B2:D -> A=mes, B=trabajador, C=horas. */
+  bloque_(h, 'A100', 'HORAS POR TRABAJADOR · MES A MES', COLOR.tierra, 8);
+  h.getRange('A101').setValue(
+    '=IFERROR(QUERY(horas!B2:D;"select B, sum(C) where B is not null ' +
+    'group by B pivot A label B \'trabajador\'";0);"sin datos")');
+
+  bloque_(h, 'A120', 'HORAS POR ÁREA · MES A MES', COLOR.tierra, 8);
+  h.getRange('A121').setValue(
+    '=IFERROR(QUERY({horas!B2:B\\horas!F2:F\\horas!D2:D};' +
+    '"select Col2, sum(Col3) where Col2 is not null ' +
+    'group by Col2 pivot Col1 label Col2 \'área\'";0);"sin datos")');
+
+  // En horas!C2:H -> A=trabajador, B=horas, C=actividad, D=área, E=tarifa, F=devengado
+  bloque_(h, 'J100', 'A LIQUIDAR POR TRABAJADOR', COLOR.rojo, 3);
+  h.getRange('J101').setValue(
+    '=IFERROR(QUERY(horas!C2:H;"select A, sum(B), sum(F) where A is not null ' +
+    'group by A order by sum(F) desc ' +
+    'label A \'trabajador\', sum(B) \'horas\', sum(F) \'devengado\'";0);"sin datos")');
+
+  h.getRange('B101:N118').setNumberFormat('#,##0.##');
+  h.getRange('B121:N140').setNumberFormat('#,##0.##');
+  h.getRange('K101:K120').setNumberFormat('#,##0.##');
+  h.getRange('L101:L120').setNumberFormat('"$"#,##0');
+}
+
 /* ================= Respaldos automáticos =================
    Cada madrugada se guarda una copia completa de la planilla en una
    carpeta "respaldos bioma-db", al lado de la original en Drive. Se
@@ -1178,6 +1354,11 @@ function crearRespaldoDiario() {
 
   archivo.makeCopy(nombre, carpeta);
   purgarRespaldos_(carpeta);
+
+  /* Con el respaldo se traen las horas del día. Es el momento adecuado:
+     de madrugada, sin nadie usando la app, y leer otra planilla es
+     demasiado lento para hacerlo en cada sincronización. */
+  try { importarHoras(); } catch (e) { Logger.log('Horas: ' + e); }
   return nombre;
 }
 
