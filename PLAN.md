@@ -116,6 +116,27 @@ para explotar los bolsones sin cargar la receta a mano.
 
 Depende de las fases 4 y 6 (stock). Es la culminación natural del proyecto.
 
+## Fase 4.8 — Cuentas de los trabajadores · **paso 1 y 2 hechos**
+Que cada trabajador pueda seguir su cuenta desde MonAgric, en vez de un link a
+una planilla que después no encuentra.
+
+1. **La cuenta vive en bioma-db** · hecho. Es el único lugar con los dos lados:
+   devengado (horas) y pagado (egresos `sueldos` con persona). El detalle de
+   pagos ya estaba: fecha, monto y observación en la hoja `egresos`.
+2. **Endpoint de consulta** · hecho. `apps-script/Cuentas.gs`, proyecto de Apps
+   Script **aparte** y de solo lectura. Falta que Martín lo instale y lo
+   implemente (instrucciones en el encabezado del archivo).
+3. **Pantalla "Cuentas" en MonAgric** · falta, va en la otra conversación.
+   Lista de integrantes → cuenta de cada uno: horas por mes desglosadas por
+   área, horas y pesos pagados, adeudados, y la lista de pagos. Contrato en
+   `apps-script/CUENTAS.md`.
+4. **Jubilar la hoja "Registro de pagos realizados"** de la planilla de horas,
+   para que haya una sola contabilidad. Recién cuando el punto 3 funcione.
+
+La planilla de horas **no se elimina**: sigue siendo el buzón donde MonAgric
+escribe y de donde lee la lista de trabajadores. Deja de llevar cuentas, nada
+más.
+
 ## Fase 5 — Clientes y puntos de venta · **falta** · prioridad media
 Hoja `clientes`: nombre, tipo (feria, verdulería, núcleo, restaurante), lista
 de precios que le corresponde, día de entrega habitual. Hoy los puntos de venta

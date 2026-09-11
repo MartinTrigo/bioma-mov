@@ -53,6 +53,8 @@ js/resumen.js       resumen mensual
 js/respaldo.js      exportar / importar
 app.js              arranque y pestañas (se carga ÚLTIMO)
 apps-script/Code.gs  el "servidor": vive en la planilla
+apps-script/Cuentas.gs  endpoint SOLO LECTURA de cuentas de trabajadores,
+                        proyecto de Apps Script APARTE (ver CUENTAS.md)
 ```
 
 Los scripts se cargan en ese orden con `<script>` clásicos; no son módulos ES.
@@ -186,3 +188,32 @@ planificación semanal (Fase 4.7). Todo en `PLAN.md`.
   así que la app no deja guardar un egreso de sueldos sin ella.
 - Los conceptos `jornal` y `hs jornal` (duplicados entre sí) se unificaron
   en `sueldos`.
+
+## Cuentas de los trabajadores
+
+El camino de los datos tiene tres saltos, y conviene no olvidarlo:
+
+```
+MonAgric  →  planilla de horas  →  bioma-db  →  MonAgric
+ (carga)      (recibe)              (calcula)    (muestra)
+```
+
+- **bioma-db calcula, MonAgric muestra.** La deuda solo se puede calcular
+  acá, que es el único lugar con los dos lados: devengado (horas) y pagado
+  (egresos `sueldos`). Llevarla también en la planilla de horas daría dos
+  verdades sobre la misma plata. Por eso la hoja "Registro de pagos
+  realizados" de esa planilla se jubila.
+- **Los pagos se cargan solo en esta app.** MonAgric no registra pagos ni
+  recalcula saldos: los pide y los dibuja.
+- La consulta va por un **proyecto de Apps Script aparte**
+  (`Cuentas.gs`), de solo lectura. Un proyecto tiene un solo `doGet`, así
+  que no puede convivir con `Code.gs`; y la URL de `Code.gs` permite
+  escribir toda la economía, de modo que **no puede ir dentro de MonAgric**.
+  La de `Cuentas.gs` sí: lo peor que se puede hacer con ella es mirar
+  cuentas de sueldos.
+- **Todos ven todo**: sin contraseña por persona, el endpoint no puede
+  distinguir quién pregunta. Prometer privacidad sería prometer algo que el
+  sistema no sostiene.
+- El contrato completo (qué devuelve, qué no hace, cómo se instala) está en
+  `apps-script/CUENTAS.md`. Es el papel que se pasa a la conversación de
+  MonAgric.
