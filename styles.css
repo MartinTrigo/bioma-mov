@@ -328,6 +328,10 @@ input:focus, select:focus { border-color: var(--verde); }
 }
 .venta-total span { font-size: 0.8rem; color: var(--gris); }
 .venta-total strong { font-size: 1.25rem; color: var(--verde-oscuro); }
+#venta-monto {
+  width: auto; max-width: 46%; margin: 0; text-align: right;
+  font-size: 1.05rem; font-weight: 700; color: var(--verde-oscuro);
+}
 .mov-edit {
   background: none; border: none; color: var(--gris);
   font-size: 1rem; cursor: pointer; padding: 4px 6px;

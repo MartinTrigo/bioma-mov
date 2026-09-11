@@ -140,3 +140,19 @@ curar la lista: reimportarlos resucita lo borrado.
    de qué versión tenga cada teléfono.
 4. Preferir **no hacer nada** antes que una reparación automática que adivine.
 5. Cambios grandes: una fase por vez, verificada, antes de la siguiente.
+
+## 9. Dos pantallas para la misma plata
+**Qué pasó:** al agregar Ventas quedaron dos entradas de ingresos: la pantalla
+vieja escribía en la hoja `ingresos` y la nueva en `ventas`. La misma venta
+había que cargarla dos veces, o el resumen quedaba incompleto.
+
+**Lección:** cuando una funcionalidad nueva se superpone con una vieja, hay que
+decidir cuál manda **antes** de publicarla, no después. Se unificó en Ventas,
+que escribe las dos hojas atadas por el mismo id.
+
+**Lo que casi sale mal:** el primer impulso fue borrar la pantalla de ingresos
+sin más. Al mirar los datos reales apareció que los 8 ingresos cargados eran
+préstamos, talleres y "varias" —ninguno era venta de productos—, y que la lista
+de conceptos incluye "rendimiento financiero". Borrar sin mirar habría dejado
+al proyecto sin forma de registrar un préstamo. Por eso el formulario acepta un
+monto a mano cuando no hay productos.

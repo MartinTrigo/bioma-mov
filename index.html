@@ -30,33 +30,6 @@
 
 <main id="main">
 
-  <!-- ============ TAB: INGRESOS ============ -->
-  <section id="tab-ingreso" class="tab active">
-    <form id="form-ingreso" class="card form" autocomplete="off">
-      <h2>Nuevo ingreso</h2>
-      <div class="row">
-        <label>Fecha
-          <input type="date" name="fecha" required>
-        </label>
-        <label>Monto ($)
-          <input type="number" name="monto" inputmode="decimal" step="0.01" min="0.01" placeholder="0" required>
-        </label>
-      </div>
-      <label>Punto de venta
-        <select name="concepto" required></select>
-      </label>
-      <label>Observaciones
-        <input type="text" name="obs" placeholder="detalle (opcional)">
-      </label>
-      <button type="submit" class="btn btn-in">Registrar ingreso</button>
-    </form>
-    <div class="list-head">
-      <h3>Últimos ingresos</h3>
-      <input type="month" id="filtro-ingreso" title="Filtrar por mes">
-    </div>
-    <ul id="lista-ingreso" class="mov-list"></ul>
-  </section>
-
   <!-- ============ TAB: EGRESOS ============ -->
   <section id="tab-egreso" class="tab">
     <form id="form-egreso" class="card form" autocomplete="off">
@@ -125,7 +98,7 @@
   </section>
 
   <!-- ============ TAB: VENTAS ============ -->
-  <section id="tab-venta" class="tab">
+  <section id="tab-venta" class="tab active">
     <form id="form-venta" class="card form" autocomplete="off">
       <h2 id="venta-titulo">Nueva venta</h2>
       <div class="row">
@@ -148,9 +121,14 @@
         <input type="text" name="obs" placeholder="opcional">
       </label>
 
+      <!-- Sin productos cargados el monto se escribe a mano: así entran
+           también los ingresos que no son venta de mercadería (préstamos,
+           talleres, rendimiento financiero). -->
       <div class="venta-total">
-        <span id="venta-cuenta">0 productos</span>
-        <strong id="venta-total">$0</strong>
+        <span id="venta-cuenta">Sin productos</span>
+        <strong id="venta-total" class="hidden">$0</strong>
+        <input type="number" id="venta-monto" inputmode="decimal" step="0.01" min="0"
+               placeholder="Monto $" title="Monto total del ingreso">
       </div>
       <button type="submit" class="btn btn-in">Guardar venta</button>
       <button type="button" id="btnCancelarVenta" class="btn btn-ghost hidden">Cancelar edición</button>
@@ -219,9 +197,8 @@
 
 <!-- ============ NAV INFERIOR (mobile-first) ============ -->
 <nav class="tabbar">
-  <button data-tab="ingreso" class="active"><span class="t-ico">↑</span>Ingresos</button>
+  <button data-tab="venta" class="active"><span class="t-ico">↑</span>Ventas</button>
   <button data-tab="egreso"><span class="t-ico">↓</span>Egresos</button>
-  <button data-tab="venta"><span class="t-ico">⛬</span>Ventas</button>
   <button data-tab="deuda"><span class="t-ico">✦</span>Deudas</button>
   <button data-tab="producto"><span class="t-ico">☘</span>Productos</button>
   <button data-tab="resumen"><span class="t-ico">≡</span>Resumen</button>

@@ -1,14 +1,17 @@
 /* ============================================================
-   Ingresos y egresos: alta, listado y baja.
+   Egresos: alta, listado y baja.
+
+   Los ingresos se cargan desde la pantalla de Ventas, que escribe el
+   renglón de ingreso y —si hay productos— su detalle. Tener dos
+   pantallas obligaba a cargar la misma venta dos veces.
    ============================================================ */
 
 function initConceptos() {
-  llenarSelect($('#form-ingreso select[name=concepto]'), db.conceptos.ingresos, true);
   llenarSelect($('#form-egreso select[name=concepto]'), db.conceptos.egresos, true);
 }
 
 // "+ agregar nuevo…" en los desplegables de concepto
-['ingreso', 'egreso'].forEach(tipo => {
+['egreso'].forEach(tipo => {
   $(`#form-${tipo} select[name=concepto]`).addEventListener('change', e => {
     if (e.target.value !== '__nuevo__') return;
     const lista = db.conceptos[tipo + 's'];
@@ -29,7 +32,7 @@ function initConceptos() {
   });
 });
 
-['ingreso', 'egreso'].forEach(tipo => {
+['egreso'].forEach(tipo => {
   $(`#form-${tipo}`).addEventListener('submit', e => {
     e.preventDefault();
     const f = e.target;
@@ -91,5 +94,4 @@ function borrarMovimiento(id, tipo) {
   sincronizar(true);
 }
 
-$('#filtro-ingreso').addEventListener('change', () => renderLista('ingreso'));
 $('#filtro-egreso').addEventListener('change', () => renderLista('egreso'));

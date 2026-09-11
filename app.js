@@ -12,7 +12,7 @@
 const AL_ENTRAR = {
   resumen: () => renderResumen(),
   producto: () => renderProductos(),
-  venta: () => { renderFormVenta(); renderUltimasVentas(); }
+  venta: () => renderUltimasVentas()
 };
 
 document.querySelectorAll('.tabbar button').forEach(btn => {
@@ -30,7 +30,6 @@ document.querySelectorAll('.tabbar button').forEach(btn => {
 function initAll() {
   document.querySelectorAll('input[type=date]').forEach(i => { if (!i.value) i.value = hoy(); });
   initConceptos();
-  renderLista('ingreso');
   renderLista('egreso');
   renderDeudas();
   renderProductos();

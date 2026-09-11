@@ -1,11 +1,22 @@
 /* ============================================================
-   Ventas: qué producto se vendió, a quién y cuánto.
+   Ventas: TODO lo que entra de plata.
 
-   Una venta agrupa varios renglones (un remito). En la planilla se
-   guarda un renglón por producto —no una hoja por cliente— para poder
-   preguntarle cualquier cosa después: cuántos kg de acelga compró
-   Península en enero, cuánto choclo salió en la temporada, qué punto de
-   venta deja más margen. El detalle de por qué, en PLAN.md.
+   Esta pantalla reemplazó a la de "Ingresos": tener las dos obligaba a
+   cargar la misma venta dos veces. Cada operación guardada escribe en
+   dos lugares:
+
+     · la hoja `ingresos`  → un renglón con el total. Es la plata que
+       entró, y de ahí salen el resumen y las tablas mes a mes.
+     · la hoja `ventas`    → un renglón por producto, cuando hay detalle.
+       Es lo que permite preguntar cuántos kg de acelga compró Península
+       en enero.
+
+   Las dos quedan atadas por el mismo id, así editar o borrar toca las
+   dos a la vez y no pueden divergir.
+
+   No toda la plata que entra es una venta de mercadería: préstamos,
+   talleres o rendimiento financiero no tienen productos. Por eso, si no
+   se carga ningún producto, el monto se escribe a mano.
 
    La app guarda solo los últimos renglones (VENTANA_VENTAS); la planilla
    los conserva todos.
@@ -20,10 +31,16 @@ function ventaVacia() {
     cliente: '',
     lista: 'chacra',
     obs: '',
+    monto: '',   // solo se usa cuando no hay productos cargados
     // nombre + prodId: se elige el nombre y, si hay varias presentaciones,
     // el prodId termina de decidir cuál de ellas es
     lineas: [{ nombre: '', prodId: '', cantidad: '' }]
   };
+}
+
+// Los renglones que llegaron a tener producto y cantidad
+function lineasValidas() {
+  return borrador.lineas.filter(l => l.prodId && num(l.cantidad) > 0);
 }
 
 /* ================= Catálogo disponible ================= */
@@ -110,9 +127,12 @@ function renderFormVenta() {
   if (!borrador) borrador = ventaVacia();
   const f = $('#form-venta');
 
-  llenarSelect(f.cliente, db.conceptos.ingresos, false);
+  // Con "+ agregar nuevo…": los puntos de venta se dan de alta desde acá,
+  // como se hacía en la pantalla de ingresos que esta reemplazó
+  llenarSelect(f.cliente, db.conceptos.ingresos, true);
   if (borrador.cliente) f.cliente.value = borrador.cliente;
   else borrador.cliente = f.cliente.value;
+  $('#venta-monto').value = borrador.monto || '';
 
   f.lista.innerHTML = db.listas
     .map(l => `<option value="${esc(l.clave)}">${esc(l.nombre)}</option>`).join('');
@@ -210,11 +230,27 @@ function subtotalDe(l) {
   return Math.round(num(l.cantidad) * precioLinea(l));
 }
 
+/* Con productos, el total lo calcula la app y el campo de monto se
+   esconde. Sin productos, se escribe a mano: es la forma de cargar un
+   préstamo o un taller sin necesitar una pantalla aparte. */
 function recalcularTotal() {
+  const validas = lineasValidas();
+  const conProductos = validas.length > 0;
   const total = borrador.lineas.reduce((s, l) => s + (l.prodId ? subtotalDe(l) : 0), 0);
-  const n = borrador.lineas.filter(l => l.prodId && num(l.cantidad) > 0).length;
+
+  $('#venta-total').classList.toggle('hidden', !conProductos);
+  $('#venta-monto').classList.toggle('hidden', conProductos);
   $('#venta-total').textContent = fmt(total);
-  $('#venta-cuenta').textContent = n === 1 ? '1 producto' : `${n} productos`;
+  $('#venta-cuenta').textContent = conProductos
+    ? (validas.length === 1 ? '1 producto' : `${validas.length} productos`)
+    : 'Sin productos — escribí el monto';
+}
+
+// Lo que se va a guardar como ingreso: calculado o escrito a mano
+function totalOperacion() {
+  const validas = lineasValidas();
+  if (validas.length) return validas.reduce((s, l) => s + subtotalDe(l), 0);
+  return num($('#venta-monto').value);
 }
 
 $('#btnAgregarRenglon').addEventListener('click', () => {
@@ -227,27 +263,69 @@ $('#btnAgregarRenglon').addEventListener('click', () => {
 
 ['fecha', 'cliente', 'lista', 'obs'].forEach(campo => {
   $('#form-venta')[campo].addEventListener('change', e => {
+    // Alta de un punto de venta nuevo sin salir de la pantalla
+    if (campo === 'cliente' && e.target.value === '__nuevo__') {
+      const nuevo = prompt('Nombre del nuevo punto de venta:');
+      const lista = db.conceptos.ingresos;
+      if (nuevo && nuevo.trim()) {
+        const limpio = nuevo.trim();
+        if (!lista.includes(limpio)) {
+          lista.push(limpio);
+          db.conceptosNuevos.ingresos.push(limpio);
+          save();
+          sincronizar(true);
+        }
+        borrador.cliente = limpio;
+      } else {
+        borrador.cliente = lista[0] || '';
+      }
+      renderFormVenta();
+      return;
+    }
     borrador[campo] = e.target.value;
     if (campo === 'lista') pintarRenglones(); // cambian todos los precios
   });
 });
 
+$('#venta-monto').addEventListener('input', e => { borrador.monto = e.target.value; });
+
 /* ================= Guardar ================= */
 
 $('#form-venta').addEventListener('submit', e => {
   e.preventDefault();
-  const validas = borrador.lineas.filter(l => l.prodId && num(l.cantidad) > 0);
-  if (!validas.length) { toast('Agregá al menos un producto con cantidad'); return; }
   if (!borrador.cliente) { toast('Elegí el punto de venta'); return; }
+  const validas = lineasValidas();
+  const total = totalOperacion();
+  if (!validas.length && !total) {
+    toast('Agregá productos o escribí el monto');
+    return;
+  }
 
   const idVenta = borrador.venta || uid();
-  // Al editar se reemplazan todos los renglones: se sepultan los viejos
+  const ahora = Date.now();
+
+  // Al editar se reemplaza todo lo anterior de esa operación
   if (borrador.venta) {
     db.ventas.filter(v => v.venta === idVenta).forEach(v => sepultar(v.id));
     db.ventas = db.ventas.filter(v => v.venta !== idVenta);
   }
 
-  const ahora = Date.now();
+  // 1) El ingreso: un solo renglón con el total. Comparte el id con la
+  //    venta, así las dos hojas quedan atadas y no pueden divergir.
+  const previo = db.movimientos.find(m => m.id === idVenta);
+  const ingreso = {
+    id: idVenta,
+    tipo: 'ingreso',
+    fecha: borrador.fecha,
+    concepto: borrador.cliente,
+    monto: total,
+    obs: borrador.obs || (validas.length ? `${validas.length} productos` : ''),
+    mod: ahora
+  };
+  if (previo) Object.assign(previo, ingreso);
+  else db.movimientos.push(ingreso);
+
+  // 2) El detalle por producto, si lo hay
   validas.forEach((l, i) => {
     const p = db.productos.find(x => x.id === l.prodId);
     db.ventas.push({
@@ -268,7 +346,7 @@ $('#form-venta').addEventListener('submit', e => {
       subtotal: subtotalDe(l),
       origen: 'manual',
       obs: borrador.obs,
-      mod: ahora + i
+      mod: ahora + i + 1
     });
   });
 
@@ -277,7 +355,9 @@ $('#form-venta').addEventListener('submit', e => {
   borrador = ventaVacia();
   renderFormVenta();
   renderUltimasVentas();
-  toast(eraEdicion ? 'Venta actualizada ✓' : `Venta registrada · ${validas.length} productos`);
+  renderResumen();
+  toast(eraEdicion ? 'Actualizado ✓'
+    : (validas.length ? `Venta registrada · ${validas.length} productos` : 'Ingreso registrado ✓'));
   sincronizar(true);
 });
 
@@ -288,37 +368,46 @@ $('#btnCancelarVenta').addEventListener('click', () => {
 
 /* ================= Últimas ventas ================= */
 
-// Agrupa los renglones sueltos en las operaciones que los originaron
+// Los renglones de detalle de una operación
+function lineasDe(idVenta) {
+  return db.ventas.filter(v => v.venta === idVenta);
+}
+
+/* La lista muestra TODOS los ingresos, tengan detalle de productos o no.
+   Se recorre la hoja de ingresos (que los tiene a todos) y se le suma el
+   detalle cuando existe. Los ingresos viejos, cargados antes de que la
+   pantalla se unificara, aparecen igual y se pueden editar. */
+function ingresosAgrupados() {
+  return db.movimientos
+    .filter(m => m.tipo === 'ingreso')
+    .map(m => ({
+      id: m.id, fecha: m.fecha, cliente: m.concepto, obs: m.obs,
+      total: num(m.monto), lineas: lineasDe(m.id), mod: num(m.mod)
+    }))
+    .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || b.mod - a.mod);
+}
+
+// Se conserva para el remito: solo las operaciones que sí tienen productos
 function ventasAgrupadas() {
-  const grupos = {};
-  db.ventas.forEach(v => {
-    const g = grupos[v.venta] || (grupos[v.venta] = {
-      id: v.venta, fecha: v.fecha, cliente: v.cliente, lista: v.lista,
-      obs: v.obs, origen: v.origen, lineas: [], total: 0, mod: 0
-    });
-    g.lineas.push(v);
-    g.total += num(v.subtotal);
-    g.mod = Math.max(g.mod, num(v.mod));
-  });
-  return Object.values(grupos).sort((a, b) =>
-    String(b.fecha).localeCompare(String(a.fecha)) || b.mod - a.mod);
+  return ingresosAgrupados().filter(g => g.lineas.length);
 }
 
 function renderUltimasVentas() {
   const ul = $('#lista-venta');
-  const grupos = ventasAgrupadas().slice(0, 10);
-  const total = db.ventasTotal || db.ventas.length;
-  $('#venta-resumen').textContent = total
-    ? `${total} renglones registrados` : '';
+  const grupos = ingresosAgrupados();
+  const conDetalle = grupos.filter(g => g.lineas.length).length;
+  $('#venta-resumen').textContent = grupos.length
+    ? `${grupos.length} ingresos · ${conDetalle} con detalle` : '';
 
   ul.innerHTML = '';
   if (!grupos.length) {
     ul.innerHTML = '<li class="empty">Todavía no hay ventas cargadas</li>';
     return;
   }
-  grupos.forEach(g => {
-    const detalle = g.lineas
-      .map(l => `${num(l.cantidad)}× ${l.producto}`).join(', ');
+  grupos.slice(0, 10).forEach(g => {
+    const detalle = g.lineas.length
+      ? g.lineas.map(l => `${num(l.cantidad)}× ${l.producto}`).join(', ')
+      : (g.obs || 'sin detalle de productos');
     const li = document.createElement('li');
     li.innerHTML = `
       <div class="mov-info">
@@ -335,16 +424,18 @@ function renderUltimasVentas() {
 }
 
 function editarVenta(idVenta) {
-  const lineas = db.ventas.filter(v => v.venta === idVenta);
-  if (!lineas.length) return;
-  const primera = lineas[0];
+  const mov = db.movimientos.find(m => m.id === idVenta && m.tipo === 'ingreso');
+  if (!mov) return;
+  const lineas = lineasDe(idVenta);
   borrador = {
     venta: idVenta,
-    fecha: primera.fecha,
-    cliente: primera.cliente,
-    lista: primera.lista || 'chacra',
-    obs: primera.obs || '',
-    lineas: lineas.map(l => {
+    fecha: mov.fecha,
+    cliente: mov.concepto,
+    lista: lineas.length ? (lineas[0].lista || 'chacra') : 'chacra',
+    obs: mov.obs || '',
+    // Sin detalle de productos se edita el monto directo
+    monto: lineas.length ? '' : String(num(mov.monto)),
+    lineas: !lineas.length ? [{ nombre: '', prodId: '', cantidad: '' }] : lineas.map(l => {
       // Se busca por nombre + presentación: el id del producto no se guarda
       // en la venta a propósito, para que la venta sobreviva aunque después
       // se borre o se renombre el producto.
@@ -365,17 +456,23 @@ function editarVenta(idVenta) {
 }
 
 function borrarVenta(idVenta) {
-  const lineas = db.ventas.filter(v => v.venta === idVenta);
-  if (!lineas.length) return;
-  const total = lineas.reduce((s, l) => s + num(l.subtotal), 0);
-  if (!confirm(`¿Eliminar la venta a ${lineas[0].cliente} por ${fmt(total)}?\n` +
-    `Son ${lineas.length} renglones.`)) return;
+  const mov = db.movimientos.find(m => m.id === idVenta && m.tipo === 'ingreso');
+  if (!mov) return;
+  const lineas = lineasDe(idVenta);
+  const cuantos = lineas.length ? `\nSon ${lineas.length} renglones de productos.` : '';
+  if (!confirm(`¿Eliminar el ingreso de ${mov.concepto} por ${fmt(mov.monto)}?${cuantos}`)) return;
+
+  // Se borra en los dos lados a la vez: el ingreso y su detalle
+  sepultar(mov.id);
+  db.movimientos = db.movimientos.filter(m => m.id !== idVenta);
   lineas.forEach(l => sepultar(l.id));
   db.ventas = db.ventas.filter(v => v.venta !== idVenta);
+
   save();
   if (borrador && borrador.venta === idVenta) { borrador = ventaVacia(); renderFormVenta(); }
   renderUltimasVentas();
-  toast('Venta eliminada');
+  renderResumen();
+  toast('Eliminado');
   sincronizar(true);
 }
 

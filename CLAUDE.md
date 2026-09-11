@@ -44,7 +44,7 @@ styles.css          estilo (paleta verde/tierra del logo)
 js/util.js          helpers: $, fmt, fechas, esc, toast
 js/db.js            estado local (localStorage) y su esquema
 js/sincro.js        sincronización con la planilla
-js/movimientos.js   ingresos y egresos
+js/movimientos.js   egresos (los ingresos se cargan desde Ventas)
 js/deudas.js        deudas
 js/productos.js     catálogo y precios
 js/ventas.js        ventas por producto y punto de venta
@@ -126,6 +126,15 @@ planificación semanal (Fase 4.7). Todo en `PLAN.md`.
 
 ## Ventas: lo que hay que saber
 
+- **No existe pantalla de Ingresos.** Se eliminó: tener las dos obligaba a
+  cargar la misma venta dos veces. Ventas es ahora la única entrada de plata.
+- **Cada operación guardada escribe en dos hojas**, atadas por el mismo id:
+  `ingresos` (un renglón con el total, de donde salen el resumen y las tablas
+  mes a mes) y `ventas` (un renglón por producto, cuando hay detalle).
+  Editar o borrar toca las dos a la vez: no pueden divergir.
+- **No toda la plata que entra es venta de mercadería**: préstamos, talleres y
+  rendimiento financiero no tienen productos. Si no se carga ningún producto,
+  el monto se escribe a mano en el mismo formulario. No romper esto.
 - Una hoja `ventas`, **un renglón por producto vendido**. `venta` agrupa los
   renglones de una misma operación; `origen` dice si vino a mano, de una
   planilla, o de abrir un bolsón (esos no se suman al facturado).
