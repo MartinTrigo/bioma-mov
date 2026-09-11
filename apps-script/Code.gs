@@ -1222,27 +1222,48 @@ function fechaHoras_(v) {
 function tarifasPorTrabajador_(libro) {
   var tarifas = {};
 
+  /* Se busca por CONTENIDO, no por el nombre de la hoja: buscar una hoja
+     llamada "Configuración" no encontró nada y todos quedaron con la
+     tarifa por defecto, inflando el devengado en $50.000.
+
+     Sirve cualquier tabla con un encabezado que diga "trabajador" y otra
+     columna que diga "tarifa": debajo, nombre y número. */
   libro.getSheets().forEach(function (h) {
-    if (normClave_(h.getName()).indexOf('configuracion') < 0) return;
     var v = h.getDataRange().getValues();
-    for (var i = 0; i < v.length; i++) {
-      var quien = String(v[i][0] || '').trim();
-      var tarifa = normMonto_(v[i][1]);
-      // Se saltean el título y el encabezado, que no traen un número
-      if (quien && tarifa > 0) tarifas[normClave_(quien)] = tarifa;
+    for (var i = 0; i < v.length && i < 40; i++) {
+      var colNombre = -1, colTarifa = -1;
+      for (var c = 0; c < v[i].length; c++) {
+        var celda = normClave_(v[i][c]);
+        if (celda.indexOf('trabajador') > -1 && colNombre < 0) colNombre = c;
+        if (celda.indexOf('tarifa') > -1 && colTarifa < 0) colTarifa = c;
+      }
+      /* Tienen que ser columnas distintas: si no, un título como
+         "Configuración — Trabajadores y tarifas" se confunde con el
+         encabezado, y como se corta en la primera coincidencia nunca se
+         llega a la tabla de verdad. */
+      if (colNombre < 0 || colTarifa < 0 || colNombre === colTarifa) continue;
+      // Encontrado el encabezado: se leen las filas de abajo
+      for (var j = i + 1; j < v.length; j++) {
+        var quien = String(v[j][colNombre] || '').trim();
+        var tarifa = normMonto_(v[j][colTarifa]);
+        if (quien && tarifa > 0 && !tarifas[normClave_(quien)]) {
+          tarifas[normClave_(quien)] = tarifa;
+        }
+      }
+      break; // una tabla de tarifas por hoja alcanza
     }
   });
 
+  // Las hojas "Cuenta individual" tienen la tarifa en vertical
   libro.getSheets().forEach(function (h) {
     if (h.getName().toLowerCase().indexOf('cuenta individual') < 0) return;
-    var v = h.getRange(1, 1, 6, 2).getValues();
+    var v = h.getRange(1, 1, 8, 2).getValues();
     var quien = '', tarifa = 0;
     for (var i = 0; i < v.length; i++) {
-      var etiqueta = String(v[i][0]).toLowerCase();
+      var etiqueta = normClave_(v[i][0]);
       if (etiqueta.indexOf('trabajador') > -1) quien = String(v[i][1]).trim();
       if (etiqueta.indexOf('tarifa') > -1) tarifa = normMonto_(v[i][1]);
     }
-    // La configuración manda: acá solo se completa lo que falte
     if (quien && tarifa && !tarifas[normClave_(quien)]) {
       tarifas[normClave_(quien)] = tarifa;
     }
@@ -1338,9 +1359,22 @@ function importarHoras() {
   escribirHoras_(filas);
   escribirResumenHoras_();
 
-  var aviso = filas.length + ' registros importados';
+  var devengado = 0;
+  filas.forEach(function (f) { devengado += f[7]; });
+  var conTarifa = Object.keys(tarifas).length;
+
+  var aviso = filas.length + ' registros importados · $' +
+    Math.round(devengado).toLocaleString('es-AR') + ' devengados';
+  aviso += ' · tarifas encontradas para ' + conTarifa + ' personas';
+  if (!conTarifa) {
+    aviso += ' (¡ninguna! se usó $' + TARIFA_POR_DEFECTO + ' para todos)';
+  }
   if (sinFecha) aviso += ' · ' + sinFecha + ' sin fecha entendible (quedaron afuera)';
   if (sinArea) aviso += ' · ' + sinArea + ' sin área';
+
+  // Se escribe en el registro: ejecutada a mano, el valor devuelto no se ve
+  Logger.log(aviso);
+  Logger.log('Tarifas: ' + JSON.stringify(tarifas));
   return aviso;
 }
 
