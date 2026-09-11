@@ -27,7 +27,7 @@
 // Versión del protocolo. La app rechaza las respuestas que no la traigan:
 // así una implementación vieja que haya quedado publicada no puede
 // sobrescribir los datos del teléfono con un esquema que ya no existe.
-var API = 7;
+var API = 8;
 
 /* Cuántos renglones de venta viaja la app. La hoja las guarda todas; el
    teléfono solo necesita las últimas para mostrarlas y poder corregirlas.
@@ -158,6 +158,8 @@ function sincronizar_(entrada) {
   escribirDatos_('ventas', ventas);
   escribirBorrados_(borrados);
   escribirConceptos_(conceptos);
+  actualizarFlujo_(movimientos);
+  actualizarGraficos_();
 
   // Se devuelve la lista completa de tumbas: la app la necesita para saber
   // qué borrar de su copia local sin tener que confiar ciegamente en que
@@ -529,11 +531,16 @@ function asegurarEsquema_() {
     // v7 agrega la categoría a los productos
     estilizarProductos_();
   }
-  if (version !== 'v8') {
+  if (version !== 'v8' && version !== 'v9') {
     // v8 agrega la hoja de ventas y el SKU de los productos
     estilizarProductos_();
+  }
+  if (version !== 'v9') {
+    /* v9 rehace los encabezados de ventas. Al sumar la columna "kg" los
+       datos pasaron a escribirse con ella, pero el encabezado seguía
+       siendo el anterior: la columna de kilos decía "precio". */
     estilizarVentas_();
-    props.setProperty('esquema', 'v8');
+    props.setProperty('esquema', 'v9');
   }
   // En cada petición: deshacer los efectos de una versión vieja del script
   // que hubiera quedado publicada (hoja "movimientos" recreada, conceptos
@@ -541,13 +548,15 @@ function asegurarEsquema_() {
   reabsorberHojasViejas_();
 }
 
-// Reconstruye la hoja resumen (v3 corrige las fórmulas, que estaban en
-// formato inglés y fallaban en planillas configuradas en español).
+/* Antes esto borraba la hoja "resumen" y la volvía a crear. Eso rompió
+   los gráficos que el usuario había armado apuntando a ella: al morir la
+   hoja, los gráficos pierden su referencia y quedan vacíos.
+
+   La hoja resumen es del usuario, no del script: se crea si no existe y
+   nunca se destruye. Las correcciones se aplican sobre las celdas que
+   hagan falta (ver actualizarFlujo_). */
 function repararResumen_() {
-  var ss = SpreadsheetApp.getActive();
-  var h = ss.getSheetByName('resumen');
-  if (h) ss.deleteSheet(h);
-  crearResumen_();
+  if (!SpreadsheetApp.getActive().getSheetByName('resumen')) crearResumen_();
 }
 
 // Pliega la hoja "movimientos" vieja (si una versión anterior del script la
@@ -903,9 +912,11 @@ function agregarTablasMensuales_(h) {
   h.getRange('A61:E61').setValues([['mes', 'ingresos', 'egresos', 'resultado', 'acumulado']])
     .setFontWeight('bold').setBackground(COLOR.verdeClaro);
 
-  h.getRange('A62').setValue(
-    '=QUERY({' + mesesIngresos + ';' + mesesEgresos + '};' +
-    '"select Col1 where Col1 is not null and Col1 <> \'\' group by Col1 order by Col1 desc";0)');
+  /* La lista de meses NO es una fórmula. La escribe el script en cada
+     sincronización (ver actualizarFlujo_). El QUERY que apilaba los meses
+     de las dos hojas con {A;B} devolvía #VALUE! en la planilla real, y
+     una fórmula que falla deja toda la tabla en blanco. Escribir valores
+     es menos elegante y no se rompe. */
 
   // Una fila por mes; 60 alcanza para cinco temporadas
   var filas = [];
@@ -942,6 +953,154 @@ function agregarTablasMensuales_(h) {
   h.getRange('B126:Z160').setNumberFormat('"$"#,##0');
   h.getRange('B171:Z215').setNumberFormat('"$"#,##0');
   h.setColumnWidth(1, 200);
+}
+
+/* Escribe la lista de meses del flujo de fondos y, si hiciera falta, las
+   fórmulas que la acompañan. Corre en cada sincronización: es barato
+   (60 celdas) y mantiene la tabla al día sin depender de una fórmula
+   frágil. Nunca toca el resto de la hoja. */
+function actualizarFlujo_(movimientos) {
+  var ss = SpreadsheetApp.getActive();
+  var h = ss.getSheetByName('resumen');
+  if (!h) return;
+  // Si alguien movió el bloque, no se pisa nada
+  if (String(h.getRange('A60').getValue()).indexOf('FLUJO') < 0) return;
+
+  var vistos = {};
+  (movimientos || []).forEach(function (m) {
+    var k = String(m.fecha || '').slice(0, 7);
+    if (k.length === 7) vistos[k] = true;
+  });
+  // Del más viejo al más nuevo: así se lee cómo se construye la temporada
+  var meses = Object.keys(vistos).sort();
+
+  var filas = [];
+  for (var i = 0; i < 60; i++) filas.push([meses[i] || '']);
+  h.getRange('A62:A121').setNumberFormat('@').setValues(filas);
+
+  // Si las fórmulas de al lado no están (hoja creada por una versión
+  // anterior, o borradas sin querer), se reponen
+  if (!String(h.getRange('B62').getFormula())) escribirFormulasFlujo_(h);
+}
+
+function escribirFormulasFlujo_(h) {
+  var filas = [];
+  for (var i = 62; i < 122; i++) {
+    var m = '$A' + i;
+    var ing = 'SUMPRODUCT((TEXT(ingresos!$B$2:$B$2000;"yyyy-mm")=' + m + ')*ingresos!$D$2:$D$2000)';
+    var egr = 'SUMPRODUCT((TEXT(egresos!$B$2:$B$2000;"yyyy-mm")=' + m + ')*egresos!$D$2:$D$2000)';
+    var ingAcum = 'SUMPRODUCT((TEXT(ingresos!$B$2:$B$2000;"yyyy-mm")<=' + m + ')*(ingresos!$B$2:$B$2000<>"")*ingresos!$D$2:$D$2000)';
+    var egrAcum = 'SUMPRODUCT((TEXT(egresos!$B$2:$B$2000;"yyyy-mm")<=' + m + ')*(egresos!$B$2:$B$2000<>"")*egresos!$D$2:$D$2000)';
+    filas.push([
+      '=IF(' + m + '="";"";' + ing + ')',
+      '=IF(' + m + '="";"";' + egr + ')',
+      '=IF(' + m + '="";"";B' + i + '-C' + i + ')',
+      '=IF(' + m + '="";"";' + ingAcum + '-' + egrAcum + ')'
+    ]);
+  }
+  h.getRange('B62:E121').setValues(filas).setNumberFormat('"$"#,##0');
+}
+
+/* ================= Gráficos =================
+   Los arma el script en la hoja "gráficos" y les ajusta el rango cuando
+   aparecen meses o conceptos nuevos, así se actualizan solos.
+
+   Se rehacen únicamente cuando cambia la cantidad de datos (se guarda la
+   firma en una propiedad): no en cada sincronización, que sería lento y
+   haría parpadear la hoja. Son del script, así que los retoques manuales
+   sobre ellos se pierden al rehacerse; para gráficos propios conviene
+   una hoja aparte. */
+
+// Última fila con contenido dentro de un bloque acotado
+function ultimaFilaCon_(h, col, desde, hasta) {
+  var v = h.getRange(desde, col, hasta - desde + 1, 1).getValues();
+  var ultima = desde - 1;
+  for (var i = 0; i < v.length; i++) {
+    if (String(v[i][0]).trim() !== '') ultima = desde + i;
+  }
+  return ultima;
+}
+
+function actualizarGraficos_() {
+  var ss = SpreadsheetApp.getActive();
+  var res = ss.getSheetByName('resumen');
+  if (!res) return;
+
+  var finFlujo = ultimaFilaCon_(res, 1, 62, 121);   // meses del flujo
+  var finPuntos = ultimaFilaCon_(res, 1, 11, 50);   // ingresos por punto
+  var finConceptos = ultimaFilaCon_(res, 4, 11, 55); // egresos por concepto
+  if (finFlujo < 62) return; // todavía no hay datos
+
+  var firma = [finFlujo, finPuntos, finConceptos].join('-');
+  var props = PropertiesService.getDocumentProperties();
+  if (props.getProperty('graficos') === firma) return; // nada cambió
+
+  var h = ss.getSheetByName('gráficos');
+  if (!h) { h = ss.insertSheet('gráficos'); h.setTabColor(COLOR.verde); }
+  h.getCharts().forEach(function (c) { h.removeChart(c); });
+
+  var r = function (a1) { return res.getRange(a1); };
+
+  // 1. Ingresos y egresos mes a mes
+  h.insertChart(h.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(r('A61:C' + finFlujo))
+    .setPosition(2, 1, 0, 0)
+    .setOption('title', 'Ingresos y egresos mes a mes')
+    .setOption('colors', [COLOR.verde, COLOR.tierra])
+    .setOption('legend', { position: 'top' })
+    .setOption('width', 620).setOption('height', 340)
+    .build());
+
+  // 2. Resultado del mes: se ve de un vistazo cuándo se gasta más de lo que entra
+  h.insertChart(h.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(r('A61:A' + finFlujo)).addRange(r('D61:D' + finFlujo))
+    .setPosition(2, 7, 0, 0)
+    .setOption('title', 'Resultado del mes (entró − salió)')
+    .setOption('colors', [COLOR.verde])
+    .setOption('legend', { position: 'none' })
+    .setOption('width', 620).setOption('height', 340)
+    .build());
+
+  // 3. Acumulado: cómo se construye la temporada
+  h.insertChart(h.newChart()
+    .setChartType(Charts.ChartType.LINE)
+    .addRange(r('A61:A' + finFlujo)).addRange(r('E61:E' + finFlujo))
+    .setPosition(20, 1, 0, 0)
+    .setOption('title', 'Acumulado de la temporada')
+    .setOption('colors', [COLOR.verde])
+    .setOption('legend', { position: 'none' })
+    .setOption('curveType', 'function')
+    .setOption('pointSize', 5)
+    .setOption('width', 620).setOption('height', 340)
+    .build());
+
+  // 4. De dónde viene la plata
+  if (finPuntos >= 11) {
+    h.insertChart(h.newChart()
+      .setChartType(Charts.ChartType.PIE)
+      .addRange(r('A10:B' + finPuntos))
+      .setPosition(20, 7, 0, 0)
+      .setOption('title', 'Ingresos por punto de venta')
+      .setOption('pieSliceText', 'percentage')
+      .setOption('width', 620).setOption('height', 340)
+      .build());
+  }
+
+  // 5. En qué se va
+  if (finConceptos >= 11) {
+    h.insertChart(h.newChart()
+      .setChartType(Charts.ChartType.PIE)
+      .addRange(r('D10:E' + finConceptos))
+      .setPosition(38, 1, 0, 0)
+      .setOption('title', 'Egresos por concepto')
+      .setOption('pieSliceText', 'percentage')
+      .setOption('width', 620).setOption('height', 340)
+      .build());
+  }
+
+  props.setProperty('graficos', firma);
 }
 
 function titulo_(h, celda, texto, color) {

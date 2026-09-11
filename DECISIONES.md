@@ -156,3 +156,26 @@ monto a mano cuando no hay productos.
    de qué versión tenga cada teléfono.
 4. Preferir **no hacer nada** antes que una reparación automática que adivine.
 5. Cambios grandes: una fase por vez, verificada, antes de la siguiente.
+
+## 10. Borrar la hoja "resumen" para repararla
+**Qué pasó:** `repararResumen_` borraba la hoja y la volvía a crear para
+corregir sus fórmulas. El usuario había armado gráficos apuntando a esa hoja:
+al morir la hoja, los gráficos perdieron su referencia y quedaron rotos.
+
+**Lección:** la hoja `resumen` es del usuario, no del script. Se crea si no
+existe y **nunca se destruye**; las correcciones se aplican celda por celda.
+Vale para cualquier hoja: borrar y recrear es cómodo para el script y
+destructivo para lo que la persona construyó encima.
+
+**De paso:** los gráficos ahora los arma el script (`actualizarGraficos_`) en
+la hoja `gráficos`, y les ajusta el rango cuando aparecen meses o conceptos
+nuevos. Se rehacen solo cuando cambia la cantidad de datos.
+
+## 11. Cambiar columnas sin rehacer el encabezado
+**Qué pasó:** se agregó la columna `kg` a la hoja `ventas`. Los datos pasaron a
+escribirse con ella, pero el encabezado seguía siendo el anterior porque
+`estilizarVentas_` solo corre al migrar el esquema. Resultado: la columna de
+kilos decía "precio", y la hoja mentía sobre su propio contenido.
+
+**Lección:** tocar `COLUMNAS` obliga a subir el esquema para que se reescriban
+los encabezados. Si no, los datos y sus títulos quedan corridos.
