@@ -103,6 +103,11 @@ function doGet() {
     asegurarEsquema_();
     var estado = leerEstado_();
     estado.api = API;
+    estado.horas = resumirHoras_();
+    /* Diagnóstico: qué hojas hay, qué versión de esquema corrió y cuántas
+       filas tiene cada cosa. Sin esto no se puede saber desde afuera si el
+       código desplegado es el actual, y se diagnostica a ciegas. */
+    estado.diag = diagnostico_();
     return salidaJson_(estado);
   } finally {
     lock.releaseLock();
@@ -1098,7 +1103,14 @@ function actualizarGraficos_() {
   if (props.getProperty('graficos') === firma) return;      // nada cambió
 
   var h = hojaDeGraficos_();
-  h.getCharts().forEach(function (c) { h.removeChart(c); });
+  /* Se limpian los gráficos de TODAS las hojas candidatas, no solo de la
+     elegida: una versión anterior creó una hoja "gráficos" aparte de la
+     "gráficas" del usuario, y quedaron dos con gráficos rotos. Así la que
+     sobra queda vacía y se ve que se puede borrar. */
+  NOMBRES_GRAFICOS.forEach(function (nombre) {
+    var otra = ss.getSheetByName(nombre);
+    if (otra) otra.getCharts().forEach(function (c) { otra.removeChart(c); });
+  });
 
   var mes = res.getRange(cab, COL_FLUJO, finFlujo - cab + 1, 1);
   var col = function (n) {
@@ -1201,12 +1213,28 @@ function fechaHoras_(v) {
   return a + '-' + pad2_(m[2]) + '-' + pad2_(m[1]);
 }
 
-// Tarifa de cada trabajador, de sus hojas "Cuenta individual — Nombre"
+/* Tarifa de cada trabajador. NO todos cobran lo mismo: los encargados
+   tienen una tarifa distinta a la de los socios. Dar por sentado que
+   todos cobran igual daba una diferencia de $50.000 sobre el total.
+
+   La hoja "Configuración — Trabajadores y tarifas" es la fuente
+   autorizada. Si no está, se caen a las hojas "Cuenta individual". */
 function tarifasPorTrabajador_(libro) {
   var tarifas = {};
+
   libro.getSheets().forEach(function (h) {
-    var nombre = h.getName();
-    if (nombre.toLowerCase().indexOf('cuenta individual') < 0) return;
+    if (normClave_(h.getName()).indexOf('configuracion') < 0) return;
+    var v = h.getDataRange().getValues();
+    for (var i = 0; i < v.length; i++) {
+      var quien = String(v[i][0] || '').trim();
+      var tarifa = normMonto_(v[i][1]);
+      // Se saltean el título y el encabezado, que no traen un número
+      if (quien && tarifa > 0) tarifas[normClave_(quien)] = tarifa;
+    }
+  });
+
+  libro.getSheets().forEach(function (h) {
+    if (h.getName().toLowerCase().indexOf('cuenta individual') < 0) return;
     var v = h.getRange(1, 1, 6, 2).getValues();
     var quien = '', tarifa = 0;
     for (var i = 0; i < v.length; i++) {
@@ -1214,8 +1242,12 @@ function tarifasPorTrabajador_(libro) {
       if (etiqueta.indexOf('trabajador') > -1) quien = String(v[i][1]).trim();
       if (etiqueta.indexOf('tarifa') > -1) tarifa = normMonto_(v[i][1]);
     }
-    if (quien && tarifa) tarifas[normClave_(quien)] = tarifa;
+    // La configuración manda: acá solo se completa lo que falte
+    if (quien && tarifa && !tarifas[normClave_(quien)]) {
+      tarifas[normClave_(quien)] = tarifa;
+    }
   });
+
   return tarifas;
 }
 
@@ -1455,6 +1487,25 @@ function listarRespaldos() {
 }
 
 /* ================= Salida ================= */
+
+/* Radiografía de la planilla, para poder diagnosticar sin adivinar:
+   versión de código, esquema aplicado, hojas existentes y su tamaño. */
+function diagnostico_() {
+  var ss = SpreadsheetApp.getActive();
+  var props = PropertiesService.getDocumentProperties();
+  var hojas = ss.getSheets().map(function (h) {
+    return h.getName() + ' (' + Math.max(h.getLastRow() - 1, 0) + ' filas' +
+      (h.getCharts().length ? ', ' + h.getCharts().length + ' gráficos' : '') + ')';
+  });
+  var res = ss.getSheetByName('resumen');
+  return {
+    version: 'v' + API,
+    esquema: props.getProperty('esquema') || '(sin migrar)',
+    hojas: hojas,
+    filaDelFlujo: res ? filaDelFlujo_(res) : 0,
+    firmaGraficos: props.getProperty('graficos') || '(nunca se armaron)'
+  };
+}
 
 function salidaJson_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
