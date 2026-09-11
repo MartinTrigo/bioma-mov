@@ -157,9 +157,13 @@ planificación semanal (Fase 4.7). Todo en `PLAN.md`.
 
 ## Horas de trabajo
 
-- Se registran en **otra planilla** (formulario que llenan los socios),
-  id en `ID_PLANILLA_HORAS` dentro de `Code.gs`. Son **el grueso del costo
-  de la temporada**.
+- **Se cargan en MonAgric**, no acá y no por un formulario de Google.
+  MonAgric las envía con su propio Apps Script a la planilla de horas
+  (id en `ID_PLANILLA_HORAS` dentro de `Code.gs`), de donde esta app las
+  lee. Son **el grueso del costo de la temporada**.
+- **Las validaciones de carga van en MonAgric**, que es donde se escriben:
+  qué actividades se ofrecen, qué campos son obligatorios. Acá solo se
+  leen. No intentar corregir el origen desde este lado.
 - El script las lee, las normaliza y las deja en la hoja `horas` de
   bioma-db. Esa hoja **se reescribe entera**: corregir en la planilla de
   origen, nunca acá.

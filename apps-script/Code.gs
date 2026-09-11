@@ -1305,54 +1305,11 @@ function formasCanonicas_(valores, columnas) {
   return canon;
 }
 
-/* Hace obligatorios los campos del formulario de carga de horas.
-
-   Un registro sin área o sin actividad no se puede analizar, y limpiarlo
-   después es trabajo manual: mejor que el formulario no deje cargarlo.
-
-   Se ejecuta A MANO, a propósito: cambia el formulario que completan los
-   socios, así que es una decisión, no un efecto secundario de sincronizar.
-   Pide autorización nueva la primera vez (acceso a Formularios). */
-function exigirCamposDelFormulario() {
-  var libro = SpreadsheetApp.openById(ID_PLANILLA_HORAS);
-  var url = libro.getFormUrl();
-  if (!url) {
-    return 'La planilla de horas no tiene un formulario vinculado. ' +
-      'Si el formulario existe pero está enlazado a otra hoja, hay que ' +
-      'marcarlo obligatorio desde el editor del formulario.';
-  }
-
-  var form = FormApp.openByUrl(url);
-  var obligatorios = ['actividad', 'area', 'horas', 'fecha'];
-  var cambiados = [], yaEstaban = [];
-
-  form.getItems().forEach(function (item) {
-    var titulo = normClave_(item.getTitle());
-    var hayQue = obligatorios.some(function (o) { return titulo.indexOf(o) > -1; });
-    if (!hayQue) return;
-    // No todos los tipos de pregunta admiten setRequired
-    var tipado;
-    try {
-      tipado = item.asListItem();
-    } catch (e) {
-      try { tipado = item.asMultipleChoiceItem(); } catch (e2) {
-        try { tipado = item.asTextItem(); } catch (e3) {
-          try { tipado = item.asDateItem(); } catch (e4) { return; }
-        }
-      }
-    }
-    if (tipado.isRequired()) { yaEstaban.push(item.getTitle()); return; }
-    tipado.setRequired(true);
-    cambiados.push(item.getTitle());
-  });
-
-  var aviso = cambiados.length
-    ? 'Ahora son obligatorios: ' + cambiados.join(', ')
-    : 'No hubo cambios';
-  if (yaEstaban.length) aviso += ' · ya lo eran: ' + yaEstaban.join(', ');
-  Logger.log(aviso);
-  return aviso;
-}
+/* NOTA: las horas NO se cargan por un formulario de Google, se cargan
+   desde MonAgric, que las envía con su propio Apps Script. Hubo acá una
+   función que marcaba campos obligatorios en un formulario vinculado:
+   se quitó porque no correspondía y podía romper el envío de MonAgric.
+   Las validaciones de carga van en MonAgric, no acá. */
 
 function importarHoras() {
   var libro = SpreadsheetApp.openById(ID_PLANILLA_HORAS);
