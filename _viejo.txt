@@ -1,0 +1,66 @@
+function escribirResumenHoras_() {
+  var ss = SpreadsheetApp.getActive();
+  var h = ss.getSheetByName('resumen');
+  if (!h) return;
+
+  /* Ojo con las letras: dentro de QUERY se cuentan desde el inicio del
+     rango, no desde la hoja. En horas!B2:D -> A=mes, B=trabajador, C=horas. */
+  bloque_(h, 'A100', 'HORAS POR TRABAJADOR · MES A MES', COLOR.tierra, 8);
+  h.getRange('A101').setValue(
+    '=IFERROR(QUERY(horas!B2:D;"select B, sum(C) where B is not null ' +
+    'group by B pivot A label B \'trabajador\'";0);"sin datos")');
+
+  bloque_(h, 'A120', 'HORAS POR ÁREA · MES A MES', COLOR.tierra, 8);
+  h.getRange('A121').setValue(
+    '=IFERROR(QUERY({horas!B2:B\\horas!F2:F\\horas!D2:D};' +
+    '"select Col2, sum(Col3) where Col2 is not null ' +
+    'group by Col2 pivot Col1 label Col2 \'área\'";0);"sin datos")');
+
+  /* A liquidar: lo devengado sale de las horas, lo pagado de los egresos
+     con concepto "sueldos" y la persona en su columna. El saldo es la
+     resta. Mientras no se pague, eso es plata que el proyecto debe y que
+     NO aparece en el balance: por eso se mira acá.
+     En horas!C2:H -> A=trabajador, B=horas, C=actividad, D=área, E=tarifa, F=devengado */
+  bloque_(h, 'J100', 'A LIQUIDAR POR TRABAJADOR', COLOR.rojo, 5);
+  h.getRange('J101').setValue(
+    '=IFERROR(QUERY(horas!C2:H;"select A, sum(B), sum(F) where A is not null ' +
+    'group by A order by sum(F) desc ' +
+    'label A \'trabajador\', sum(B) \'horas\', sum(F) \'devengado\'";0);"sin datos")');
+
+  h.getRange('M101:N101').setValues([['pagado', 'saldo']])
+    .setFontWeight('bold').setBackground(COLOR.verdeClaro)
+    .setHorizontalAlignment('center');
+  var pagos = [];
+  for (var i = 102; i < 122; i++) {
+    var pagado = 'SUMIFS(egresos!$D$2:$D$2000;egresos!$C$2:$C$2000;"sueldos";' +
+                 'egresos!$G$2:$G$2000;$J' + i + ')';
+    pagos.push([
+      '=IF($J' + i + '="";"";' + pagado + ')',
+      '=IF($J' + i + '="";"";L' + i + '-M' + i + ')'
+    ]);
+  }
+  h.getRange('M102:N121').setValues(pagos).setNumberFormat('"$"#,##0');
+
+  h.getRange('B101:N118').setNumberFormat('#,##0.##');
+  h.getRange('B121:N140').setNumberFormat('#,##0.##');
+  h.getRange('K101:K120').setNumberFormat('#,##0.##');
+  h.getRange('L101:L120').setNumberFormat('"$"#,##0');
+}
+
+/* ================= Respaldos automáticos =================
+   Cada madrugada se guarda una copia completa de la planilla en una
+   carpeta "respaldos bioma-db", al lado de la original en Drive. Se
+   conservan los últimos 30 días; los más viejos van a la papelera.
+
+   Para activarlo, una sola vez: en el editor de Apps Script elegir la
+   función `instalarRespaldoDiario` y tocar Ejecutar. Pide autorización
+   para acceder a Drive porque tiene que crear la copia.
+
+   Para restaurar: abrir la copia del día que sirva y usar
+   "Archivo → Hacer una copia", o copiar las hojas que hagan falta a la
+   planilla original. Nunca se toca la planilla en uso.
+   ============================================================ */
+
+var CARPETA_RESPALDOS = 'respaldos bioma-db';
+var RESPALDOS_A_CONSERVAR = 30;
+

@@ -1428,55 +1428,135 @@ function escribirHoras_(filas) {
     'próxima importación. Corregir en la planilla de origen.');
 }
 
-/* Las tablas de horas van en la misma hoja "resumen", debajo de todo, para
-   que la gestión económica se mire en un solo lugar. */
+/* Tablas de horas en la hoja "resumen".
+
+   Las calcula el script y escribe los números, en vez de dejar fórmulas
+   QUERY. Ya es la tercera vez que un QUERY falla en esta planilla (las
+   fórmulas en inglés, el flujo de fondos, y ahora estas) y el modo de
+   fallar siempre es el peor: la tabla queda vacía sin decir por qué, y
+   hay que descubrirlo preguntando. Los datos ya están leídos acá: que
+   los escriba.
+
+   Lo único que queda como fórmula es lo pagado (SUMIFS sobre egresos) y
+   el saldo, porque tienen que cambiar solos cuando se registra un pago.
+   ============================================================ */
 function escribirResumenHoras_() {
   var ss = SpreadsheetApp.getActive();
   var h = ss.getSheetByName('resumen');
   if (!h) return;
+  var datos = leerHojaHoras_();
 
-  /* Ojo con las letras: dentro de QUERY se cuentan desde el inicio del
-     rango, no desde la hoja. En horas!B2:D -> A=mes, B=trabajador, C=horas. */
-  bloque_(h, 'A100', 'HORAS POR TRABAJADOR · MES A MES', COLOR.tierra, 8);
-  h.getRange('A101').setValue(
-    '=IFERROR(QUERY(horas!B2:D;"select B, sum(C) where B is not null ' +
-    'group by B pivot A label B \'trabajador\'";0);"sin datos")');
+  h.getRange('A100:N145').clearContent();
+  h.getRange('J100:N125').clearContent();
 
-  bloque_(h, 'A120', 'HORAS POR ÁREA · MES A MES', COLOR.tierra, 8);
-  h.getRange('A121').setValue(
-    '=IFERROR(QUERY({horas!B2:B\\horas!F2:F\\horas!D2:D};' +
-    '"select Col2, sum(Col3) where Col2 is not null ' +
-    'group by Col2 pivot Col1 label Col2 \'área\'";0);"sin datos")');
+  pivotHoras_(h, 'A100', 'HORAS POR TRABAJADOR · MES A MES', datos, 'trabajador');
+  pivotHoras_(h, 'A120', 'HORAS POR ÁREA · MES A MES', datos, 'area');
+  liquidacionHoras_(h, datos);
+}
 
-  /* A liquidar: lo devengado sale de las horas, lo pagado de los egresos
-     con concepto "sueldos" y la persona en su columna. El saldo es la
-     resta. Mientras no se pague, eso es plata que el proyecto debe y que
-     NO aparece en el balance: por eso se mira acá.
-     En horas!C2:H -> A=trabajador, B=horas, C=actividad, D=área, E=tarifa, F=devengado */
+// Los renglones de la hoja "horas", ya normalizados por importarHoras
+function leerHojaHoras_() {
+  var h = SpreadsheetApp.getActive().getSheetByName('horas');
+  if (!h || h.getLastRow() < 2) return [];
+  var v = h.getRange(2, 1, h.getLastRow() - 1, 8).getValues();
+  var out = [];
+  for (var i = 0; i < v.length; i++) {
+    if (!v[i][2]) continue;
+    out.push({
+      mes: String(v[i][1] || ''),
+      trabajador: String(v[i][2] || ''),
+      horas: Number(v[i][3]) || 0,
+      area: String(v[i][5] || 'sin área'),
+      devengado: Number(v[i][7]) || 0
+    });
+  }
+  return out;
+}
+
+/* Una tabla con los meses en las columnas y las personas (o las áreas)
+   en las filas, más una columna de total. */
+function pivotHoras_(h, celda, titulo, datos, campo) {
+  var r = h.getRange(celda);
+  var fila0 = r.getRow(), col0 = r.getColumn();
+
+  if (!datos.length) {
+    bloque_(h, celda, titulo, COLOR.tierra, 3);
+    h.getRange(fila0 + 1, col0).setValue('Todavía no hay horas importadas');
+    return;
+  }
+
+  var meses = {}, claves = {}, celdas = {};
+  datos.forEach(function (d) {
+    if (!d.mes) return;
+    meses[d.mes] = true;
+    claves[d[campo]] = (claves[d[campo]] || 0) + d.horas;
+    celdas[d[campo] + '|' + d.mes] = (celdas[d[campo] + '|' + d.mes] || 0) + d.horas;
+  });
+  var listaMeses = Object.keys(meses).sort();
+  // De mayor a menor: lo que más horas se lleva, arriba
+  var listaClaves = Object.keys(claves).sort(function (a, b) { return claves[b] - claves[a]; });
+
+  bloque_(h, celda, titulo, COLOR.tierra, listaMeses.length + 2);
+
+  var tabla = [[campo === 'area' ? 'área' : 'trabajador'].concat(listaMeses).concat(['TOTAL'])];
+  listaClaves.forEach(function (k) {
+    var fila = [k];
+    listaMeses.forEach(function (m) { fila.push(celdas[k + '|' + m] || ''); });
+    fila.push(claves[k]);
+    tabla.push(fila);
+  });
+  var totales = ['TOTAL'];
+  listaMeses.forEach(function (m) {
+    var s = 0;
+    listaClaves.forEach(function (k) { s += celdas[k + '|' + m] || 0; });
+    totales.push(s);
+  });
+  totales.push(datos.reduce(function (s, d) { return s + d.horas; }, 0));
+  tabla.push(totales);
+
+  h.getRange(fila0 + 1, col0, tabla.length, tabla[0].length)
+    .setValues(tabla).setNumberFormat('#,##0.##');
+  h.getRange(fila0 + 1, col0, 1, tabla[0].length)
+    .setFontWeight('bold').setBackground(COLOR.tierraClaro);
+  h.getRange(fila0 + tabla.length, col0, 1, tabla[0].length).setFontWeight('bold');
+}
+
+/* Cuánto se le debe a cada persona: lo devengado sale de las horas, lo
+   pagado de los egresos con concepto "sueldos" a su nombre. */
+function liquidacionHoras_(h, datos) {
   bloque_(h, 'J100', 'A LIQUIDAR POR TRABAJADOR', COLOR.rojo, 5);
-  h.getRange('J101').setValue(
-    '=IFERROR(QUERY(horas!C2:H;"select A, sum(B), sum(F) where A is not null ' +
-    'group by A order by sum(F) desc ' +
-    'label A \'trabajador\', sum(B) \'horas\', sum(F) \'devengado\'";0);"sin datos")');
+  if (!datos.length) {
+    h.getRange('J101').setValue('Todavía no hay horas importadas');
+    return;
+  }
 
-  h.getRange('M101:N101').setValues([['pagado', 'saldo']])
-    .setFontWeight('bold').setBackground(COLOR.verdeClaro)
-    .setHorizontalAlignment('center');
-  var pagos = [];
-  for (var i = 102; i < 122; i++) {
-    var pagado = 'SUMIFS(egresos!$D$2:$D$2000;egresos!$C$2:$C$2000;"sueldos";' +
-                 'egresos!$G$2:$G$2000;$J' + i + ')';
-    pagos.push([
-      '=IF($J' + i + '="";"";' + pagado + ')',
-      '=IF($J' + i + '="";"";L' + i + '-M' + i + ')'
+  var horas = {}, devengado = {};
+  datos.forEach(function (d) {
+    horas[d.trabajador] = (horas[d.trabajador] || 0) + d.horas;
+    devengado[d.trabajador] = (devengado[d.trabajador] || 0) + d.devengado;
+  });
+  var gente = Object.keys(devengado).sort(function (a, b) {
+    return devengado[b] - devengado[a];
+  });
+
+  h.getRange('J101:N101')
+    .setValues([['trabajador', 'horas', 'devengado', 'pagado', 'saldo']])
+    .setFontWeight('bold').setBackground(COLOR.verdeClaro);
+
+  var filas = [];
+  for (var i = 0; i < gente.length; i++) {
+    var n = 102 + i;
+    filas.push([
+      gente[i], horas[gente[i]], devengado[gente[i]],
+      // Vivo: cambia solo cuando se registra un pago en la app
+      '=SUMIFS(egresos!$D$2:$D$2000;egresos!$C$2:$C$2000;"sueldos";' +
+        'egresos!$G$2:$G$2000;$J' + n + ')',
+      '=L' + n + '-M' + n
     ]);
   }
-  h.getRange('M102:N121').setValues(pagos).setNumberFormat('"$"#,##0');
-
-  h.getRange('B101:N118').setNumberFormat('#,##0.##');
-  h.getRange('B121:N140').setNumberFormat('#,##0.##');
-  h.getRange('K101:K120').setNumberFormat('#,##0.##');
-  h.getRange('L101:L120').setNumberFormat('"$"#,##0');
+  h.getRange(102, 10, filas.length, 5).setValues(filas);
+  h.getRange(102, 11, filas.length, 1).setNumberFormat('#,##0.##');
+  h.getRange(102, 12, filas.length, 3).setNumberFormat('"$"#,##0');
 }
 
 /* ================= Respaldos automáticos =================
