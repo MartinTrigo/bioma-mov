@@ -46,7 +46,58 @@ function renderResumen() {
   renderFlujo();
   renderDesglose('#desglose-ingresos', ingresos, totIn, false);
   renderDesglose('#desglose-egresos', egresos, totOut, true);
+  renderHoras(periodo);
 }
+
+/* ================= Horas de trabajo =================
+   Vienen de la planilla de registro de horas (otro formulario) y son el
+   grueso del costo de la temporada. Acá se ven por área —en qué se
+   trabaja— y por persona —quién hizo qué—, con lo devengado al lado.
+
+   Lo devengado NO es un egreso hasta que se paga: mientras tanto es plata
+   que el proyecto debe. Por eso se muestra aparte del balance. */
+
+function renderHoras(periodo) {
+  const card = $('#card-horas');
+  const horas = db.horas || [];
+  if (!horas.length) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+
+  const enPeriodo = h => periodo === 'general' || String(h.mes) === periodo;
+  const items = horas.filter(enPeriodo);
+  const vista = $('#horas-vista').value;
+
+  const totHoras = items.reduce((s, h) => s + num(h.horas), 0);
+  const totPlata = items.reduce((s, h) => s + num(h.devengado), 0);
+  $('#horas-total').innerHTML = items.length
+    ? `<span><strong>${totHoras.toLocaleString('es-AR')}</strong> horas</span>
+       <span>devengado <strong>${fmt(totPlata)}</strong></span>`
+    : '';
+
+  if (!items.length) {
+    $('#horas-desglose').innerHTML = '<p class="empty">Sin horas en este período</p>';
+    return;
+  }
+
+  const por = {};
+  items.forEach(h => {
+    const k = (vista === 'area' ? (h.area || 'sin área') : (h.trabajador || 'sin nombre'));
+    por[k] = (por[k] || 0) + num(h.horas);
+  });
+  const filas = Object.entries(por).sort((a, b) => b[1] - a[1]);
+  const max = filas[0][1] || 1;
+
+  $('#horas-desglose').innerHTML = filas.map(([nombre, hs]) => {
+    const pct = totHoras ? (hs / totHoras * 100) : 0;
+    return `<div class="dg-row">
+      <span class="dg-name">${esc(nombre)}</span>
+      <span class="dg-bar-wrap"><span class="dg-bar horas" style="width:${(hs / max * 100).toFixed(1)}%"></span></span>
+      <span class="dg-val">${hs.toLocaleString('es-AR')} h <span class="dg-pct">${pct.toFixed(1)}%</span></span>
+    </div>`;
+  }).join('');
+}
+
+$('#horas-vista').addEventListener('change', renderResumen);
 
 /* ================= Flujo de fondos mes a mes =================
    El mismo dato que la hoja "resumen" de la planilla, pero acá se puede

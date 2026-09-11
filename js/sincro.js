@@ -89,6 +89,9 @@ async function sincronizar(silencioso) {
       db.ventas = ventas.slice(-VENTANA_VENTAS);
       db.ventasTotal = remoto.ventasTotal || db.ventas.length;
     }
+    /* Las horas son de solo lectura: se cargan en su propia planilla y la
+       app solo las muestra. Por eso se reemplazan enteras, sin fusionar. */
+    if (Array.isArray(remoto.horas)) db.horas = remoto.horas;
 
     adoptarConceptos(remoto, conceptosEnviados);
 

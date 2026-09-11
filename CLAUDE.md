@@ -154,3 +154,25 @@ planificación semanal (Fase 4.7). Todo en `PLAN.md`.
 - El importador reconoce por **SKU → nombre → equivalencia aprendida**, y lo
   que no reconoce lo deja pendiente. **Nunca inventar una equivalencia**: un
   error acá ensucia el análisis de toda la temporada.
+
+## Horas de trabajo
+
+- Se registran en **otra planilla** (formulario que llenan los socios),
+  id en `ID_PLANILLA_HORAS` dentro de `Code.gs`. Son **el grueso del costo
+  de la temporada**.
+- El script las lee, las normaliza y las deja en la hoja `horas` de
+  bioma-db. Esa hoja **se reescribe entera**: corregir en la planilla de
+  origen, nunca acá.
+- Las fechas vienen en **tres formatos** (`d/m/aaaa`, `d/m/aa` y
+  `d/m/aaaa 12:00:00`) según se carguen por formulario o a mano. Sin
+  normalizarlas los meses salen mal. Lo que no se entiende **se descarta y
+  se avisa**; no se adivina.
+- La tarifa sale de la hoja "Cuenta individual — Nombre" de cada persona,
+  así respeta tarifas distintas.
+- **No corre en cada sincronización** (leer otra planilla es lento): va con
+  el respaldo diario, o a mano con `importarHoras`.
+- A la app viajan **agregadas por mes + persona + área**, no los ~400
+  registros sueltos.
+- **Lo devengado no es un egreso hasta que se paga.** Mientras tanto es
+  plata que el proyecto debe. Por eso se muestra aparte del balance y no
+  se suma al flujo de fondos.

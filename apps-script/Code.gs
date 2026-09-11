@@ -174,6 +174,7 @@ function sincronizar_(entrada) {
     productos: productos,
     ventas: ventas.slice(-VENTANA_VENTAS),
     ventasTotal: ventas.length,
+    horas: resumirHoras_(),
     conceptos: conceptos,
     listas: estado.listas,
     borrados: listaBorrados
@@ -958,6 +959,11 @@ function escribirResumen_() {
   h.setColumnWidth(10, 180);
   h.setColumnWidth(13, 150);
   [5, 6, 7, 8, 11, 14].forEach(function (c) { h.setColumnWidth(c, 105); });
+
+  /* Las tablas de horas van en esta misma hoja, más abajo. Se reponen acá
+     porque el clear() de arriba las borra: si se dejaran sueltas, cualquier
+     rearmado del resumen las haría desaparecer sin que nadie lo note. */
+  escribirResumenHoras_();
 }
 
 // Encabezado de bloque: una barra de color con el título
@@ -1259,6 +1265,28 @@ function importarHoras() {
   if (sinFecha) aviso += ' · ' + sinFecha + ' sin fecha entendible (quedaron afuera)';
   if (sinArea) aviso += ' · ' + sinArea + ' sin área';
   return aviso;
+}
+
+/* Lo que viaja a la app: no los ~400 registros sueltos, sino un renglón
+   por mes + trabajador + área. Alcanza para todos los resúmenes de la
+   pantalla y es una fracción del tamaño. */
+function resumirHoras_() {
+  var ss = SpreadsheetApp.getActive();
+  var h = ss.getSheetByName('horas');
+  if (!h || h.getLastRow() < 2) return [];
+  var v = h.getRange(2, 1, h.getLastRow() - 1, 8).getValues();
+  var acum = {};
+  for (var i = 0; i < v.length; i++) {
+    var mes = String(v[i][1] || '');
+    var quien = String(v[i][2] || '');
+    var area = String(v[i][5] || '');
+    if (!mes || !quien) continue;
+    var k = mes + '|' + quien + '|' + area;
+    if (!acum[k]) acum[k] = { mes: mes, trabajador: quien, area: area, horas: 0, devengado: 0 };
+    acum[k].horas += Number(v[i][3]) || 0;
+    acum[k].devengado += Number(v[i][7]) || 0;
+  }
+  return Object.keys(acum).map(function (k) { return acum[k]; });
 }
 
 function escribirHoras_(filas) {

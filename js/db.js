@@ -53,6 +53,9 @@ function estadoInicial() {
        renglones de una misma operación. La app guarda solo los últimos
        (VENTANA_VENTAS): la planilla los conserva todos. */
     ventas: [],
+    /* Horas de trabajo, traídas de la planilla de registro. Son solo de
+       lectura: se corrigen en su planilla de origen, no acá. */
+    horas: [],
     listas: structuredClone(LISTAS_DEFAULT),
     // tumbas {id, mod}: propagan las eliminaciones entre dispositivos
     borrados: [],
@@ -78,6 +81,7 @@ function normalizar(d) {
   d.deudas = d.deudas || [];
   d.productos = d.productos || [];
   d.ventas = d.ventas || [];
+  d.horas = d.horas || [];
   d.borrados = d.borrados || [];
   d.conceptos = d.conceptos || base.conceptos;
   d.conceptosNuevos = d.conceptosNuevos || { ingresos: [], egresos: [] };
