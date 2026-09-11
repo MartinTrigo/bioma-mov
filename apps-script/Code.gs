@@ -1251,6 +1251,32 @@ function tarifasPorTrabajador_(libro) {
   return tarifas;
 }
 
+/* Para cada texto escrito de varias formas ("Frutícola" / "Fruticola"),
+   elige una sola: la que más veces aparece. Empate, la primera.
+   Devuelve un mapa forma-normalizada -> forma elegida. */
+function formasCanonicas_(valores, columnas) {
+  var cuenta = {};
+  for (var i = 1; i < valores.length; i++) {
+    for (var c = 0; c < columnas.length; c++) {
+      if (columnas[c] < 0) continue;
+      var texto = String(valores[i][columnas[c]] || '').trim();
+      if (!texto) continue;
+      var k = normClave_(texto);
+      if (!cuenta[k]) cuenta[k] = {};
+      cuenta[k][texto] = (cuenta[k][texto] || 0) + 1;
+    }
+  }
+  var canon = {};
+  Object.keys(cuenta).forEach(function (k) {
+    var mejor = '', veces = -1;
+    Object.keys(cuenta[k]).forEach(function (forma) {
+      if (cuenta[k][forma] > veces) { veces = cuenta[k][forma]; mejor = forma; }
+    });
+    canon[k] = mejor;
+  });
+  return canon;
+}
+
 function importarHoras() {
   var libro = SpreadsheetApp.openById(ID_PLANILLA_HORAS);
   var origen = libro.getSheets()[0];   // la hoja del formulario
@@ -1277,16 +1303,25 @@ function importarHoras() {
   }
 
   var tarifas = tarifasPorTrabajador_(libro);
+  /* Las áreas y los nombres se escriben a mano en un formulario: tarde o
+     temprano aparece "Fruticola" sin tilde junto a "Frutícola", o "marto"
+     junto a "Marto", y los totales se parten en dos. Ya nos pasó con los
+     conceptos. Se unifican antes de guardar: gana la forma más usada. */
+  var canon = formasCanonicas_(valores, [iArea, iQuien]);
+  var unificar = function (texto) {
+    return canon[normClave_(texto)] || String(texto || '').trim();
+  };
+
   var filas = [], sinFecha = 0, sinArea = 0;
   for (var i = 1; i < valores.length; i++) {
     var f = valores[i];
-    var quien = String(f[iQuien] || '').trim();
+    var quien = unificar(f[iQuien]);
     var horas = normMonto_(f[iHoras]);
     if (!quien || !horas) continue;
 
     var fecha = fechaHoras_(f[iFecha]);
     if (!fecha) { sinFecha++; continue; }   // sin fecha no se puede imputar al mes
-    var area = iArea > -1 ? String(f[iArea] || '').trim() : '';
+    var area = iArea > -1 ? unificar(f[iArea]) : '';
     if (!area) { area = 'sin área'; sinArea++; }
 
     filas.push([
