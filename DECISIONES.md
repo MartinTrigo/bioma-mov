@@ -215,3 +215,22 @@ es consistente consigo mismo.
 
 Los alias viven en `CANONICO`, en cada endpoint. Al renombrar una columna en
 la planilla hay que agregarlo ahí.
+
+## 13. El id de la planilla dentro del código, que cada actualización borraba
+**Qué pasó:** los endpoints guardaban el id de bioma-db en una constante del
+archivo (`var ID_BIOMA_DB = ''`). En el repo va vacía, porque no es del repo.
+Así que cada vez que Martín pegaba una versión nueva del archivo **le borraba
+el id que había puesto a mano**, y el endpoint contestaba "falta completar
+ID_BIOMA_DB". Pasó en la primera actualización, con los dos a la vez.
+
+Lo peor del diseño es que el error aparecía *después* de implementar, con el
+paso ya dado por hecho: "ya actualicé ambos archivos".
+
+**Lección:** la configuración no va en el código que se reemplaza. Va en las
+**propiedades del script**, que sobreviven a que se pegue una versión nueva.
+Se pone una vez con `configurar()` y no se vuelve a tocar. Es lo que ya hacía
+MonAgric con las URLs (`CUENTAS_URLS`), y había que copiarlo.
+
+La constante quedó como respaldo, vacía a propósito, y una prueba verifica que
+**estando vacía el endpoint funciona igual**: si mañana alguien vuelve a
+depender de ella, la prueba lo dice.

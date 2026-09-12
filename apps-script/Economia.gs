@@ -32,20 +32,45 @@
    Igual que Cuentas.gs:
    1. script.google.com → Nuevo proyecto → "Bioma · Economía"
    2. Pegar este archivo entero (Ctrl+A en el editor antes de pegar).
-   3. Completar ID_BIOMA_DB: sale de la URL de la planilla abierta en
-      Drive, docs.google.com/spreadsheets/d/ESTO/edit — NO es el id del
-      proyecto de Apps Script ni el de la implementación.
+   3. Pegar el id de bioma-db dentro de `configurar` y ejecutar esa
+      función UNA vez. Queda guardado en las propiedades del script, así
+      que las actualizaciones futuras ya no lo borran.
+      El id sale de la URL de la planilla abierta en Drive,
+      docs.google.com/spreadsheets/d/ESTO/edit — NO es el id del proyecto
+      de Apps Script ni el de la implementación.
    4. Ejecutar `probar` una vez (pide permisos y muestra el resultado).
    5. Implementar → Nueva implementación → Aplicación web
       Ejecutar como: yo · Quién tiene acceso: **cualquier usuario**
       (si dice "con una cuenta de Google" devuelve la pantalla de login)
-   Para actualizarlo: Administrar implementaciones → ✏ → Nueva versión.
+
+   CÓMO SE ACTUALIZA
+   -----------------
+   Pegar la versión nueva y Administrar implementaciones → ✏ → Nueva
+   versión. No hay que volver a poner el id.
    ============================================================ */
 
 var API_ECONOMIA = 1;
 
-// Pegar acá el id de bioma-db, en el editor de Apps Script.
+/* El id de bioma-db va en las PROPIEDADES DEL SCRIPT, no acá: pegar una
+   versión nueva de este archivo borraría la constante y el endpoint dejaría
+   de andar. Las propiedades sobreviven a que se reemplace el código.
+   Se pone una sola vez: ver `configurar` más abajo.
+   Esta constante queda como respaldo, vacía a propósito. */
 var ID_BIOMA_DB = '';
+
+function idPlanilla_() {
+  var p = PropertiesService.getScriptProperties().getProperty('ID_BIOMA_DB');
+  return (p && p.trim()) || ID_BIOMA_DB;
+}
+
+/* Se ejecuta A MANO una sola vez, con el id pegado acá abajo. Después se
+   puede borrar de esta línea: ya quedó guardado en las propiedades. */
+function configurar() {
+  var id = '';   // <-- pegar el id de bioma-db y ejecutar esta función
+  if (!id) throw new Error('Pegá el id de bioma-db en la variable "id" de configurar().');
+  PropertiesService.getScriptProperties().setProperty('ID_BIOMA_DB', id.trim());
+  Logger.log('Guardado. Ya podés ejecutar probar().');
+}
 
 /* La temporada agrícola no arranca en enero. Acá empieza en JULIO: la
    temporada "2026-27" va del 1/7/2026 al 30/6/2027. Bioma no registra
@@ -297,11 +322,14 @@ function hoyISO_() {
    planilla ya rompió cosas antes (error 11 de DECISIONES.md). */
 
 function abrir_() {
-  if (!ID_BIOMA_DB) {
-    throw new Error('Falta completar ID_BIOMA_DB con el id de la planilla bioma-db.');
+  var id = idPlanilla_();
+  if (!id) {
+    throw new Error('Falta el id de bioma-db. Ejecutá una vez la función ' +
+      'configurar() con el id pegado adentro, o guardalo a mano en ' +
+      'Configuración del proyecto → Propiedades del script, como ID_BIOMA_DB.');
   }
   try {
-    return SpreadsheetApp.openById(ID_BIOMA_DB);
+    return SpreadsheetApp.openById(id);
   } catch (e) {
     throw new Error('No se pudo abrir la planilla con ese id. Ojo: no es el ' +
       'id del proyecto de Apps Script (script.google.com/home/projects/...), ' +

@@ -30,22 +30,47 @@
    ---------------
    1. script.google.com → Nuevo proyecto → nombre "Bioma · Cuentas"
    2. Pegar este archivo entero.
-   3. Completar ID_BIOMA_DB acá abajo (el id sale de la URL de la
-      planilla: .../spreadsheets/d/ESTO_DE_ACA/edit). El id se pega en
-      el editor de Apps Script, NO en este archivo del repo.
+   3. Pegar el id de bioma-db dentro de `configurar` y ejecutar esa
+      función UNA vez. Queda guardado en las propiedades del script, así
+      que las actualizaciones futuras ya no lo borran. El id sale de la
+      URL de la planilla: .../spreadsheets/d/ESTO_DE_ACA/edit — y se pega
+      en el editor de Apps Script, NO en este archivo del repo.
    4. Ejecutar `probar` una vez: pide permisos y muestra el resultado
       en el registro. Si ahí se ve bien, ya está.
    5. Implementar → Nueva implementación → Aplicación web
-      Ejecutar como: yo · Quién tiene acceso: cualquier persona
+      Ejecutar como: yo · Quién tiene acceso: **cualquier usuario**
+      (si dice "con una cuenta de Google" devuelve la pantalla de login)
    6. Esa URL es la que usa MonAgric.
-   Para actualizarlo después: Administrar implementaciones → ✏ → Nueva
-   versión. Nunca "Nueva implementación" (quedan dos URLs peleando).
+
+   CÓMO SE ACTUALIZA
+   -----------------
+   Pegar la versión nueva y Administrar implementaciones → ✏ → Nueva
+   versión. No hay que volver a poner el id. Nunca "Nueva implementación"
+   (quedan dos URLs peleando).
    ============================================================ */
 
 var API_CUENTAS = 1;
 
-// Pegar acá el id de bioma-db, en el editor de Apps Script.
+/* El id de bioma-db va en las PROPIEDADES DEL SCRIPT, no acá: pegar una
+   versión nueva de este archivo borraría la constante y el endpoint dejaría
+   de andar. Las propiedades sobreviven a que se reemplace el código.
+   Se pone una sola vez: ver `configurar` más abajo.
+   Esta constante queda como respaldo, vacía a propósito. */
 var ID_BIOMA_DB = '';
+
+function idPlanilla_() {
+  var p = PropertiesService.getScriptProperties().getProperty('ID_BIOMA_DB');
+  return (p && p.trim()) || ID_BIOMA_DB;
+}
+
+/* Se ejecuta A MANO una sola vez, con el id pegado acá abajo. Después se
+   puede borrar de esta línea: ya quedó guardado en las propiedades. */
+function configurar() {
+  var id = '';   // <-- pegar el id de bioma-db y ejecutar esta función
+  if (!id) throw new Error('Pegá el id de bioma-db en la variable "id" de configurar().');
+  PropertiesService.getScriptProperties().setProperty('ID_BIOMA_DB', id.trim());
+  Logger.log('Guardado. Ya podés ejecutar probar().');
+}
 
 // Un pago a un trabajador es un egreso con este concepto y su nombre
 // en la columna "persona". Es el mismo criterio que usa la app.
@@ -82,15 +107,18 @@ function probar() {
 /* ================= El cálculo ================= */
 
 function cuentas_() {
-  if (!ID_BIOMA_DB) {
-    throw new Error('Falta completar ID_BIOMA_DB con el id de la planilla bioma-db.');
+  var id = idPlanilla_();
+  if (!id) {
+    throw new Error('Falta el id de bioma-db. Ejecutá una vez la función ' +
+      'configurar() con el id pegado adentro, o guardalo a mano en ' +
+      'Configuración del proyecto → Propiedades del script, como ID_BIOMA_DB.');
   }
   /* El error de Google acá ("Illegal spreadsheet id") no dice cuál es el
      id correcto, y el del proyecto de Apps Script se parece bastante como
      para confundirse. */
   var libro;
   try {
-    libro = SpreadsheetApp.openById(ID_BIOMA_DB);
+    libro = SpreadsheetApp.openById(id);
   } catch (e) {
     throw new Error('No se pudo abrir la planilla con ese id. Ojo: no es el ' +
       'id del proyecto de Apps Script (script.google.com/home/projects/...), ' +
