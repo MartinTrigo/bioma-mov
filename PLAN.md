@@ -123,9 +123,12 @@ una planilla que después no encuentra.
 1. **La cuenta vive en bioma-db** · hecho. Es el único lugar con los dos lados:
    devengado (horas) y pagado (egresos `sueldos` con persona). El detalle de
    pagos ya estaba: fecha, monto y observación en la hoja `egresos`.
-2. **Endpoint de consulta** · hecho. `apps-script/Cuentas.gs`, proyecto de Apps
-   Script **aparte** y de solo lectura. Falta que Martín lo instale y lo
-   implemente (instrucciones en el encabezado del archivo).
+2. **Endpoint de consulta** · hecho e implementado. `apps-script/Cuentas.gs`,
+   proyecto de Apps Script **aparte** y de solo lectura. Verificado contra
+   bioma-db: 404 h, $3.990.000, ocho trabajadores.
+2bis. **Endpoint del resumen económico** · hecho, falta implementar.
+   `apps-script/Economia.gs`, un tercer proyecto aparte. Balance, mes a mes y
+   agregado por concepto, todo pre-calculado. Contrato en `ECONOMIA.md`.
 3. **Pantalla "Cuentas" en MonAgric** · falta, va en la otra conversación.
    Lista de integrantes → cuenta de cada uno: horas por mes desglosadas por
    área, horas y pesos pagados, adeudados, y la lista de pagos. Contrato en

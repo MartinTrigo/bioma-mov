@@ -55,6 +55,8 @@ app.js              arranque y pestañas (se carga ÚLTIMO)
 apps-script/Code.gs  el "servidor": vive en la planilla
 apps-script/Cuentas.gs  endpoint SOLO LECTURA de cuentas de trabajadores,
                         proyecto de Apps Script APARTE (ver CUENTAS.md)
+apps-script/Economia.gs endpoint SOLO LECTURA del resumen económico,
+                        otro proyecto APARTE (ver ECONOMIA.md)
 ```
 
 Los scripts se cargan en ese orden con `<script>` clásicos; no son módulos ES.
@@ -217,3 +219,29 @@ MonAgric  →  planilla de horas  →  bioma-db  →  MonAgric
 - El contrato completo (qué devuelve, qué no hace, cómo se instala) está en
   `apps-script/CUENTAS.md`. Es el papel que se pasa a la conversación de
   MonAgric.
+
+### Los endpoints de consulta
+
+Son **tres proyectos de Apps Script distintos**, no tres archivos de uno:
+cada proyecto tiene un solo `doGet`.
+
+| script | qué devuelve | contrato | puede ir en MonAgric |
+|---|---|---|---|
+| `Code.gs` | todo, y **escribe** | — | **NO. Nunca.** |
+| `Cuentas.gs` | cuentas de trabajadores | `CUENTAS.md` | sí |
+| `Economia.gs` | resumen económico agregado | `ECONOMIA.md` | sí |
+
+Los dos de consulta comparten forma: solo lectura, `api: 1`, responden
+`{"api":1,"error":"..."}` en vez de romper, y **repiten** sus herramientas
+(`leerHoja_`, `texto_`, `numero_`…) a propósito: son proyectos separados y
+una biblioteca común los ataría entre sí.
+
+- `Economia.gs` **no manda movimientos sueltos ni nombres**: solo agregados
+  por mes y por concepto, con los porcentajes ya calculados. Si MonAgric
+  hiciera las cuentas, en algún momento diferirían de las de acá.
+- **La temporada empieza en julio** (`MES_INICIO_TEMPORADA`). Es una
+  convención de `Economia.gs`: bioma-db no registra temporadas en ninguna
+  parte. Si el corte real es otro, se cambia ese número.
+- Al implementar, **"Quién tiene acceso" va en "Cualquier usuario"**. Si
+  queda en "cualquier usuario con una cuenta de Google", el endpoint
+  devuelve la pantalla de login en vez del JSON.
