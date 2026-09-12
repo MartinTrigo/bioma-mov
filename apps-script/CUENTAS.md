@@ -32,12 +32,21 @@ público**: va en su configuración local, como cualquier otra clave.
 
 ## Quién ve qué
 
-**Todos ven todo.** La pantalla lista a los integrantes y al tocar uno se abre
-su cuenta, sin contraseña por persona. Es una decisión, no un descuido: el
-endpoint no puede distinguir quién pregunta, así que prometer privacidad sería
-prometer algo que el sistema no puede sostener. En un grupo de seis que se
-reparten el trabajo, la cuenta de sueldos abierta es lo coherente con pedir
-transparencia.
+**Lo decide AMA, no este endpoint.** Acá viaja todo en una sola respuesta,
+porque este script no puede saber quién pregunta. AMA sí: cada teléfono tiene
+una credencial asociada a una persona. Entonces los socios ven las cuentas del
+equipo y cada trabajador ve la suya, y eso se resuelve allá.
+
+**La regla dura que hace que esto funcione:** la consulta la hace el
+**servidor** de AMA (`UrlFetchApp`), nunca el navegador. Si el teléfono pidiera
+esta URL directo, cualquiera vería las cuentas de todos y el filtro no serviría
+de nada. Así está implementado hoy: AMA guarda la URL en las propiedades de su
+script, la consulta desde el servidor, filtra y recién entonces le manda al
+teléfono lo que le corresponde.
+
+*(Antes acá decía "todos ven todo". Era la conclusión correcta mirando solo
+este lado, y quedó vieja cuando apareció la credencial por teléfono del lado
+de AMA.)*
 
 ## Cómo se consulta
 

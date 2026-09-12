@@ -67,10 +67,33 @@ muestra el último resumen bueno con un aviso, nunca una pantalla en blanco.
     { "concepto": "Sueldos", "monto": 1900000, "porcentaje": 48.6 }
   ],
 
+  // El trabajo de la temporada, sin nombres: el logro de haber registrado
+  // las horas. Agregado por Bioma a pedido de Martín, sept 2026.
+  "horas": {
+    "total": 404,
+    "porArea": [
+      { "area": "Hortícola", "horas": 180, "porcentaje": 44.6,
+        "actividades": [ { "actividad": "Cosecha y acondicionado", "horas": 90 } ] }
+    ],
+    "porActividad": [
+      { "actividad": "Cosecha y acondicionado", "horas": 120, "porcentaje": 29.7 }
+    ]
+  },
+
   // Para poder cruzar con la sección Cuentas sin volver a pedirla
   "sueldos": { "devengado": 2400000, "pagado": 1900000, "saldo": 500000 }
 }
 ```
+
+**Sobre `horas`:** las actividades van anidadas dentro del área a propósito.
+Saber que hubo 40 horas de "Siembras" sirve poco; lo que importa es de qué área
+fueron. `porActividad` es el mismo dato aplanado, para cuando se quiere el
+ranking sin abrir áreas. Las horas de un área **siempre** son la suma de sus
+actividades: si no dieran, hay un error de este lado.
+
+El **gráfico de flujo ingresos–egresos** sale de `meses`: no hace falta un campo
+aparte. Cada elemento ya trae ingresos, egresos y balance del mes, del más nuevo
+al más viejo.
 
 ### Lo que hace que esto sea usable
 

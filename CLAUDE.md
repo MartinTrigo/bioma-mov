@@ -17,17 +17,48 @@ que produce en **Chacra Tica** (Comarca Andina del Paralelo 42).
 - **Planilla:** `bioma-db` en Drive, carpeta del proyecto.
 - **Repositorio: PÚBLICO.** Nunca subir la URL del Web App ni datos reales.
 
+## La temporada
+
+Bioma no se maneja por año calendario sino **por temporada, que arranca en
+julio**. Saberlo cambia cómo se lee cualquier número: comparar enero con
+febrero no dice nada si uno es plena cosecha y el otro también, pero comparar
+julio con noviembre es comparar dos mundos.
+
+| mes | qué pasa |
+|---|---|
+| **julio** | planificación de la temporada que empieza |
+| **agosto** | primeras siembras |
+| set–oct | trasplantes |
+| **noviembre** | primeras cosechas |
+| nov–**mayo** | cosecha y venta, el grueso del movimiento |
+| **junio** | receso de invierno |
+
+Así que "2026-27" va del 1/7/2026 al 30/6/2027. Está en
+`MES_INICIO_TEMPORADA` dentro de `Economia.gs`, y es lo único que hay que
+cambiar si el corte se corre algún año.
+
+Consecuencias prácticas: los ingresos se concentran en el verano y los
+egresos de horas arrancan mucho antes, así que **un balance negativo entre
+agosto y octubre es lo normal**, no una alarma. Al mostrar un mes suelto
+conviene decir en qué etapa cae.
+
 ## El ecosistema
 
 Todo vive en `C:\MARTO\INFORMATICA\` y en GitHub de MartinTrigo:
 
 | Proyecto | Qué hace | Relación con esta app |
 |---|---|---|
-| **MonAgric** | Producción: chacras, bancales, siembras, cosechas, objetivos | Futuro: la cosecha alimenta el stock de Bioma |
+| **AMA** (antes MonAgric) | Producción: chacras, bancales, siembras, cosechas, objetivos, horas | Carga las horas; muestra las cuentas y el resumen económico que sirve esta app |
 | **Bioma/movimientos** | Esta app: economía y comercialización | — |
 | **Bioma/registro-horas** | Horas de trabajo de los socios | Los sueldos aparecen como egresos acá |
 | **Cocina Viva** | Ventas, stock y consignación de fermentos | **Modelo a imitar**: más madura, misma arquitectura |
 | **BioSalud** | (a futuro) | Podría aportar datos algún día |
+
+**AMA = App de Monitoreo Agrícola Agroecológico.** Es el nombre nuevo de
+MonAgric (sept 2026). La carpeta y el repositorio siguen llamándose
+`MonAgric`: renombrarlos rompería los enlaces. El ecosistema entero se llama
+AMA. Se puede leer su código desde acá; pedir acceso a
+`C:\MARTO\INFORMATICA\MonAgric` si no está concedido.
 
 Cuando haya que resolver algo que Cocina Viva ya resolvió (ventas con detalle,
 remitos, consignación, control de acceso), **mirar cómo lo hizo ahí antes de
@@ -213,12 +244,18 @@ MonAgric  →  planilla de horas  →  bioma-db  →  MonAgric
   escribir toda la economía, de modo que **no puede ir dentro de MonAgric**.
   La de `Cuentas.gs` sí: lo peor que se puede hacer con ella es mirar
   cuentas de sueldos.
-- **Todos ven todo**: sin contraseña por persona, el endpoint no puede
-  distinguir quién pregunta. Prometer privacidad sería prometer algo que el
-  sistema no sostiene.
+- **Quién ve qué lo decide AMA, no este lado.** Acá viaja todo en una sola
+  respuesta porque el endpoint no puede saber quién pregunta; AMA sí, porque
+  cada teléfono tiene una credencial asociada a una persona. Los socios ven
+  las cuentas del equipo y cada trabajador la suya (hoy Juanfra y Luqui).
+  Está implementado en AMA con dos propiedades de script: `CUENTAS_URLS` y
+  `CUENTAS_VEN_TODO`.
+- **La regla dura que sostiene todo eso:** la consulta la hace el **servidor**
+  de AMA con `UrlFetchApp`, nunca el navegador. Si el teléfono pidiera la URL
+  directo, cualquiera vería las cuentas de todos y el filtro no serviría de
+  nada. Lo mismo vale para `Economia.gs`.
 - El contrato completo (qué devuelve, qué no hace, cómo se instala) está en
-  `apps-script/CUENTAS.md`. Es el papel que se pasa a la conversación de
-  MonAgric.
+  `apps-script/CUENTAS.md`. Es el papel que se pasa a la conversación de AMA.
 
 ### Los endpoints de consulta
 
@@ -239,9 +276,15 @@ una biblioteca común los ataría entre sí.
 - `Economia.gs` **no manda movimientos sueltos ni nombres**: solo agregados
   por mes y por concepto, con los porcentajes ya calculados. Si MonAgric
   hiciera las cuentas, en algún momento diferirían de las de acá.
-- **La temporada empieza en julio** (`MES_INICIO_TEMPORADA`). Es una
-  convención de `Economia.gs`: bioma-db no registra temporadas en ninguna
-  parte. Si el corte real es otro, se cambia ese número.
+- `Economia.gs` también manda **las horas por área y actividad** (sin
+  nombres): es el logro de haber registrado las horas y se comparte con todo
+  el equipo. Las actividades van anidadas dentro del área a propósito: saber
+  que hubo 40 horas de "Siembras" sirve poco; importa de qué área fueron.
+- El **gráfico de flujo ingresos–egresos** sale de `meses`, que ya trae
+  ingresos, egresos y balance de cada uno. No hace falta un campo aparte.
+- **La temporada empieza en julio** (`MES_INICIO_TEMPORADA`). Ver la sección
+  "La temporada" más arriba. bioma-db no registra temporadas en ninguna parte:
+  es una convención de `Economia.gs`.
 - Al implementar, **"Quién tiene acceso" va en "Cualquier usuario"**. Si
   queda en "cualquier usuario con una cuenta de Google", el endpoint
   devuelve la pantalla de login en vez del JSON.

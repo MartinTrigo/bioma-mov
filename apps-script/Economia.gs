@@ -104,6 +104,10 @@ function economia_(temporadaPedida) {
     meses: porMes_(ingresos, egresos),
     ingresosPorConcepto: porConcepto_(ingresos, totIn),
     egresosPorConcepto: porConcepto_(egresos, totOut),
+    /* El trabajo de la temporada, sin nombres: en qué se trabajó y cuánto.
+       Es el logro de haber registrado las horas, y se comparte con todo el
+       equipo. Quién hizo cada hora va por Cuentas.gs, que tiene el filtro. */
+    horas: horas_(libro, rango),
     sueldos: sueldos_(libro, egresos, rango)
   };
 }
@@ -170,6 +174,65 @@ function porConcepto_(lista, total) {
         porcentaje: total ? Math.round(acum[k] / total * 1000) / 10 : 0
       };
     });
+}
+
+/* Las horas de la temporada por área, y dentro de cada área por
+   actividad. Saber que hubo 40 horas de "Siembras" sirve poco; lo que
+   importa es de qué área fueron. Es el mismo criterio que usa la hoja
+   "resumen" y la pantalla de la app.
+
+   Acá NO viaja ningún nombre. Es a propósito: este endpoint lo ve todo
+   el equipo, y quién trabajó cuántas horas es asunto del otro. */
+function horas_(libro, rango) {
+  var desde = rango.desde.slice(0, 7), hasta = rango.hasta.slice(0, 7);
+  var areas = {}, nombreArea = {}, actividades = {}, porAct = {}, nombreAct = {};
+  var total = 0;
+
+  leerHoja_(libro, 'horas').forEach(function (f) {
+    var mes = texto_(f['mes']);
+    if (!(mes >= desde && mes <= hasta)) return;
+    var hs = numero_(f['horas']);
+    if (!hs) return;
+    total += hs;
+
+    var a = texto_(f['área']) || 'sin área';
+    var ka = clave_(a);
+    if (!(ka in areas)) { areas[ka] = 0; nombreArea[ka] = a; actividades[ka] = {}; }
+    areas[ka] += hs;
+
+    var t = texto_(f['actividad']) || 'sin actividad';
+    var kt = clave_(t);
+    actividades[ka][kt] = (actividades[ka][kt] || 0) + hs;
+    if (!(kt in porAct)) { porAct[kt] = 0; nombreAct[kt] = t; }
+    porAct[kt] += hs;
+  });
+
+  function pct(n) { return total ? Math.round(n / total * 1000) / 10 : 0; }
+  function mayorPrimero(o) {
+    return Object.keys(o).sort(function (a, b) { return o[b] - o[a]; });
+  }
+
+  return {
+    total: redondear_(total),
+    porArea: mayorPrimero(areas).map(function (ka) {
+      var dentro = actividades[ka];
+      return {
+        area: nombreArea[ka],
+        horas: redondear_(areas[ka]),
+        porcentaje: pct(areas[ka]),
+        actividades: mayorPrimero(dentro).map(function (kt) {
+          return { actividad: nombreAct[kt], horas: redondear_(dentro[kt]) };
+        })
+      };
+    }),
+    porActividad: mayorPrimero(porAct).map(function (kt) {
+      return {
+        actividad: nombreAct[kt],
+        horas: redondear_(porAct[kt]),
+        porcentaje: pct(porAct[kt])
+      };
+    })
+  };
 }
 
 /* Cuánto pesan los sueldos, sin nombres. El detalle por persona viaja
