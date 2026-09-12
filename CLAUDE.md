@@ -155,9 +155,13 @@ productos con categorías y 4 listas de precio, **ventas por producto y punto
 de venta** con importador de la tienda virtual, resumen con tablas mes a mes,
 sincronización blindada y respaldos diarios.
 
-**Lo más importante que falta**, en orden: cargar los SKU en Whataform (hace
-confiable el importador), los bolsones abiertos en componentes, y la
-planificación semanal (Fase 4.7). Todo en `PLAN.md`.
+Hechas también las **cuentas de trabajadores y el resumen económico**: dos
+endpoints de solo lectura que AMA consulta y dibuja (Fase 4.8).
+
+**Lo que sigue está al principio de `PLAN.md`, en "Lo próximo"** — leerlo
+antes de proponer nada, porque hay tareas que dependen de que Martín haga algo
+a mano primero. Después: los SKU en Whataform (hace confiable el importador),
+los bolsones abiertos en componentes, y la planificación semanal (Fase 4.7).
 
 ## Ventas: lo que hay que saber
 

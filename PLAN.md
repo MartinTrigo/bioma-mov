@@ -6,6 +6,52 @@ y **qué depende de qué**.
 
 ---
 
+# Lo próximo · al 12/9/2026
+
+Lo de arriba lo hace Martín a mano; lo de abajo es programar. En orden.
+
+### 1. Correr `importarHoras` en bioma-db — **pendiente, es de Martín**
+Martín corrigió en el origen las actividades que estaban en un área
+equivocada, pero la hoja `horas` de bioma-db es una copia y sigue mostrando
+las viejas ("Siembras" en Administración, "Ejecución" en Hortícola). Apps
+Script de bioma-db → `importarHoras` → Ejecutar. Después vale confirmarlo
+consultando el endpoint de economía.
+
+*(Las combinaciones imposibles son registros viejos: el área era antes un
+campo libre llamado "Proyecto", escrito a mano y sin relación con la
+actividad. El formulario de hoy en AMA no puede producirlas, porque cada
+área trae su propia lista de actividades.)*
+
+### 2. Publicar — **pendiente**
+Hay commits sin subir, incluidos los dos endpoints, `honorarios` y los
+errores 12 y 13. `sw.js` ya está en `bioma-v22`, así que el push también
+actualiza la app en los teléfonos.
+
+### 3. La pantalla del resumen económico en AMA — **otra conversación**
+El endpoint está implementado y verificado; falta dibujarlo. Contrato en
+`apps-script/ECONOMIA.md`. Mensaje para pasarle a esa conversación:
+
+> El endpoint de economía ya está implementado y verificado. La URL va en
+> las propiedades del script, como las otras. El contrato actualizado está
+> en ECONOMIA.md: incluye `horas` (por área, con las actividades anidadas)
+> y el flujo mes a mes sale de `meses`, no hay campo aparte.
+
+### 4. Mirar dos cosas de los datos, no del código
+- **El 91,4% de los ingresos de la temporada son préstamos** ($7.070.000 de
+  $7.733.211). Coherente con septiembre, pero es lo que van a ver los socios
+  al abrir la pantalla.
+- **"Planificación" en Hortícola son 100 h**, la actividad más grande de la
+  temporada, un cuarto del total. Cuadra con julio; conviene confirmarlo.
+
+### 5. Jubilar "Registro de pagos realizados"
+En la planilla de horas. Recién cuando la pantalla de AMA funcione, para que
+haya una sola contabilidad. Es el punto 4 de la Fase 4.8.
+
+### Y lo que sigue después, por valor
+Fase 4.5 (análisis de ventas) y los SKU en Whataform. Ver más abajo.
+
+---
+
 # Hecho
 
 ## Fase 0 — Cimientos · **hecha**
@@ -126,9 +172,11 @@ una planilla que después no encuentra.
 2. **Endpoint de consulta** · hecho e implementado. `apps-script/Cuentas.gs`,
    proyecto de Apps Script **aparte** y de solo lectura. Verificado contra
    bioma-db: 404 h, $3.990.000, ocho trabajadores.
-2bis. **Endpoint del resumen económico** · hecho, falta implementar.
-   `apps-script/Economia.gs`, un tercer proyecto aparte. Balance, mes a mes y
-   agregado por concepto, todo pre-calculado. Contrato en `ECONOMIA.md`.
+2bis. **Endpoint del resumen económico** · hecho e implementado.
+   `apps-script/Economia.gs`, un tercer proyecto aparte. Balance, mes a mes,
+   agregado por concepto y horas por área y actividad, todo pre-calculado.
+   Contrato en `ECONOMIA.md`. Verificado contra bioma-db, y los números
+   coinciden con los de `Cuentas.gs`: 404 h y $3.990.000 por las dos puertas.
 3. **Pantalla "Cuentas" en MonAgric** · falta, va en la otra conversación.
    Lista de integrantes → cuenta de cada uno: horas por mes desglosadas por
    área, horas y pesos pagados, adeudados, y la lista de pagos. Contrato en
