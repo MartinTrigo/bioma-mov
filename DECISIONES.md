@@ -179,3 +179,39 @@ kilos decía "precio", y la hoja mentía sobre su propio contenido.
 
 **Lección:** tocar `COLUMNAS` obliga a subir el esquema para que se reescriban
 los encabezados. Si no, los datos y sus títulos quedan corridos.
+
+## 12. Leer la planilla por el encabezado visible, creyendo que era el nombre interno
+**Qué pasó:** los dos endpoints de consulta (`Cuentas.gs`, `Economia.gs`) leen
+las hojas **por nombre de columna** y no por posición, justamente por la
+lección del error 11. Pero bioma-db tiene dos listas distintas: `COLUMNAS`
+—los nombres internos— y `ENCABEZADOS` —las etiquetas que ve una persona—. No
+son iguales:
+
+| interno | encabezado en la hoja |
+|---|---|
+| `concepto` (en `ingresos`) | **punto de venta** |
+| `obs` | **observaciones** |
+
+Pedir `f['concepto']` sobre la hoja `ingresos` devolvía `undefined`, y el
+resumen económico mostraba **"sin concepto — 100%"**: todos los ingresos de la
+temporada apilados en una categoría inventada. No era un error visible: era un
+número que parecía un dato. El mismo problema dejaba vacía la observación de
+cada pago en `Cuentas.gs`, que nadie había notado porque todavía no hay pagos
+a trabajadores.
+
+**Por qué no lo atraparon las pruebas:** los datos inventados del banco de
+pruebas usaban los encabezados que yo **suponía** (`concepto`, `obs`), no los
+que la planilla tiene de verdad. 42 verificaciones en verde y el error intacto.
+Una prueba que inventa su propio esquema no prueba nada: prueba que el código
+es consistente consigo mismo.
+
+**Lección, doble:**
+1. Los datos de prueba tienen que copiar los **encabezados reales** de
+   `ENCABEZADOS`, no una versión idealizada. Están en `Code.gs`: leerlos.
+2. Cuando una columna esperada no aparece, **gritar**. `movimientos_` ahora
+   corta con un error que nombra los encabezados que sí encontró. Un dato
+   faltante que se dibuja como categoría es peor que una pantalla de error,
+   porque no se sospecha.
+
+Los alias viven en `CANONICO`, en cada endpoint. Al renombrar una columna en
+la planilla hay que agregarlo ahí.

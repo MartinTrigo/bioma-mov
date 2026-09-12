@@ -218,6 +218,15 @@ function pago_(f) {
    Por NOMBRE de columna, no por posición: agregar una columna en la
    planilla ya rompió cosas antes (error 11 de DECISIONES.md). */
 
+/* Los encabezados de bioma-db son etiquetas para humanos, NO los nombres
+   internos: la columna de observaciones de "egresos" se titula
+   "observaciones", así que pedir "obs" devolvía vacío en silencio y la
+   lista de pagos salía sin el detalle. Acá se traducen las que difieren. */
+var CANONICO = {
+  'observaciones': 'obs',
+  'punto de venta': 'concepto'
+};
+
 function leerHoja_(libro, nombre) {
   var h = libro.getSheetByName(nombre);
   if (!h || h.getLastRow() < 2) return [];
@@ -226,7 +235,11 @@ function leerHoja_(libro, nombre) {
   var out = [];
   for (var i = 1; i < v.length; i++) {
     var o = {};
-    for (var j = 0; j < cab.length; j++) if (cab[j]) o[cab[j]] = v[i][j];
+    for (var j = 0; j < cab.length; j++) {
+      if (!cab[j]) continue;
+      o[cab[j]] = v[i][j];
+      if (CANONICO[cab[j]]) o[CANONICO[cab[j]]] = v[i][j];
+    }
     out.push(o);
   }
   return out;

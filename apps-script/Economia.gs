@@ -115,7 +115,15 @@ function economia_(temporadaPedida) {
 /* Los movimientos de una hoja dentro de la temporada. Solo lo que hace
    falta para agregar: fecha, concepto y monto. Nada más sale de acá. */
 function movimientos_(libro, hoja, rango) {
-  return leerHoja_(libro, hoja).map(function (f) {
+  var filas = leerHoja_(libro, hoja);
+  /* Si no hay columna de concepto, el resumen saldría entero como "sin
+     concepto" y parecería un dato, no una falla. Mejor que grite. */
+  if (filas.length && !('concepto' in filas[0])) {
+    throw new Error('La hoja "' + hoja + '" no tiene una columna de concepto ' +
+      'reconocible. Encabezados encontrados: ' + Object.keys(filas[0]).join(', ') +
+      '. Si la columna se renombró, agregar el alias en CANONICO.');
+  }
+  return filas.map(function (f) {
     return {
       fecha: fecha_(f['fecha']),
       concepto: texto_(f['concepto']) || 'sin concepto',
@@ -302,6 +310,19 @@ function abrir_() {
   }
 }
 
+/* Los encabezados de bioma-db son etiquetas para humanos, NO los nombres
+   internos de las columnas: la de concepto de "ingresos" se titula "punto
+   de venta" y la de observaciones, "observaciones". Leer por nombre exacto
+   devolvía vacío en silencio y el resumen mostraba "sin concepto 100%".
+   Acá se traducen las que difieren; se dejan las dos claves, la de la hoja
+   y la interna, así sirven ambas. */
+var CANONICO = {
+  'punto de venta': 'concepto',
+  'observaciones': 'obs',
+  'presentación': 'presentacion',
+  'categoría': 'categoria'
+};
+
 function leerHoja_(libro, nombre) {
   var h = libro.getSheetByName(nombre);
   if (!h || h.getLastRow() < 2) return [];
@@ -310,7 +331,11 @@ function leerHoja_(libro, nombre) {
   var out = [];
   for (var i = 1; i < v.length; i++) {
     var o = {};
-    for (var j = 0; j < cab.length; j++) if (cab[j]) o[cab[j]] = v[i][j];
+    for (var j = 0; j < cab.length; j++) {
+      if (!cab[j]) continue;
+      o[cab[j]] = v[i][j];
+      if (CANONICO[cab[j]]) o[CANONICO[cab[j]]] = v[i][j];
+    }
     out.push(o);
   }
   return out;

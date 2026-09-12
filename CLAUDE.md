@@ -283,6 +283,15 @@ Los dos de consulta comparten forma: solo lectura, `api: 1`, responden
 (`leerHoja_`, `texto_`, `numero_`…) a propósito: son proyectos separados y
 una biblioteca común los ataría entre sí.
 
+⚠️ **Los encabezados de la planilla NO son los nombres internos.** Hay dos
+listas en `Code.gs`: `COLUMNAS` (internos) y `ENCABEZADOS` (lo que se ve).
+La columna `concepto` de `ingresos` se titula **"punto de venta"**, y `obs`
+se titula **"observaciones"**. Los endpoints leen por encabezado, así que
+traducen en `CANONICO`; al renombrar una columna hay que agregarla ahí.
+Los datos de prueba **deben copiar los encabezados reales**: usar los
+idealizados ya dejó pasar un error con 42 pruebas en verde (error 12 de
+`DECISIONES.md`).
+
 - `Economia.gs` **no manda movimientos sueltos ni nombres**: solo agregados
   por mes y por concepto, con los porcentajes ya calculados. Si MonAgric
   hiciera las cuentas, en algún momento diferirían de las de acá.
