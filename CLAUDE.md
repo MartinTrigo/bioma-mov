@@ -221,6 +221,16 @@ planificación semanal (Fase 4.7). Todo en `PLAN.md`.
   así que la app no deja guardar un egreso de sueldos sin ella.
 - Los conceptos `jornal` y `hs jornal` (duplicados entre sí) se unificaron
   en `sueldos`.
+- **`sueldos` ≠ `honorarios`.** `sueldos` liquida horas registradas y arma la
+  cuenta de una persona: la app **no deja guardarlo sin nombre**.
+  `honorarios` es plata para alguien de afuera que no registra horas —un
+  tallerista, un gasista—: pide el nombre pero **no obliga**, y no arma
+  ninguna cuenta. `Cuentas.gs` mira únicamente los egresos de `sueldos`, así
+  que la separación no depende de acordarse: es estructural. **No sumar
+  `honorarios` a `CONCEPTOS_SUELDO`**, ensuciaría las liquidaciones con pagos
+  a gente que nunca trabajó una hora.
+- Al pagar honorarios **no se sugiere la lista de trabajadores**: los nombres
+  salen de las horas registradas y ofrecerlos ahí empuja al error.
 
 ## Cuentas de los trabajadores
 

@@ -45,8 +45,9 @@
       <label>Concepto
         <select name="concepto" required></select>
       </label>
-      <!-- Solo aparece al liquidar horas: es lo que permite saber cuánto
-           se le pagó a cada persona y cuánto le queda pendiente. -->
+      <!-- Aparece al liquidar horas (obligatorio: de ahí sale el saldo de
+           cada persona) y al pagar honorarios (opcional: ahí es alguien de
+           afuera, que no tiene cuenta). -->
       <label id="label-persona" class="hidden">Persona
         <input type="text" name="persona" list="lista-trabajadores"
                placeholder="a quién se le paga">

@@ -6,12 +6,24 @@
    pantallas obligaba a cargar la misma venta dos veces.
    ============================================================ */
 
-/* Conceptos que pagan trabajo: al elegirlos hay que decir a quién se le
-   paga, porque de ahí sale el saldo pendiente de cada persona. */
+/* Conceptos que liquidan horas registradas: al elegirlos hay que decir a
+   quién se le paga, porque de ahí sale el saldo pendiente de cada persona. */
 const CONCEPTOS_SUELDO = ['sueldos'];
+
+/* `honorarios` también pide el nombre, pero sin obligar: es plata para
+   alguien de afuera —un tallerista, un gasista— que no tiene horas
+   registradas ni cuenta. Sirve saber a quién se le pagó; no arma ninguna
+   cuenta, porque Cuentas.gs solo mira los egresos de `sueldos`.
+   No sumar `honorarios` a CONCEPTOS_SUELDO: ensuciaría las liquidaciones
+   con pagos a gente que nunca registró una hora. */
+const CONCEPTOS_CON_PERSONA = CONCEPTOS_SUELDO.concat(['honorarios']);
 
 function esConceptoSueldo(c) {
   return CONCEPTOS_SUELDO.includes(clave(c));
+}
+
+function pidePersona(c) {
+  return CONCEPTOS_CON_PERSONA.includes(clave(c));
 }
 
 function initConceptos() {
@@ -24,7 +36,12 @@ function initConceptos() {
 
 function mostrarPersona() {
   const f = $('#form-egreso');
-  $('#label-persona').classList.toggle('hidden', !esConceptoSueldo(f.concepto.value));
+  const sueldo = esConceptoSueldo(f.concepto.value);
+  $('#label-persona').classList.toggle('hidden', !pidePersona(f.concepto.value));
+  /* La lista de nombres sale de las horas registradas. Al pagar honorarios
+     la persona es de afuera: sugerirle "Tomi" sería empujar al error. */
+  f.persona.setAttribute('list', sueldo ? 'lista-trabajadores' : '');
+  f.persona.placeholder = sueldo ? 'a quién se le paga' : 'a quién se le pagó (opcional)';
 }
 
 // "+ agregar nuevo…" en los desplegables de concepto
@@ -69,7 +86,7 @@ $('#form-egreso select[name=concepto]').addEventListener('change', mostrarPerson
       concepto: f.concepto.value,
       monto: num(f.monto.value),
       obs: f.obs.value.trim(),
-      persona: esSueldo ? f.persona.value.trim() : '',
+      persona: pidePersona(f.concepto.value) ? f.persona.value.trim() : '',
       mod: Date.now()
     });
     save();
