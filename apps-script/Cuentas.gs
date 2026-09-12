@@ -85,7 +85,18 @@ function cuentas_() {
   if (!ID_BIOMA_DB) {
     throw new Error('Falta completar ID_BIOMA_DB con el id de la planilla bioma-db.');
   }
-  var libro = SpreadsheetApp.openById(ID_BIOMA_DB);
+  /* El error de Google acá ("Illegal spreadsheet id") no dice cuál es el
+     id correcto, y el del proyecto de Apps Script se parece bastante como
+     para confundirse. */
+  var libro;
+  try {
+    libro = SpreadsheetApp.openById(ID_BIOMA_DB);
+  } catch (e) {
+    throw new Error('No se pudo abrir la planilla con ese id. Ojo: no es el ' +
+      'id del proyecto de Apps Script (script.google.com/home/projects/...), ' +
+      'sino el de bioma-db abierta en Drive: docs.google.com/spreadsheets/' +
+      'd/ACA_VA_EL_ID/edit. Detalle: ' + e.message);
+  }
 
   var gente = {};       // clave normalizada -> cuenta en construcción
   var sinPersona = [];  // pagos que no se pudieron atribuir a nadie
