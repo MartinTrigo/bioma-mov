@@ -57,7 +57,9 @@ muestra el último resumen bueno con un aviso, nunca una pantalla en blanco.
   },
 
   "meses": [                         // del más nuevo al más viejo
-    { "mes": "2026-09", "ingresos": 610000, "egresos": 520000, "balance": 90000 }
+    { "mes": "2026-09", "ingresos": 610000, "egresos": 520000,
+      "balance": 90000,              // del mes
+      "acumulado": 910000 }          // arrastrado desde el inicio de la temporada
   ],
 
   "ingresosPorConcepto": [           // ordenado de mayor a menor
@@ -91,9 +93,23 @@ fueron. `porActividad` es el mismo dato aplanado, para cuando se quiere el
 ranking sin abrir áreas. Las horas de un área **siempre** son la suma de sus
 actividades: si no dieran, hay un error de este lado.
 
-El **gráfico de flujo ingresos–egresos** sale de `meses`: no hace falta un campo
-aparte. Cada elemento ya trae ingresos, egresos y balance del mes, del más nuevo
-al más viejo.
+**Sobre `meses`:** de ahí sale el flujo mes a mes completo, tabla y gráfico, sin
+ningún campo aparte. Cada elemento trae ingresos, egresos, balance del mes y
+**acumulado** de la temporada, del más nuevo al más viejo.
+
+El `acumulado` viaja calculado aunque se pudiera sumar del otro lado: si AMA lo
+arrastrara por su cuenta, habría dos acumulados de la misma plata. Ojo con una
+trampa: se arrastra **del mes más viejo al más nuevo**, pero la lista viene al
+revés. El primer elemento del arreglo es el mes actual y su `acumulado` es el
+balance de toda la temporada.
+
+**El gráfico que se quiere** (así está en la app de Bioma y en la planilla): una
+sola barra por mes con `balance`, hacia arriba si es positivo y hacia abajo si
+es negativo — no dos columnas de ingresos y egresos. Lo que se busca ver de un
+vistazo es en qué meses el proyecto ganó y en cuáles perdió. La receta, en CSS
+puro y sin librerías, está en `renderFlujo()` de `js/resumen.js` y en las clases
+`.fg-*` de `styles.css`: el cero no va fijo en el medio, cada zona mide según lo
+más grande que haya para su lado.
 
 ### Lo que hace que esto sea usable
 

@@ -153,18 +153,38 @@ function renderFlujo() {
     return;
   }
 
-  // Las barras se miden contra el mes más grande, para que se comparen entre sí
-  const max = Math.max(...lista.map(f => Math.max(f.ingresos, f.egresos))) || 1;
-  cont.innerHTML = lista.map(f => `
-    <div class="fg-mes" title="${esc(nombreMes(f.mes))}">
-      <div class="fg-barras">
-        <span class="fg-in" style="height:${(f.ingresos / max * 100).toFixed(1)}%"
-              title="Ingresos ${fmt(f.ingresos)}"></span>
-        <span class="fg-out" style="height:${(f.egresos / max * 100).toFixed(1)}%"
-              title="Egresos ${fmt(f.egresos)}"></span>
+  /* Una barra por mes con la DIFERENCIA, no dos columnas: lo que se quiere
+     ver de un vistazo es en qué meses el proyecto ganó y en cuáles perdió.
+     Arriba del cero lo positivo, abajo lo negativo, como en la planilla.
+
+     El cero no va fijo en el medio: la altura de cada zona es proporcional
+     a lo más grande que haya para ese lado. Si todos los meses son
+     positivos, la zona negativa mide cero y la barra usa todo el alto. */
+  const maxPos = Math.max(0, ...lista.map(f => f.resultado));
+  const maxNeg = Math.max(0, ...lista.map(f => -f.resultado));
+  const rango = (maxPos + maxNeg) || 1;
+  const altoPos = maxPos / rango * 100;
+
+  cont.innerHTML = lista.map(f => {
+    const pos = f.resultado >= 0;
+    // Dentro de su zona, la barra se mide contra el récord de ese lado
+    const alto = pos
+      ? (maxPos ? f.resultado / maxPos * 100 : 0)
+      : (maxNeg ? -f.resultado / maxNeg * 100 : 0);
+    const signo = f.resultado < 0 ? '−' : '';
+    return `
+    <div class="fg-mes" title="${esc(nombreMes(f.mes))}: ${signo}${fmt(Math.abs(f.resultado))}">
+      <div class="fg-eje">
+        <span class="fg-arriba" style="height:${altoPos.toFixed(1)}%">
+          ${pos ? `<i class="fg-barra pos" style="height:${alto.toFixed(1)}%"></i>` : ''}
+        </span>
+        <span class="fg-abajo" style="height:${(100 - altoPos).toFixed(1)}%">
+          ${pos ? '' : `<i class="fg-barra neg" style="height:${alto.toFixed(1)}%"></i>`}
+        </span>
       </div>
       <span class="fg-lbl">${f.mes.slice(5)}/${f.mes.slice(2, 4)}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   tabla.innerHTML = `
     <table class="tabla-flujo">

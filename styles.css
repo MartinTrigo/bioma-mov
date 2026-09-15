@@ -364,13 +364,18 @@ input:focus, select:focus { border-color: var(--verde); }
   overflow-x: auto; padding-bottom: 2px;
 }
 .fg-mes { flex: 1 0 34px; display: flex; flex-direction: column; align-items: center; }
-.fg-barras {
-  display: flex; align-items: flex-end; justify-content: center; gap: 2px;
-  height: 106px; width: 100%;
-}
-.fg-barras span { width: 45%; border-radius: 3px 3px 0 0; min-height: 2px; }
-.fg-in { background: var(--verde); }
-.fg-out { background: var(--tierra); }
+
+/* Una barra por mes con el saldo: hacia arriba lo que quedó a favor, hacia
+   abajo lo que faltó. El eje del cero es la línea entre las dos zonas, y
+   se mueve según cuánto haya para cada lado. */
+.fg-eje { height: 106px; width: 100%; display: flex; flex-direction: column; }
+.fg-arriba, .fg-abajo { display: flex; justify-content: center; width: 100%; }
+.fg-arriba { align-items: flex-end; }
+.fg-abajo { align-items: flex-start; border-top: 1px solid var(--gris); }
+/* max-width: con pocos meses el flex las estira y parecen bloques */
+.fg-barra { display: block; width: 55%; max-width: 30px; min-height: 2px; }
+.fg-barra.pos { background: var(--verde); border-radius: 3px 3px 0 0; }
+.fg-barra.neg { background: var(--rojo); border-radius: 0 0 3px 3px; }
 .fg-lbl { font-size: 0.6rem; color: var(--gris); margin-top: 3px; white-space: nowrap; }
 
 .tabla-flujo { width: 100%; border-collapse: collapse; font-size: 0.76rem; }

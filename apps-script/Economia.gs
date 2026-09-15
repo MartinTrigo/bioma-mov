@@ -177,13 +177,21 @@ function porMes_(ingresos, egresos) {
   sumar(ingresos, 'ingresos');
   sumar(egresos, 'egresos');
 
-  return Object.keys(acum).sort().reverse().map(function (k) {
+  /* El acumulado se arrastra del mes más viejo al más nuevo, así que la
+     lista se recorre en ese orden y recién después se da vuelta. Va
+     calculado de este lado a propósito: si AMA lo sumara por su cuenta,
+     tendríamos dos acumulados de la misma plata. */
+  var corrido = 0;
+  var lista = Object.keys(acum).sort().map(function (k) {
     var f = acum[k];
     f.ingresos = redondear_(f.ingresos);
     f.egresos = redondear_(f.egresos);
     f.balance = redondear_(f.ingresos - f.egresos);
+    corrido += f.balance;
+    f.acumulado = redondear_(corrido);
     return f;
   });
+  return lista.reverse();
 }
 
 /* Agrupado por concepto, de mayor a menor, con el porcentaje ya hecho.
