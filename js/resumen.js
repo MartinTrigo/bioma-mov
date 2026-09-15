@@ -143,6 +143,75 @@ function flujoPorMes() {
   return lista;
 }
 
+/* El gráfico del flujo: barras y dos líneas en el mismo par de ejes.
+
+   - Las BARRAS son el saldo del mes: verdes hacia arriba cuando quedó a
+     favor, rojas hacia abajo cuando faltó. Es lo que se quiere ver de un
+     vistazo, así que van de fondo, suaves.
+   - Las LÍNEAS son lo que entró y lo que salió, mes a mes. Muestran de
+     dónde salió ese saldo: un mes puede cerrar en cero moviendo mucho o
+     moviendo nada, y eso no es lo mismo.
+
+   Comparten un solo eje a propósito, y no es una comodidad: como el saldo
+   es la resta, **la distancia vertical entre las dos líneas es la altura
+   de la barra**. Las dos cosas cuentan lo mismo y se refuerzan. El precio
+   es que en meses de mucho movimiento y poco saldo la barra queda chica
+   al lado de las líneas, pero eso es exactamente el dato.
+
+   SVG a mano, sin librerías: el proyecto no tiene dependencias ni
+   compilación, y esto son treinta líneas. */
+function graficoFlujo(lista) {
+  const ANCHO_MES = 46, ALTO = 150, ARRIBA = 12, ABAJO = 20;
+  const util = ALTO - ARRIBA - ABAJO;
+  const ancho = Math.max(lista.length * ANCHO_MES, 1);
+
+  // El eje abarca lo más alto que haya y, si algún mes cerró en rojo, baja hasta ahí
+  const techo = Math.max(...lista.map(f => Math.max(f.ingresos, f.egresos, f.resultado)), 1);
+  const piso = Math.min(0, ...lista.map(f => f.resultado));
+  const y = v => ARRIBA + (techo - v) / ((techo - piso) || 1) * util;
+  const x = i => i * ANCHO_MES + ANCHO_MES / 2;
+  const cero = y(0);
+
+  const barras = lista.map((f, i) => {
+    const pos = f.resultado >= 0;
+    const alto = Math.abs(cero - y(f.resultado));
+    const signo = f.resultado < 0 ? '−' : '';
+    return `<g><title>${esc(nombreMes(f.mes))}
+entró ${fmt(f.ingresos)} · salió ${fmt(f.egresos)}
+saldo ${signo}${fmt(Math.abs(f.resultado))}</title>
+      <rect class="fg-barra ${pos ? 'pos' : 'neg'}" x="${x(i) - 11}"
+            y="${(pos ? y(f.resultado) : cero).toFixed(1)}"
+            width="22" height="${Math.max(alto, 1).toFixed(1)}" rx="2"/></g>`;
+  }).join('');
+
+  const linea = (campo, clase) =>
+    `<polyline class="fg-linea ${clase}" points="${
+      lista.map((f, i) => `${x(i)},${y(f[campo]).toFixed(1)}`).join(' ')}"/>` +
+    lista.map((f, i) => `<circle class="fg-punto ${clase}" cx="${x(i)}"
+      cy="${y(f[campo]).toFixed(1)}" r="2.5"/>`).join('');
+
+  const etiquetas = lista.map((f, i) =>
+    `<text class="fg-lbl" x="${x(i)}" y="${ALTO - 6}" text-anchor="middle"
+     >${f.mes.slice(5)}/${f.mes.slice(2, 4)}</text>`).join('');
+
+  return `
+    <div class="fg-leyenda">
+      <span><i class="m-barra"></i> saldo del mes</span>
+      <span><i class="m-in"></i> entró</span>
+      <span><i class="m-out"></i> salió</span>
+    </div>
+    <div class="fg-scroll">
+      <svg viewBox="0 0 ${ancho} ${ALTO}" width="${ancho}" height="${ALTO}"
+           role="img" aria-label="Flujo de fondos mes a mes">
+        <line class="fg-cero" x1="0" y1="${cero.toFixed(1)}" x2="${ancho}" y2="${cero.toFixed(1)}"/>
+        ${barras}
+        ${linea('egresos', 'out')}
+        ${linea('ingresos', 'in')}
+        ${etiquetas}
+      </svg>
+    </div>`;
+}
+
 function renderFlujo() {
   const lista = flujoPorMes();
   const cont = $('#flujo-grafico');
@@ -153,38 +222,7 @@ function renderFlujo() {
     return;
   }
 
-  /* Una barra por mes con la DIFERENCIA, no dos columnas: lo que se quiere
-     ver de un vistazo es en qué meses el proyecto ganó y en cuáles perdió.
-     Arriba del cero lo positivo, abajo lo negativo, como en la planilla.
-
-     El cero no va fijo en el medio: la altura de cada zona es proporcional
-     a lo más grande que haya para ese lado. Si todos los meses son
-     positivos, la zona negativa mide cero y la barra usa todo el alto. */
-  const maxPos = Math.max(0, ...lista.map(f => f.resultado));
-  const maxNeg = Math.max(0, ...lista.map(f => -f.resultado));
-  const rango = (maxPos + maxNeg) || 1;
-  const altoPos = maxPos / rango * 100;
-
-  cont.innerHTML = lista.map(f => {
-    const pos = f.resultado >= 0;
-    // Dentro de su zona, la barra se mide contra el récord de ese lado
-    const alto = pos
-      ? (maxPos ? f.resultado / maxPos * 100 : 0)
-      : (maxNeg ? -f.resultado / maxNeg * 100 : 0);
-    const signo = f.resultado < 0 ? '−' : '';
-    return `
-    <div class="fg-mes" title="${esc(nombreMes(f.mes))}: ${signo}${fmt(Math.abs(f.resultado))}">
-      <div class="fg-eje">
-        <span class="fg-arriba" style="height:${altoPos.toFixed(1)}%">
-          ${pos ? `<i class="fg-barra pos" style="height:${alto.toFixed(1)}%"></i>` : ''}
-        </span>
-        <span class="fg-abajo" style="height:${(100 - altoPos).toFixed(1)}%">
-          ${pos ? '' : `<i class="fg-barra neg" style="height:${alto.toFixed(1)}%"></i>`}
-        </span>
-      </div>
-      <span class="fg-lbl">${f.mes.slice(5)}/${f.mes.slice(2, 4)}</span>
-    </div>`;
-  }).join('');
+  cont.innerHTML = graficoFlujo(lista);
 
   tabla.innerHTML = `
     <table class="tabla-flujo">

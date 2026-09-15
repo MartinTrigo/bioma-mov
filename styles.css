@@ -358,25 +358,38 @@ input:focus, select:focus { border-color: var(--verde); }
 .prod-resumen .alerta, .hint .alerta { color: var(--tierra); font-weight: 700; }
 
 /* ===== Flujo de fondos mes a mes ===== */
-.flujo-grafico {
-  display: flex; align-items: flex-end; gap: 6px;
-  height: 130px; margin-bottom: 12px;
-  overflow-x: auto; padding-bottom: 2px;
-}
-.fg-mes { flex: 1 0 34px; display: flex; flex-direction: column; align-items: center; }
+.flujo-grafico { margin-bottom: 12px; }
+/* El SVG tiene ancho fijo por mes: con una temporada entera se desplaza en
+   vez de apretar las barras hasta que no se distingan. */
+.fg-scroll { overflow-x: auto; padding-bottom: 2px; }
+.fg-scroll svg { display: block; min-width: 100%; }
 
-/* Una barra por mes con el saldo: hacia arriba lo que quedó a favor, hacia
-   abajo lo que faltó. El eje del cero es la línea entre las dos zonas, y
-   se mueve según cuánto haya para cada lado. */
-.fg-eje { height: 106px; width: 100%; display: flex; flex-direction: column; }
-.fg-arriba, .fg-abajo { display: flex; justify-content: center; width: 100%; }
-.fg-arriba { align-items: flex-end; }
-.fg-abajo { align-items: flex-start; border-top: 1px solid var(--gris); }
-/* max-width: con pocos meses el flex las estira y parecen bloques */
-.fg-barra { display: block; width: 55%; max-width: 30px; min-height: 2px; }
-.fg-barra.pos { background: var(--verde); border-radius: 3px 3px 0 0; }
-.fg-barra.neg { background: var(--rojo); border-radius: 0 0 3px 3px; }
-.fg-lbl { font-size: 0.6rem; color: var(--gris); margin-top: 3px; white-space: nowrap; }
+/* Barras: el saldo del mes. Van de fondo y suaves para que las líneas se
+   lean por encima. */
+.fg-barra.pos { fill: var(--verde); opacity: 0.38; }
+.fg-barra.neg { fill: var(--rojo); opacity: 0.38; }
+.fg-cero { stroke: var(--gris); stroke-width: 1; }
+
+/* Líneas: lo que entró y lo que salió. La distancia entre las dos es la
+   altura de la barra, porque el saldo es justamente esa resta. */
+.fg-linea { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.fg-linea.in { stroke: var(--verde-oscuro); }
+.fg-linea.out { stroke: var(--tierra); }
+.fg-punto.in { fill: var(--verde-oscuro); }
+.fg-punto.out { fill: var(--tierra); }
+
+.fg-lbl { font-size: 9px; fill: var(--gris); }
+
+.fg-leyenda {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-size: 0.68rem; color: var(--gris); margin-bottom: 6px;
+}
+.fg-leyenda span { display: inline-flex; align-items: center; gap: 4px; }
+.fg-leyenda i { display: inline-block; }
+.fg-leyenda .m-barra { width: 9px; height: 9px; border-radius: 2px;
+  background: var(--verde); opacity: 0.38; }
+.fg-leyenda .m-in { width: 13px; height: 2px; background: var(--verde-oscuro); }
+.fg-leyenda .m-out { width: 13px; height: 2px; background: var(--tierra); }
 
 .tabla-flujo { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
 .tabla-flujo th {

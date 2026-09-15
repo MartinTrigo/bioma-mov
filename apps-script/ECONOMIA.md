@@ -103,13 +103,30 @@ trampa: se arrastra **del mes más viejo al más nuevo**, pero la lista viene al
 revés. El primer elemento del arreglo es el mes actual y su `acumulado` es el
 balance de toda la temporada.
 
-**El gráfico que se quiere** (así está en la app de Bioma y en la planilla): una
-sola barra por mes con `balance`, hacia arriba si es positivo y hacia abajo si
-es negativo — no dos columnas de ingresos y egresos. Lo que se busca ver de un
-vistazo es en qué meses el proyecto ganó y en cuáles perdió. La receta, en CSS
-puro y sin librerías, está en `renderFlujo()` de `js/resumen.js` y en las clases
-`.fg-*` de `styles.css`: el cero no va fijo en el medio, cada zona mide según lo
-más grande que haya para su lado.
+**El gráfico que se quiere** (así quedó en la app de Bioma): **tres series en
+un mismo par de ejes**.
+
+- **Barras** = `balance` del mes. Verdes hacia arriba, rojas hacia abajo. Van
+  de fondo y translúcidas, para que las líneas se lean por encima.
+- **Línea verde** = `ingresos` mes a mes.
+- **Línea marrón** = `egresos` mes a mes.
+
+No son dos columnas de ingresos y egresos: la barra es la **diferencia**. Lo
+que se busca ver de un vistazo es en qué meses el proyecto ganó y en cuáles
+perdió, y además de dónde salió ese saldo — un mes puede cerrar en cero
+moviendo mucho o moviendo nada, y no es lo mismo.
+
+**Comparten un solo eje a propósito.** Como el saldo es la resta, la distancia
+vertical entre las dos líneas *es* la altura de la barra: las dos cosas cuentan
+lo mismo y se refuerzan. Donde la línea verde cruza por debajo de la marrón, la
+barra se pone roja sola. El precio es que en meses de mucho movimiento y poco
+saldo la barra queda chica, pero eso es exactamente el dato.
+
+La receta está en `graficoFlujo()` de `js/resumen.js` y en las clases `.fg-*`
+de `styles.css`: SVG escrito a mano, sin librerías, unas treinta líneas. El eje
+llega hasta el mayor de los tres valores y baja hasta el saldo más negativo, si
+hay alguno. Ancho fijo por mes con scroll horizontal, para que una temporada
+entera no apriete las barras hasta volverlas indistinguibles.
 
 ### Lo que hace que esto sea usable
 
