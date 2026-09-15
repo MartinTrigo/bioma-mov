@@ -1,7 +1,7 @@
 {
-  "name": "Bioma · Registro de movimientos",
-  "short_name": "Bioma",
-  "description": "Registro de ingresos, egresos y deudas del proyecto Bioma",
+  "name": "AMA Gestión Económica",
+  "short_name": "AMA Economía",
+  "description": "Gestión económica de emprendimientos agroecológicos: ventas, egresos, deudas y balance por temporada",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#faf8f2",

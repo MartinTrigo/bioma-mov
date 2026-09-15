@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "bioma",
+      "name": "bioma-economia",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8642"],
       "port": 8642
