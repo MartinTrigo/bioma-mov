@@ -507,3 +507,40 @@ input:focus, select:focus { border-color: var(--verde); }
   .tabbar { position: sticky; bottom: auto; top: 72px; max-width: 640px; margin: 0 auto; border: 1px solid #e2ddd0; border-radius: 12px; }
   main { padding-top: 20px; }
 }
+
+/* ===== Resumen: lo que no cabe en un indicador ===== */
+.resumen-detalle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 12px;
+  font-size: .84rem;
+  color: var(--gris);
+}
+.resumen-detalle strong { color: var(--tinta); }
+/* En que etapa del ciclo cae el mes: sin esto, un septiembre en rojo se lee
+   como una alarma cuando es lo que corresponde. */
+.etapa {
+  margin-top: 10px;
+  font-size: .82rem;
+  line-height: 1.45;
+  color: var(--gris);
+  border-left: 3px solid var(--tierra-claro);
+  padding-left: 10px;
+}
+/* Cuanto de lo devengado ya se pago */
+.barra-liq { margin-top: 10px; }
+.liq-pista {
+  display: block;
+  height: 8px;
+  border-radius: 6px;
+  background: var(--crema);
+  overflow: hidden;
+}
+.liq-llena { display: block; height: 100%; background: var(--verde); }
+.liq-texto {
+  display: block;
+  margin-top: 5px;
+  font-size: .78rem;
+  color: var(--gris);
+}

@@ -190,6 +190,21 @@
         <div class="kpi kpi-bal"><span class="kpi-label">Balance</span><span class="kpi-val" id="kpi-balance">$0</span></div>
         <div class="kpi kpi-debt"><span class="kpi-label">Deuda pendiente</span><span class="kpi-val" id="kpi-deuda">$0</span></div>
       </div>
+      <div id="resumen-detalle" class="resumen-detalle"></div>
+      <p id="resumen-etapa" class="etapa"></p>
+    </div>
+
+    <div class="card hidden" id="card-ventas">
+      <div class="resumen-selector">
+        <h3>Qué se vendió</h3>
+        <select id="ventas-vista">
+          <option value="producto">Por producto</option>
+          <option value="categoria">Por categoría</option>
+          <option value="cliente">Por punto de venta</option>
+        </select>
+      </div>
+      <div id="ventas-total" class="horas-total"></div>
+      <div id="ventas-desglose" class="desglose"></div>
     </div>
     <div class="card">
       <h3>Flujo de fondos mes a mes</h3>
@@ -216,6 +231,7 @@
       <div id="horas-total" class="horas-total"></div>
       <div id="horas-desglose" class="desglose"></div>
       <div id="horas-saldo" class="horas-saldo"></div>
+      <div id="horas-barra" class="barra-liq"></div>
     </div>
   </section>
 
