@@ -503,8 +503,11 @@ input:focus, select:focus { border-color: var(--verde); }
 }
 
 @media (min-width: 700px) {
-  body { padding-bottom: 20px; }
-  .tabbar { position: sticky; bottom: auto; top: 72px; max-width: 640px; margin: 0 auto; border: 1px solid #e2ddd0; border-radius: 12px; }
+  /* La barra sigue fija abajo, como en el celular: antes quedaba "sticky"
+     después del <main> y en la notebook terminaba al final de la página.
+     Acá solo se angosta y flota centrada; el body guarda lugar para ella. */
+  body { padding-bottom: 96px; }
+  .tabbar { left: 50%; right: auto; bottom: 12px; transform: translateX(-50%); width: min(640px, calc(100% - 32px)); border: 1px solid #e2ddd0; border-radius: 12px; box-shadow: var(--sombra); }
   main { padding-top: 20px; }
 }
 
