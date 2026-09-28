@@ -107,6 +107,11 @@ publica. Al cambiar archivos hay que subir `CACHE` en `sw.js` (`bioma-vN`).
 2. **Nunca borrar por ausencia.** Un registro local solo se elimina si el
    servidor confirma su tumba (`borrados`). Una respuesta vacía o incompleta
    jamás debe vaciar el dispositivo.
+   **Y nunca pisar lo que se tocó mientras el pedido viajaba** (28/09): la
+   sincronización tarda varios segundos, y reemplazar la lista local por la
+   respuesta borraba en silencio los cambios hechos en ese rato (precios que
+   "volvían" al valor viejo). `sincronizar()` anota cuándo salió el pedido,
+   conserva lo modificado o borrado después y vuelve a sincronizar.
 3. **Protocolo versionado.** El servidor responde `api: N` y la app descarta
    toda respuesta sin ese campo. Así una implementación vieja del Apps Script
    no puede corromper los datos.

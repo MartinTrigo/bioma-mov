@@ -32,6 +32,11 @@ async function sincronizar(silencioso) {
     egresos: [...db.conceptosNuevos.egresos]
   };
 
+  // Cuándo salió el pedido. Lo que se toque mientras viaja no va en él, y la
+  // respuesta no lo trae: ver `tocadoEnVuelo` más abajo.
+  const enviadoEn = Date.now();
+  let quedaAlgoSinSubir = false;
+
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -68,14 +73,31 @@ async function sincronizar(silencioso) {
     ]);
     const conservar = x => !idsRemotos.has(x.id) && !tumbas.has(x.id);
 
-    db.movimientos = [...remoto.movimientos, ...db.movimientos.filter(conservar)];
-    db.deudas = [...remoto.deudas, ...db.deudas.filter(conservar)];
+    /* Lo que se cambió o se borró en el dispositivo MIENTRAS el pedido
+       viajaba. La respuesta no lo trae, y reemplazar la lista por la de la
+       planilla lo pisaba en silencio: pasó con precios editados de a varios
+       (28/09), donde unos quedaban y otros volvían al valor viejo según si se
+       habían tocado antes o durante la sincronización. Esos quedan como están
+       en el dispositivo y viajan en la sincronización siguiente. */
+    const borradosEnVuelo = new Set(db.borrados.filter(b => (b.mod || 0) >= enviadoEn).map(b => b.id));
+    const tocadoEnVuelo = lista => new Map(lista.filter(x => (x.mod || 0) >= enviadoEn).map(x => [x.id, x]));
+    const unir = (remotos, locales) => {
+      const enVuelo = tocadoEnVuelo(locales);
+      if (enVuelo.size || borradosEnVuelo.size) quedaAlgoSinSubir = true;
+      return [
+        ...remotos.filter(x => !borradosEnVuelo.has(x.id)).map(x => enVuelo.get(x.id) || x),
+        ...locales.filter(conservar)
+      ];
+    };
+
+    db.movimientos = unir(remoto.movimientos, db.movimientos);
+    db.deudas = unir(remoto.deudas, db.deudas);
     db.deudas.forEach(x => { if (x.estado === 'pagada') x.estado = 'saldada'; });
 
     // Productos y listas solo si el servidor ya los entiende: contra una
     // versión anterior del script se conserva lo que haya en el dispositivo.
     if (remoto.api >= API_PRODUCTOS) {
-      db.productos = [...(remoto.productos || []), ...db.productos.filter(conservar)];
+      db.productos = unir(remoto.productos || [], db.productos);
       if (remoto.listas && remoto.listas.length) db.listas = remoto.listas;
     }
     if (remoto.api >= API_VENTAS) {
@@ -83,7 +105,7 @@ async function sincronizar(silencioso) {
          está borrado, está más atrás en la planilla. Por eso acá no se
          conserva "lo que no vino" salvo que sea más nuevo que la ventana, y
          se recorta al final para que el dispositivo no crezca sin límite. */
-      const ventas = [...(remoto.ventas || []), ...db.ventas.filter(conservar)];
+      const ventas = unir(remoto.ventas || [], db.ventas);
       ventas.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) ||
         (a.mod || 0) - (b.mod || 0));
       db.ventas = ventas.slice(-VENTANA_VENTAS);
@@ -100,7 +122,9 @@ async function sincronizar(silencioso) {
     // si la planilla los guarda (ver API_PUBLICO en productos.js).
     db.apiServidor = remoto.api;
     db.ultimaSync = new Date().toISOString();
-    save(true); // la planilla ya tiene todo: no quedan cambios sin subir
+    // Si algo se tocó mientras viajaba el pedido, todavía no está en la
+    // planilla: queda marcado y sale otra sincronización enseguida.
+    save(!quedaAlgoSinSubir);
     initAll();
     setSyncEstado('✓');
     if (!silencioso) toast('Sincronizado con Drive ✓');
@@ -110,6 +134,7 @@ async function sincronizar(silencioso) {
     if (!silencioso) toast('Sin conexión — los datos quedan guardados en el dispositivo');
   } finally {
     sincronizando = false;
+    if (quedaAlgoSinSubir) setTimeout(() => sincronizar(true), 300);
   }
 }
 
