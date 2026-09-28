@@ -54,10 +54,11 @@ Todo vive en `C:\MARTO\INFORMATICA\` y en GitHub de MartinTrigo:
 | **Cocina Viva** | Ventas, stock y consignación de fermentos | **Modelo a imitar**: más madura, misma arquitectura |
 | **BioSalud** | (a futuro) | Podría aportar datos algún día |
 
-**AMA = App de Monitoreo Agrícola Agroecológico.** Es el nombre nuevo de
-MonAgric (sept 2026). La carpeta y el repositorio siguen llamándose
-`MonAgric`: renombrarlos rompería los enlaces. El ecosistema entero se llama
-AMA. Se puede leer su código desde acá; pedir acceso a
+**AMA = Aplicaciones para el Manejo Agroecológico** (28/9/2026), con tres
+versiones: **AMA Producción** (el repo `MonAgric`), **AMA Economía** (esta,
+`bioma-mov`) y **AMA Salud** (a futuro). Las carpetas y los repositorios
+conservan sus nombres viejos: renombrarlos rompería los enlaces y las
+instalaciones. Se puede leer el código de Producción desde acá; pedir acceso a
 `C:\MARTO\INFORMATICA\MonAgric` si no está concedido.
 
 Cuando haya que resolver algo que Cocina Viva ya resolvió (ventas con detalle,
@@ -81,6 +82,7 @@ js/productos.js     catálogo y precios
 js/ventas.js        ventas por producto y punto de venta
 js/ventas-importar.js  importar la descarga de la tienda virtual
 js/resumen.js       resumen mensual
+js/proyeccion.js    lo planificado en AMA Producción × los precios de acá
 js/respaldo.js      exportar / importar
 app.js              arranque y pestañas (se carga ÚLTIMO)
 apps-script/Code.gs  el "servidor": vive en la planilla
@@ -144,9 +146,29 @@ No volver a discutirlas salvo que el usuario las reabra (detalle en `PLAN.md`):
   aprendiendo; nunca inventar una equivalencia.
 - **Bolsones**: se registran como unidad vendida **y** abiertos en sus
   componentes, marcados para no sumar dos veces.
-- **Nombre de la app**: "Bioma · Gestión Económica" es lo que se ve. La
-  dirección sigue siendo `bioma-mov` a propósito: cambiarla obliga a
-  reinstalar la app en cada teléfono.
+- **Nombre de la app**: "AMA Economía" es lo que se ve (antes "Bioma ·
+  Gestión Económica"). La dirección sigue siendo `bioma-mov` a propósito:
+  cambiarla obliga a reinstalar la app en cada teléfono.
+
+## Proyección
+
+La pestaña cruza lo que **AMA Producción planificó** (cultivo, m², rinde, kg,
+del plan de su Configuración) con los **precios de Productos**.
+
+- El plan lo pide `Code.gs` con `UrlFetchApp` (`action: 'proyeccion'`, antes
+  del candado porque no toca hojas), nunca el navegador. Propiedades del
+  script: `AMA_URL`, `AMA_PROYECCION_TOKEN`, `AMA_CHACRA` (opcional, "tica").
+  La primera vez hay que correr `probarProyeccion` a mano.
+- **No se guarda en la planilla**: se cruza al mirar. Cambia un precio o el
+  plan y la proyección cambia sola.
+- Los nombres se cruzan sin tildes, sin letras dobles y en singular
+  ("Brocoli" = "Broccoli", "Choclos" = "Choclo"), y si no por la primera
+  palabra cuando el producto es de una sola ("Repollo bco" → "Repollos").
+  **Lo que no se encuentra queda sin precio y lo dice**; nunca se adivina.
+- El precio se pasa a kg con el peso de la presentación (`pesoUnitarioKg`).
+  Un atado sin peso no suma: no hay manera honesta de pasarlo a kg.
+- Lo último que llegó se guarda en `bioma-proyeccion` del navegador, aparte de
+  `db`: guardarlo con `save()` encendería el aviso de cambios sin subir.
 
 ## Estado actual
 

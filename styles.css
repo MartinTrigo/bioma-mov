@@ -45,8 +45,13 @@ body {
   font-weight: 700;
   letter-spacing: 0.5px;
   line-height: 1;
+  white-space: nowrap;
 }
+/* En el celular el nombre va en un renglón y el subtítulo se acomoda abajo. */
+@media (max-width: 420px) { .brand h1 { font-size: 1.3rem; } }
+.brand { min-width: 0; }
 .brand .subtitle {
+  display: block;
   font-size: 0.72rem;
   color: var(--gris);
   font-style: italic;
@@ -547,3 +552,21 @@ input:focus, select:focus { border-color: var(--verde); }
   font-size: .78rem;
   color: var(--gris);
 }
+
+/* ===== Proyección: lo planificado en AMA Producción por los precios de acá ===== */
+#tab-proyeccion .row { display: flex; gap: 10px; margin-bottom: 12px; }
+#tab-proyeccion .row label { flex: 1; font-size: .8rem; color: var(--gris); }
+#proyeccion-estado.alerta { color: var(--rojo); }
+#tab-proyeccion .kpis { margin-bottom: 14px; }
+.proy-scroll { overflow-x: auto; }
+.proy-tabla { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.proy-tabla th { text-align: left; font-size: .72rem; color: var(--gris); font-weight: 400;
+  border-bottom: 1.5px solid var(--verde); padding: 4px 6px; }
+.proy-tabla td { padding: 7px 6px; border-bottom: 1px solid #eee8da; vertical-align: top; }
+.proy-tabla .n { text-align: right; white-space: nowrap; }
+.proy-tabla td small { display: block; font-size: .72rem; color: var(--gris); margin-top: 1px; }
+.proy-tabla td small.motivo { color: var(--tierra); font-weight: 700; }
+.proy-tabla tr.sin-precio td:not(:first-child) { color: var(--gris); }
+.proy-tabla tfoot td { font-weight: 700; color: var(--verde-oscuro);
+  border-top: 2px solid var(--verde); border-bottom: none; padding-top: 9px; }
+.proy-nota { margin-top: 12px; line-height: 1.45; }

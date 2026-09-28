@@ -27,7 +27,7 @@
 // Versión del protocolo. La app rechaza las respuestas que no la traigan:
 // así una implementación vieja que haya quedado publicada no puede
 // sobrescribir los datos del teléfono con un esquema que ya no existe.
-var API = 8;
+var API = 9; // 9: entiende action 'proyeccion'
 
 /* Cuántos renglones de venta viaja la app. La hoja las guarda todas; el
    teléfono solo necesita las últimas para mostrarlas y poder corregirlas.
@@ -115,6 +115,17 @@ function doGet() {
 }
 
 function doPost(e) {
+  /* La proyección no toca ninguna hoja: va antes del candado, así no hace
+     esperar a una sincronización ni la espera. */
+  try {
+    var pedido = JSON.parse(e.postData.contents);
+    if (pedido && pedido.action === 'proyeccion') {
+      return salidaJson_(proyeccion_(!!pedido.refrescar));
+    }
+  } catch (err) {
+    return salidaJson_({ error: String(err) });
+  }
+
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -1718,6 +1729,66 @@ function listarRespaldos() {
   nombres.sort().reverse();
   Logger.log(nombres.join('\n'));
   return nombres.length + ' respaldos:\n' + nombres.join('\n');
+}
+
+/* ================= Proyección: lo que AMA Producción planificó ================= *
+
+   Producción decide qué se planta, cuánto y con qué rinde; acá se deciden los
+   precios. Este script le pregunta a AMA su plan y la app lo cruza con la
+   hoja productos. Nada de eso se guarda en la planilla: si se copiara, el
+   día que cambie el plan habría dos verdades.
+
+   El pedido lo hace ESTE servidor con UrlFetchApp, nunca el navegador. Así la
+   clave queda en las propiedades del script y no viaja a ningún teléfono.
+
+   Propiedades del script (Configuración del proyecto → Propiedades):
+     AMA_URL               la dirección /exec del servicio de AMA
+     AMA_PROYECCION_TOKEN  la clave que genera tools/token_proyeccion.py
+     AMA_CHACRA            opcional; "tica" si no está
+
+   La primera vez hay que correr probarProyeccion() a mano desde el editor:
+   este script nunca había llamado a una dirección de afuera, y Apps Script no
+   lo deja hasta que alguien aprueba ese permiso. */
+
+function proyeccion_(refrescar) {
+  var props = PropertiesService.getScriptProperties();
+  var url = props.getProperty('AMA_URL') || '';
+  var token = props.getProperty('AMA_PROYECCION_TOKEN') || '';
+  var chacra = props.getProperty('AMA_CHACRA') || 'tica';
+  if (!url || !token) {
+    return { api: API, error: 'Falta conectar con AMA Producción: las propiedades ' +
+      'AMA_URL y AMA_PROYECCION_TOKEN del script de bioma-db.' };
+  }
+
+  // Unos minutos de caché: el plan cambia cuando alguien planifica, no a cada
+  // rato. El botón "Actualizar" de la app la saltea.
+  var cache = CacheService.getScriptCache();
+  var guardado = refrescar ? null : cache.get('proyeccion_ama');
+  if (guardado) return { api: API, proyeccion: JSON.parse(guardado) };
+
+  var r = UrlFetchApp.fetch(url + '?proyeccion=1&chacra=' + encodeURIComponent(chacra) +
+    '&token=' + encodeURIComponent(token), { muteHttpExceptions: true, followRedirects: true });
+  var datos;
+  try { datos = JSON.parse(r.getContentText()); } catch (e) { datos = null; }
+  if (!datos || datos.api !== 1 || !datos.plan) {
+    return { api: API, error: (datos && datos.error) ? 'AMA respondió: ' + datos.error
+      : 'AMA respondió algo que no es la proyección (¿falta implementar su nueva versión?).' };
+  }
+  cache.put('proyeccion_ama', JSON.stringify(datos), 600);
+  return { api: API, proyeccion: datos };
+}
+
+// Ejecutar a mano UNA vez: aprueba el permiso de pedidos externos y deja en
+// el registro qué respondió AMA.
+function probarProyeccion() {
+  var r = proyeccion_(true);
+  if (r.error) { Logger.log(r.error); return; }
+  var p = r.proyeccion;
+  Logger.log('AMA respondió: ' + p.nombre + ' · temporada ' + p.temporada + ' · ' +
+             p.plan.length + ' cultivos');
+  p.plan.forEach(function (c) {
+    Logger.log('  ' + c.cultivo + ': ' + c.superficie_m2 + ' m², ' + c.kg + ' kg');
+  });
 }
 
 /* ================= Salida ================= */

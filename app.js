@@ -11,6 +11,7 @@
 /* ================= Pestañas ================= */
 const AL_ENTRAR = {
   resumen: () => renderResumen(),
+  proyeccion: () => entrarProyeccion(),
   producto: () => renderProductos(),
   venta: () => renderUltimasVentas()
 };

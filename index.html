@@ -177,6 +177,31 @@
     <ul id="lista-producto" class="prod-list"></ul>
   </section>
 
+  <!-- ============ TAB: PROYECCIÓN ============ -->
+  <!-- Lo planificado en AMA Producción por los precios de acá. -->
+  <section id="tab-proyeccion" class="tab">
+    <div class="card">
+      <div class="resumen-selector">
+        <h2>Proyección</h2>
+        <button id="btnProyeccion" class="btn-mini" title="Volver a pedir el plan a AMA Producción">↻ Actualizar</button>
+      </div>
+      <p id="proyeccion-estado" class="hint"></p>
+      <div class="row">
+        <label>Lista de precios
+          <select id="proyeccion-lista"></select>
+        </label>
+        <label>Ordenar
+          <select id="proyeccion-orden">
+            <option value="plata">Por $</option>
+            <option value="kg">Por kg</option>
+            <option value="nombre">Por nombre</option>
+          </select>
+        </label>
+      </div>
+      <div id="proyeccion-contenido"></div>
+    </div>
+  </section>
+
   <!-- ============ TAB: RESUMEN ============ -->
   <section id="tab-resumen" class="tab">
     <div class="card">
@@ -243,6 +268,7 @@
   <button data-tab="egreso"><span class="t-ico">↓</span>Egresos</button>
   <button data-tab="deuda"><span class="t-ico">✦</span>Deudas</button>
   <button data-tab="producto"><span class="t-ico">☘</span>Productos</button>
+  <button data-tab="proyeccion"><span class="t-ico">↗</span>Proyección</button>
   <button data-tab="resumen"><span class="t-ico">≡</span>Resumen</button>
 </nav>
 
@@ -345,6 +371,7 @@
 <script src="js/ventas.js"></script>
 <script src="js/ventas-importar.js"></script>
 <script src="js/resumen.js"></script>
+<script src="js/proyeccion.js"></script>
 <script src="js/respaldo.js"></script>
 <script src="app.js"></script>
 </body>
