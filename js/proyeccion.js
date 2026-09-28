@@ -42,12 +42,28 @@ async function traerProyeccion(refrescar) {
   proyeccionError = '';
   renderProyeccion();
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      // sin Content-Type: evita el preflight CORS que Apps Script no soporta
-      body: JSON.stringify({ action: 'proyeccion', refrescar: !!refrescar })
-    });
-    const r = await res.json();
+    let texto;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        // sin Content-Type: evita el preflight CORS que Apps Script no soporta
+        body: JSON.stringify({ action: 'proyeccion', refrescar: !!refrescar })
+      });
+      texto = await res.text();
+    } catch (e) {
+      proyeccionError = 'Sin conexión: se muestra lo último que llegó.';
+      return;
+    }
+    /* Si Apps Script falla antes de llegar al código (un permiso sin aprobar,
+       una implementación rota) devuelve una página de Google, no datos. Antes
+       eso se leía como "sin conexión" y no había pista de qué pasaba. */
+    let r;
+    try { r = JSON.parse(texto); } catch (e) {
+      const legible = String(texto || '').replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+      proyeccionError = 'bioma-db no devolvió la proyección' + (legible ? ': «' + legible + '»' : '.');
+      return;
+    }
     if (!(r.api >= API_PROYECCION)) {
       proyeccionError = 'El script de bioma-db todavía no sabe pedir la proyección: ' +
         'falta implementar su nueva versión.';
@@ -58,7 +74,7 @@ async function traerProyeccion(refrescar) {
       try { localStorage.setItem(PROYECCION_KEY, JSON.stringify(proyeccion)); } catch (e) {}
     }
   } catch (e) {
-    proyeccionError = 'Sin conexión: se muestra lo último que llegó.';
+    proyeccionError = 'Error al leer la proyección: ' + (e && e.message || e);
   } finally {
     proyeccionCargando = false;
     renderProyeccion();
