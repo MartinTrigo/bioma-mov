@@ -159,6 +159,14 @@ del plan de su Configuración) con los **precios de Productos**.
   del candado porque no toca hojas), nunca el navegador. Propiedades del
   script: `AMA_URL`, `AMA_PROYECCION_TOKEN`, `AMA_CHACRA` (opcional, "tica").
   La primera vez hay que correr `probarProyeccion` a mano.
+- **Aprobar el permiso en el editor no alcanza para la app** (28/09): después
+  de correr `probarProyeccion`, el editor ya traía el plan pero la app recibía
+  una página de Google ("No se puede abrir el archivo en estos momentos"). Se
+  arregló con otra **Nueva versión** del script. Al sumar un permiso nuevo
+  (llamar afuera, Drive…): aprobarlo **y** volver a implementar.
+- Los tropiezos de la instalación: `AMA_URL` es la dirección completa
+  (…/macros/s/<id>/exec), no solo el id; `AMA_PROYECCION_TOKEN` es la clave
+  sola, sin llaves (las llaves van del lado de AMA, en `PROYECCION_TOKENS`).
 - **No se guarda en la planilla**: se cruza al mirar. Cambia un precio o el
   plan y la proyección cambia sola.
 - Los nombres se cruzan sin tildes, sin letras dobles y en singular
