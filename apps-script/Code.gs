@@ -1759,6 +1759,13 @@ function proyeccion_(refrescar) {
     return { api: API, error: 'Falta conectar con AMA Producción: las propiedades ' +
       'AMA_URL y AMA_PROYECCION_TOKEN del script de bioma-db.' };
   }
+  // Ya pasó que se pegara solo el identificador (AKfycb…): Apps Script lo toma
+  // como un nombre de sitio y el error que devuelve trae la clave a la vista.
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(url.trim())) {
+    return { api: API, error: 'La propiedad AMA_URL de bioma-db no es una dirección completa: ' +
+      'tiene que empezar con https://script.google.com/macros/s/ y terminar en /exec.' };
+  }
+  url = url.trim();
 
   // Unos minutos de caché: el plan cambia cuando alguien planifica, no a cada
   // rato. El botón "Actualizar" de la app la saltea.
@@ -1766,8 +1773,14 @@ function proyeccion_(refrescar) {
   var guardado = refrescar ? null : cache.get('proyeccion_ama');
   if (guardado) return { api: API, proyeccion: JSON.parse(guardado) };
 
-  var r = UrlFetchApp.fetch(url + '?proyeccion=1&chacra=' + encodeURIComponent(chacra) +
-    '&token=' + encodeURIComponent(token), { muteHttpExceptions: true, followRedirects: true });
+  var r;
+  try {
+    r = UrlFetchApp.fetch(url + '?proyeccion=1&chacra=' + encodeURIComponent(chacra) +
+      '&token=' + encodeURIComponent(token.trim()), { muteHttpExceptions: true, followRedirects: true });
+  } catch (e) {
+    // El mensaje de Apps Script repite la dirección con la clave: no se muestra.
+    return { api: API, error: 'No se pudo llegar a AMA Producción. Revisar AMA_URL.' };
+  }
   var datos;
   try { datos = JSON.parse(r.getContentText()); } catch (e) { datos = null; }
   if (!datos || datos.api !== 1 || !datos.plan) {
