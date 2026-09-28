@@ -570,3 +570,38 @@ input:focus, select:focus { border-color: var(--verde); }
 .proy-tabla tfoot td { font-weight: 700; color: var(--verde-oscuro);
   border-top: 2px solid var(--verde); border-bottom: none; padding-top: 9px; }
 .proy-nota { margin-top: 12px; line-height: 1.45; }
+
+/* ===== Productos: una lista de precios a la vez ===== */
+.prod-filtros { display: flex; gap: 8px; }
+.prod-filtros select { flex: 1; min-width: 0; }
+.prod-acciones { flex-wrap: wrap; }
+.prod-acciones .btn { flex: 1 1 30%; }
+.prod-tabla-marco {
+  background: var(--blanco);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 4px 10px;
+  margin-bottom: 14px;
+}
+.prod-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.prod-tabla th {
+  text-align: left; font-size: .72rem; font-weight: 400; color: var(--gris);
+  border-bottom: 1.5px solid var(--verde); padding: 8px 4px 5px;
+}
+.prod-tabla td { padding: 7px 4px; border-bottom: 1px solid #eee8da; vertical-align: middle; }
+.prod-tabla tr:last-child td { border-bottom: none; }
+.prod-tabla .n { text-align: right; white-space: nowrap; }
+.prod-tabla td.fijado { color: var(--tierra); font-weight: 700; }
+.prod-tabla tr.inactivo { opacity: .5; }
+.prod-nom { cursor: pointer; }
+.prod-nom b { display: block; }
+.prod-nom small { display: block; font-size: .72rem; color: var(--gris); }
+.prod-nom:hover b { text-decoration: underline; }
+.prod-pres { white-space: nowrap; }
+.prod-kg {
+  width: 4.2rem; padding: 6px 7px; text-align: right;
+  font-size: .9rem; margin: 0;
+}
+.prod-kg:disabled { opacity: .55; }
+.prod-u { font-size: .75rem; color: var(--gris); margin-left: 3px; }
+.prod-por { font-size: .78rem; color: var(--gris); }

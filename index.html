@@ -165,16 +165,22 @@
         <button id="btnNuevoProducto" class="btn-mini">+ Nuevo</button>
       </div>
       <input type="search" id="buscar-producto" placeholder="Buscar producto…">
-      <select id="filtro-categoria"></select>
+      <div class="prod-filtros">
+        <select id="filtro-categoria"></select>
+        <!-- La lista de precios que se mira: los precios de la tabla, lo que se
+             descarga y lo que se comparte salen de esta. -->
+        <select id="lista-productos" title="Lista de precios"></select>
+      </div>
       <div id="producto-resumen" class="prod-resumen"></div>
       <div class="prod-acciones">
+        <button id="btnCompartirPrecios" class="btn btn-sec">Compartir lista</button>
+        <button id="btnExportPrecios" class="btn btn-sec">Descargar</button>
         <button id="btnAumentar" class="btn btn-sec">Aumentar %</button>
-        <button id="btnExportPrecios" class="btn btn-sec">Descargar lista</button>
       </div>
       <button id="btnImportarProductos" class="btn btn-sec">Importar catálogo (CSV)</button>
       <input type="file" id="inputProductos" accept=".csv,text/csv" hidden>
     </div>
-    <ul id="lista-producto" class="prod-list"></ul>
+    <div id="lista-producto" class="prod-tabla-marco"></div>
   </section>
 
   <!-- ============ TAB: PROYECCIÓN ============ -->

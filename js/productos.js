@@ -72,44 +72,150 @@ function initFiltroCategorias() {
   if (actual && [...sel.options].some(o => o.value === actual)) sel.value = actual;
 }
 
+/* ================= La tabla: precio por kg, presentación y precio =================
+   Una lista de precios a la vez (Chacra, Comarca, Bariloche, Verdulerías).
+   Por producto: el precio por kg en esa lista, la presentación al público
+   —cuántos kg lleva la unidad que se ofrece, y se cambia en la tabla misma
+   porque va cambiando en la temporada: repollos más grandes, una oferta— y
+   el precio de esa unidad, que sale solo de multiplicar los dos.
+
+   "publico" va aparte de "presentacion" a propósito: la presentación
+   identifica al producto ("Miel 500 g" y "Miel 1 kg" son dos) y de ella las
+   ventas sacan los kilos. Cambiarla por una oferta rompería las dos cosas. */
+
+// Desde esta versión el script de la planilla guarda "publico". Contra uno
+// anterior no se deja editar: la próxima sincronización lo borraría.
+const API_PUBLICO = 10;
+const LISTA_PRODUCTOS_KEY = 'bioma-lista-productos';
+
+function listaElegida() {
+  const sel = $('#lista-productos');
+  return (sel && sel.value) || 'chacra';
+}
+
+// Precio por kg en la lista. Null si el producto no tiene equivalencia en kg
+// (un frasco de 10 ml, un maple): ahí se muestra el precio por unidad.
+function precioKgDe(p, lista) {
+  const peso = pesoUnitarioKg(p);
+  if (!peso) return null;
+  return precioDe(p, lista) / peso;
+}
+
+// Cuántos kg lleva la unidad al público: lo elegido; si no, el peso de su
+// presentación (el atado de 100 g); si no, 1 kg.
+function kgPublicoDe(p) {
+  return num(p.publico) > 0 ? num(p.publico) : (pesoUnitarioKg(p) || 1);
+}
+
+// Lo que se le cobra al público por una unidad, en la lista elegida.
+function precioPublicoDe(p, lista) {
+  const kg = precioKgDe(p, lista);
+  if (kg === null) return precioDe(p, lista);
+  return Math.round(kg * kgPublicoDe(p));
+}
+
+// "0,5 kg", "1 kg", "150 g": como se lee en una lista de precios.
+function textoKg(kg) {
+  if (kg < 1) return Math.round(kg * 1000) + ' g';
+  return String(Math.round(kg * 100) / 100).replace('.', ',') + ' kg';
+}
+
+function initListaProductos() {
+  const sel = $('#lista-productos');
+  if (!sel) return;
+  const antes = sel.value || (() => {
+    try { return localStorage.getItem(LISTA_PRODUCTOS_KEY) || ''; } catch (e) { return ''; }
+  })();
+  sel.innerHTML = db.listas.map(l =>
+    `<option value="${esc(l.clave)}">${esc(l.nombre)}</option>`).join('');
+  if (antes && db.listas.some(l => l.clave === antes)) sel.value = antes;
+}
+
 function renderProductos() {
   const cont = $('#lista-producto');
   initFiltroCategorias();
+  initListaProductos();
+  const lista = listaElegida();
   const items = productosOrdenados();
   const activos = db.productos.filter(p => p.activo !== false).length;
   const sinPrecio = db.productos.filter(p => !num(p.chacra)).length;
+  const editable = (db.apiServidor || 0) >= API_PUBLICO;
 
   $('#producto-resumen').innerHTML =
     `<span>${db.productos.length} productos · ${activos} activos</span>` +
-    (sinPrecio ? `<span class="alerta">${sinPrecio} sin precio</span>` : '');
+    (sinPrecio ? `<span class="alerta">${sinPrecio} sin precio</span>` : '') +
+    (editable ? '' : `<span class="alerta">La presentación se podrá cambiar cuando se actualice
+      el script de la planilla</span>`);
 
-  cont.innerHTML = '';
   if (!items.length) {
-    cont.innerHTML = '<li class="empty">Sin productos. Tocá «+ Nuevo producto» o cargalos en la planilla.</li>';
+    cont.innerHTML = '<p class="empty">Sin productos. Tocá «+ Nuevo» o cargalos en la planilla.</p>';
     return;
   }
 
-  items.forEach(p => {
-    const li = document.createElement('li');
-    li.className = 'prod-item' + (p.activo === false ? ' inactivo' : '');
-    const precios = db.listas.map(l => {
-      const fijado = l.clave !== 'chacra' && precioFijado(p, l.clave);
-      return `<span class="prc ${fijado ? 'fijado' : ''}" title="${esc(l.nombre)}${fijado ? ' (precio fijado a mano)' : ''}">
-          <span class="prc-lbl">${esc(l.nombre)}</span>
-          <span class="prc-val">${num(p.chacra) ? fmt(precioDe(p, l.clave)) : '—'}</span>
-        </span>`;
-    }).join('');
-    li.innerHTML = `
-      <div class="prod-cab">
-        <span class="prod-nombre">${esc(p.nombre)}</span>
-        <span class="prod-unidad">${esc(p.presentacion || p.unidad || '')}</span>
-      </div>
-      <div class="prod-precios">${precios}</div>
-      <span class="prod-cat cat-${esc(categoriaDe(p))}">${esc(categoriaDe(p))}</span>`;
-    li.addEventListener('click', () => abrirProducto(p.id));
-    cont.appendChild(li);
+  const filas = items.map(p => {
+    const pk = precioKgDe(p, lista);
+    const conPrecio = num(p.chacra) > 0;
+    const fijado = lista !== 'chacra' && precioFijado(p, lista);
+    // Sin equivalencia en kg no hay presentación que elegir: se vende por unidad.
+    const presentacion = pk === null
+      ? `<span class="prod-por">por ${esc(p.unidad || 'unidad')}</span>`
+      : `<input type="text" inputmode="decimal" class="prod-kg" data-publico="${esc(p.id)}"
+           value="${num(p.publico) > 0 ? String(num(p.publico)).replace('.', ',') : ''}"
+           placeholder="${String(kgPublicoDe(p)).replace('.', ',')}"
+           title="Cuántos kg lleva la unidad al público"${editable ? '' : ' disabled'}><span class="prod-u">kg</span>`;
+    return `<tr class="${p.activo === false ? 'inactivo' : ''}">
+      <td class="prod-nom" data-editar="${esc(p.id)}" title="Editar el producto">
+        <b>${esc(p.nombre)}</b>
+        <small>${esc([categoriaDe(p), p.presentacion || p.unidad].filter(Boolean).join(' · '))}</small>
+      </td>
+      <td class="n${fijado ? ' fijado' : ''}" title="${fijado ? 'Precio fijado a mano en esta lista' : ''}">${
+        !conPrecio ? '—' : pk === null ? '—' : fmt(Math.round(pk))}</td>
+      <td class="prod-pres">${presentacion}</td>
+      <td class="n"><b data-precio="${esc(p.id)}">${conPrecio ? fmt(precioPublicoDe(p, lista)) : '—'}</b></td>
+    </tr>`;
+  }).join('');
+
+  cont.innerHTML = `<table class="prod-tabla">
+    <thead><tr><th>Producto</th><th class="n">$/kg</th><th>Presentación</th><th class="n">Precio</th></tr></thead>
+    <tbody>${filas}</tbody>
+  </table>`;
+
+  cont.querySelectorAll('[data-editar]').forEach(td =>
+    td.addEventListener('click', () => abrirProducto(td.dataset.editar)));
+  cont.querySelectorAll('[data-publico]').forEach(inp => {
+    inp.addEventListener('change', () => cambiarPublico(inp));
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
   });
 }
+
+/* Cambiar la presentación en la tabla misma. Se guarda en el dispositivo al
+   instante y se sube a la planilla un rato después: cambiar diez productos
+   seguidos no son diez sincronizaciones. */
+let subirPresentaciones = null;
+function cambiarPublico(inp) {
+  const p = db.productos.find(x => x.id === inp.dataset.publico);
+  if (!p) return;
+  const txt = inp.value.trim();
+  const kg = txt === '' ? '' : num(txt);
+  if (txt !== '' && !(kg > 0 && kg <= 100)) {
+    toast('La presentación va en kg: 0,5 · 1 · 2,5');
+    inp.value = num(p.publico) > 0 ? String(num(p.publico)).replace('.', ',') : '';
+    return;
+  }
+  p.publico = kg;
+  p.mod = Date.now();
+  save();
+  const b = document.querySelector(`[data-precio="${CSS.escape(p.id)}"]`);
+  if (b && num(p.chacra) > 0) b.textContent = fmt(precioPublicoDe(p, listaElegida()));
+  inp.placeholder = String(kgPublicoDe(p)).replace('.', ',');
+  clearTimeout(subirPresentaciones);
+  subirPresentaciones = setTimeout(() => sincronizar(true), 2500);
+}
+
+$('#lista-productos').addEventListener('change', () => {
+  try { localStorage.setItem(LISTA_PRODUCTOS_KEY, listaElegida()); } catch (e) {}
+  renderProductos();
+});
 
 /* ================= Alta y edición ================= */
 
@@ -426,19 +532,65 @@ $('#inputProductos').addEventListener('change', e => {
   e.target.value = '';
 });
 
-/* Exportar el catálogo con los cuatro precios ya calculados: sirve para
-   imprimir la lista o mandarla por WhatsApp. */
+/* Descargar y compartir la lista que se está mirando: la lista de precios
+   elegida y el filtro de categoría y de búsqueda que haya puestos. Solo los
+   activos con precio: una lista para el público no lleva "sin precio". */
+function productosParaLista() {
+  return productosOrdenados().filter(p => p.activo !== false && num(p.chacra) > 0);
+}
+
 $('#btnExportPrecios').addEventListener('click', () => {
-  const cab = ['categoría', 'producto', 'unidad', 'presentación',
-    ...db.listas.map(l => l.nombre)];
-  const filas = [cab];
-  productosOrdenados()
-    .filter(p => p.activo !== false && num(p.chacra))
-    .forEach(p => filas.push([
-      categoriaDe(p), p.nombre, p.unidad, p.presentacion || '',
-      ...db.listas.map(l => precioDe(p, l.clave))
-    ]));
+  const lista = listaElegida();
+  const nombreLista = listaPorClave(lista).nombre;
+  const filas = [['categoría', 'producto', `precio por kg (${nombreLista})`,
+    'presentación', `precio (${nombreLista})`]];
+  productosParaLista().forEach(p => {
+    const pk = precioKgDe(p, lista);
+    filas.push([categoriaDe(p), p.nombre, pk === null ? '' : Math.round(pk),
+      pk === null ? `por ${p.unidad || 'unidad'}` : textoKg(kgPublicoDe(p)),
+      precioPublicoDe(p, lista)]);
+  });
   if (filas.length === 1) { toast('No hay productos con precio'); return; }
-  descargar('bioma-precios.csv', filas.map(f => f.map(csvCell).join(',')).join('\n'), 'text/csv');
+  descargar(`precios-${clave(nombreLista).replace(/\s+/g, '-')}-${hoy()}.csv`,
+    filas.map(f => f.map(csvCell).join(',')).join('\n'), 'text/csv');
   toast('Lista de precios descargada');
+});
+
+// Como texto, para WhatsApp: un renglón por producto, agrupado por categoría.
+function textoListaPrecios() {
+  const lista = listaElegida();
+  const productos = productosParaLista();
+  if (!productos.length) return '';
+  const porCat = {};
+  productos.forEach(p => { (porCat[categoriaDe(p)] = porCat[categoriaDe(p)] || []).push(p); });
+  const partes = [`*Lista de precios · ${listaPorClave(lista).nombre}*`, fmtFecha(hoy()), ''];
+  const cats = [...CATEGORIAS.filter(c => porCat[c]),
+    ...Object.keys(porCat).filter(c => !CATEGORIAS.includes(c))];
+  cats.forEach(c => {
+    partes.push(`_${c.charAt(0).toUpperCase() + c.slice(1)}_`);
+    porCat[c].forEach(p => {
+      const pk = precioKgDe(p, lista);
+      const que = pk === null ? (p.presentacion || p.unidad || '') : textoKg(kgPublicoDe(p));
+      partes.push(`• ${p.nombre}${que ? ` (${que})` : ''}: ${fmt(precioPublicoDe(p, lista))}`);
+    });
+    partes.push('');
+  });
+  return partes.join('\n').trim();
+}
+
+$('#btnCompartirPrecios').addEventListener('click', async () => {
+  const texto = textoListaPrecios();
+  if (!texto) { toast('No hay productos con precio'); return; }
+  // En el teléfono abre el menú de compartir (WhatsApp, mail…). En la
+  // computadora, donde casi nunca está, se copia para pegar.
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Lista de precios', text: texto }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast('Lista copiada: pegala en WhatsApp');
+  } catch (e) {
+    prompt('Copiá la lista:', texto);
+  }
 });

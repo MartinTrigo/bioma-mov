@@ -96,6 +96,9 @@ async function sincronizar(silencioso) {
     adoptarConceptos(remoto, conceptosEnviados);
 
     db.borrados = db.borrados.filter(b => !tumbas.has(b.id));
+    // Qué versión del script respondió: hay campos que solo se pueden editar
+    // si la planilla los guarda (ver API_PUBLICO en productos.js).
+    db.apiServidor = remoto.api;
     db.ultimaSync = new Date().toISOString();
     save(true); // la planilla ya tiene todo: no quedan cambios sin subir
     initAll();

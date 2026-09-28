@@ -27,7 +27,7 @@
 // Versión del protocolo. La app rechaza las respuestas que no la traigan:
 // así una implementación vieja que haya quedado publicada no puede
 // sobrescribir los datos del teléfono con un esquema que ya no existe.
-var API = 9; // 9: entiende action 'proyeccion'
+var API = 10; // 9: entiende action 'proyeccion' · 10: presentación al público
 
 /* Cuántos renglones de venta viaja la app. La hoja las guarda todas; el
    teléfono solo necesita las últimas para mostrarlas y poder corregirlas.
@@ -48,7 +48,7 @@ var COLUMNAS = {
   // todas las columnas de las filas ya escritas y las leería mal.
   productos: ['id', 'nombre', 'unidad', 'presentacion', 'chacra',
               'comarca', 'bariloche', 'verduleria', 'activo', 'mod',
-              'categoria', 'sku'],
+              'categoria', 'sku', 'publico'],
   /* Un renglón por producto vendido. "venta" agrupa los renglones de una
      misma operación (el remito); "origen" dice de dónde salió el renglón
      (manual, planilla, o el bolsón que lo contiene) para no sumar dos veces
@@ -70,7 +70,7 @@ var ENCABEZADOS = {
   deudas: ['id', 'fecha', 'persona', 'concepto', 'monto', 'tipo', 'estado', 'mod'],
   productos: ['id', 'producto', 'unidad', 'presentación', 'precio chacra',
               'comarca (fijo)', 'bariloche (fijo)', 'verdulerías (fijo)',
-              'activo', 'mod', 'categoría', 'SKU'],
+              'activo', 'mod', 'categoría', 'SKU', 'al público (kg)'],
   ventas: ['id', 'venta', 'fecha', 'cliente', 'lista', 'producto',
            'presentación', 'unidad', 'cantidad', 'kg', 'precio', 'subtotal',
            'origen', 'observaciones', 'mod'],
@@ -293,6 +293,12 @@ function leerProductos_() {
     obj.activo = normBool_(obj.activo);
     obj.categoria = String(obj.categoria || '').trim().toLowerCase() || 'hortaliza';
     obj.sku = String(obj.sku || '').trim();
+    /* Cuántos kg lleva la unidad que se ofrece al público: 0,5 · 1 · 2,5.
+       Cambia en la temporada (repollos más grandes, una oferta), por eso va
+       aparte de "presentacion", que identifica al producto y de la que las
+       ventas sacan los kilos. Vacío = 1 kg, o el peso del atado. */
+    var kgPublico = normMonto_(obj.publico);
+    obj.publico = kgPublico > 0 ? kgPublico : '';
     filas.push(obj);
   }
   return filas;
@@ -538,45 +544,35 @@ function hoja_(nombre) {
 function asegurarEsquema_() {
   var props = PropertiesService.getDocumentProperties();
   var version = props.getProperty('esquema');
-  var conocidas = ['v2', 'v3', 'v4', 'v5', 'v6', 'v7'];
-  if (conocidas.indexOf(version) < 0) migrarV2_();
-  if (version !== 'v5' && version !== 'v6' && version !== 'v7') {
-    // v5 agrega el catálogo de productos y las listas de precios
-    leerListas_(); // crea y siembra la hoja "listas" si no existía
-  }
-  if (version !== 'v6' && version !== 'v7') {
-    // v6 suma a "resumen" las tablas mes a mes y el flujo de fondos
-    repararResumen_();
-  }
-  if (version !== 'v7' && version !== 'v8') {
-    // v7 agrega la categoría a los productos
-    estilizarProductos_();
-  }
-  if (version !== 'v8' && version !== 'v9') {
-    // v8 agrega la hoja de ventas y el SKU de los productos
-    estilizarProductos_();
-  }
-  if (version !== 'v9' && version !== 'v10') {
-    /* v9 rehace los encabezados de ventas. Al sumar la columna "kg" los
-       datos pasaron a escribirse con ella, pero el encabezado seguía
-       siendo el anterior: la columna de kilos decía "precio". */
-    estilizarVentas_();
-  }
-  if (version !== 'v10' && version !== 'v11') {
-    // v10 rearma la hoja resumen con el diseño compacto
-    escribirResumen_();
-    PropertiesService.getDocumentProperties().deleteProperty('graficos');
-  }
-  if (version !== 'v11' && version !== 'v12') {
-    // v11 suma las tablas de horas de trabajo al resumen
-    escribirResumenHoras_();
-  }
-  if (version !== 'v12') {
-    /* v12: los egresos ganan la columna "persona" (para liquidar horas) y
-       se unifican los conceptos de trabajo en "sueldos". */
+  /* Cada paso corre una sola vez: si la planilla está en una versión
+     anterior. Antes se comparaba de a pares ("ni v11 ni v12"), y con la
+     planilla ya en v12 casi todos los pasos viejos volvían a correr en CADA
+     sincronización: migrarV2_, rearmar la hoja resumen y sus gráficos,
+     reestilizar productos y ventas. Encontrado el 28/09. */
+  var n = Number(String(version || '').replace(/^v/, '')) || 0;
+  if (n < 2) migrarV2_();
+  // v5 agrega el catálogo de productos y las listas de precios
+  if (n < 5) leerListas_(); // crea y siembra la hoja "listas" si no existía
+  // v6 suma a "resumen" las tablas mes a mes y el flujo de fondos
+  if (n < 6) repararResumen_();
+  // v7 y v8 agregan la categoría y el SKU a los productos
+  if (n < 8) estilizarProductos_();
+  /* v9 rehace los encabezados de ventas. Al sumar la columna "kg" los datos
+     pasaron a escribirse con ella, pero el encabezado seguía siendo el
+     anterior: la columna de kilos decía "precio". */
+  if (n < 9) estilizarVentas_();
+  // v10 rearma la hoja resumen con el diseño compacto
+  if (n < 10) { escribirResumen_(); props.deleteProperty('graficos'); }
+  /* v11 suma las tablas de horas al resumen; v12 da a los egresos la columna
+     "persona" (para liquidar horas) y unifica los conceptos en "sueldos". */
+  if (n < 12) {
     estilizarHojaDatos_('egresos', COLOR.tierra, COLOR.tierraClaro);
     escribirResumenHoras_();
-    props.setProperty('esquema', 'v12');
+  }
+  // v13: los productos ganan la presentación al público (kg por unidad)
+  if (n < 13) {
+    estilizarProductos_();
+    props.setProperty('esquema', 'v13');
   }
   /* Reparación de los efectos de una versión vieja del script (hoja
      "movimientos" recreada, conceptos vueltos al formato tipo|nombre).
@@ -799,6 +795,12 @@ function estilizarProductos_() {
   h.getRange(2, iChacra, 499, 4).setNumberFormat('"$"#,##0'); // chacra + los 3 fijos
   h.setColumnWidth(cols.indexOf('nombre') + 1, 170);
   h.setColumnWidth(cols.indexOf('presentacion') + 1, 140);
+  var iPublico = cols.indexOf('publico') + 1;
+  h.getRange(2, iPublico, 499).setNumberFormat('0.###');
+  h.setColumnWidth(iPublico, 120);
+  h.getRange(1, iPublico).setNote('Cuántos kg lleva la unidad que se vende al público ' +
+    '(0,5 · 1 · 2,5). Vacío = 1 kg, o el peso del atado. El precio de esa ' +
+    'unidad lo calcula la app con el precio por kg de cada lista.');
 
   // Las tres columnas de precio fijo se marcan como opcionales
   h.getRange(1, cols.indexOf('comarca') + 1, 1, 3)

@@ -150,6 +150,33 @@ No volver a discutirlas salvo que el usuario las reabra (detalle en `PLAN.md`):
   Gestión Económica"). La dirección sigue siendo `bioma-mov` a propósito:
   cambiarla obliga a reinstalar la app en cada teléfono.
 
+## Productos: presentación al público
+
+La pestaña Productos muestra **una lista de precios a la vez** (se elige
+arriba) con cuatro columnas: producto, precio por kg, presentación y precio.
+
+- La presentación es el campo **`publico`**: cuántos kg lleva la unidad que se
+  ofrece (0,5 · 1 · 2,5). Se edita en la tabla misma porque cambia en la
+  temporada. Vacío = el peso de su presentación (atado 100 g) o 1 kg.
+- **No es `presentacion`**, y no hay que unirlos: `presentacion` identifica al
+  producto ("Miel 500 g" y "Miel 1 kg" son dos) y de ella las ventas sacan los
+  kilos. Una oferta no puede cambiar eso.
+- Precio = precio por kg de la lista × `publico`. Lo que no tiene equivalencia
+  en kg (un frasco de 10 ml) va "por frasco", con su precio por unidad.
+- Se descarga (CSV) y se comparte como texto para WhatsApp, con la lista y
+  los filtros que haya en pantalla.
+- `publico` necesita el script en API 10: contra uno anterior el campo no se
+  deja editar, porque la sincronización lo borraría.
+
+## El esquema de la planilla
+
+`asegurarEsquema_` aplica cada paso **una sola vez**, comparando el número de
+versión (`n < 13`). Hasta el 28/09 comparaba de a pares ("ni v11 ni v12") y,
+con la planilla en v12, casi todos los pasos viejos corrían en **cada**
+sincronización: migrarV2_, rearmar la hoja resumen y sus gráficos,
+reestilizar productos y ventas. Al sumar un paso: `if (n < N+1) {…}` y subir
+la versión guardada.
+
 ## Proyección
 
 La pestaña cruza lo que **AMA Producción planificó** (cultivo, m², rinde, kg,
