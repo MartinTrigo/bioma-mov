@@ -605,3 +605,5 @@ input:focus, select:focus { border-color: var(--verde); }
 .prod-kg:disabled { opacity: .55; }
 .prod-u { font-size: .75rem; color: var(--gris); margin-left: 3px; }
 .prod-por { font-size: .78rem; color: var(--gris); }
+/* El casillero de un atado sin peso: se marca para que se note que falta. */
+.prod-kg.falta { border-color: var(--tierra); background: #fbf3e6; }

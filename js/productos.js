@@ -93,10 +93,32 @@ function listaElegida() {
   return (sel && sel.value) || 'chacra';
 }
 
-// Precio por kg en la lista. Null si el producto no tiene equivalencia en kg
-// (un frasco de 10 ml, un maple): ahí se muestra el precio por unidad.
-function precioKgDe(p, lista) {
+/* Lo que se puede pesar aunque se venda por unidad: un atado, una lechuga,
+   una bandeja. Un frasco, una botella o un bolsón no: ahí el precio es por
+   unidad y no hay kg que valgan. */
+const UNIDADES_SIN_PESO = ['frasco', 'botella', 'maple', 'docena'];
+const CATEGORIAS_SIN_PESO = ['bolsón', 'elaborado', 'bioinsumo', 'animal'];
+function sePuedePesar(p) {
+  return clave(p.unidad) === 'kg'
+    || (!UNIDADES_SIN_PESO.includes(clave(p.unidad)) && !CATEGORIAS_SIN_PESO.includes(categoriaDe(p)));
+}
+
+/* Cuántos kg pesa una unidad de lo que se vende. Primero lo que diga la
+   presentación del producto ("atado 100g"); si no dice, lo que se anotó en la
+   columna Presentación de la tabla. Así un atado de rúcula sin peso en su
+   nombre igual tiene precio por kg —y suma en la Proyección— con solo poner
+   cuánto pesa (28/09: la rúcula no sumaba y no había dónde cargarlo). */
+function kgPorUnidadDe(p) {
   const peso = pesoUnitarioKg(p);
+  if (peso) return peso;
+  if (sePuedePesar(p) && num(p.publico) > 0) return num(p.publico);
+  return null;
+}
+
+// Precio por kg en la lista. Null si el producto no tiene equivalencia en kg
+// (un frasco de 10 ml, un maple, o un atado del que no se sabe el peso).
+function precioKgDe(p, lista) {
+  const peso = kgPorUnidadDe(p);
   if (!peso) return null;
   return precioDe(p, lista) / peso;
 }
@@ -104,7 +126,7 @@ function precioKgDe(p, lista) {
 // Cuántos kg lleva la unidad al público: lo elegido; si no, el peso de su
 // presentación (el atado de 100 g); si no, 1 kg.
 function kgPublicoDe(p) {
-  return num(p.publico) > 0 ? num(p.publico) : (pesoUnitarioKg(p) || 1);
+  return num(p.publico) > 0 ? num(p.publico) : (kgPorUnidadDe(p) || 1);
 }
 
 // Lo que se le cobra al público por una unidad, en la lista elegida.
@@ -156,13 +178,16 @@ function renderProductos() {
     const pk = precioKgDe(p, lista);
     const conPrecio = num(p.chacra) > 0;
     const fijado = lista !== 'chacra' && precioFijado(p, lista);
-    // Sin equivalencia en kg no hay presentación que elegir: se vende por unidad.
-    const presentacion = pk === null
+    // Lo que no se puede pesar (un frasco) va por unidad. Lo que sí, lleva el
+    // casillero: en un atado sin peso conocido, ahí se anota cuánto pesa.
+    const sinPeso = pk === null && sePuedePesar(p);
+    const presentacion = !sePuedePesar(p)
       ? `<span class="prod-por">por ${esc(p.unidad || 'unidad')}</span>`
-      : `<input type="text" inputmode="decimal" class="prod-kg" data-publico="${esc(p.id)}"
+      : `<input type="text" inputmode="decimal" class="prod-kg${sinPeso ? ' falta' : ''}" data-publico="${esc(p.id)}"
            value="${num(p.publico) > 0 ? String(num(p.publico)).replace('.', ',') : ''}"
-           placeholder="${String(kgPublicoDe(p)).replace('.', ',')}"
-           title="Cuántos kg lleva la unidad al público"${editable ? '' : ' disabled'}><span class="prod-u">kg</span>`;
+           placeholder="${sinPeso ? '¿kg?' : String(kgPublicoDe(p)).replace('.', ',')}"
+           title="${sinPeso ? `¿Cuánto pesa un ${esc(p.unidad || 'unidad')}? En kg: 0,15`
+             : 'Cuántos kg lleva la unidad al público'}"${editable ? '' : ' disabled'}><span class="prod-u">kg</span>`;
     return `<tr class="${p.activo === false ? 'inactivo' : ''}">
       <td class="prod-nom" data-editar="${esc(p.id)}" title="Editar el producto">
         <b>${esc(p.nombre)}</b>
@@ -205,9 +230,14 @@ function cambiarPublico(inp) {
   p.publico = kg;
   p.mod = Date.now();
   save();
-  const b = document.querySelector(`[data-precio="${CSS.escape(p.id)}"]`);
-  if (b && num(p.chacra) > 0) b.textContent = fmt(precioPublicoDe(p, listaElegida()));
-  inp.placeholder = String(kgPublicoDe(p)).replace('.', ',');
+  // En un atado sin peso, lo que se anotó define el precio por kg: se redibuja
+  // la tabla entera. En el resto alcanza con el precio de la fila.
+  if (!pesoUnitarioKg(p) && clave(p.unidad) !== 'kg') { renderProductos(); }
+  else {
+    const b = document.querySelector(`[data-precio="${CSS.escape(p.id)}"]`);
+    if (b && num(p.chacra) > 0) b.textContent = fmt(precioPublicoDe(p, listaElegida()));
+    inp.placeholder = String(kgPublicoDe(p)).replace('.', ',');
+  }
   clearTimeout(subirPresentaciones);
   subirPresentaciones = setTimeout(() => sincronizar(true), 2500);
 }

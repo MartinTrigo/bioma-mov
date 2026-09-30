@@ -96,7 +96,7 @@ function formaComparable(s) {
 // de 250 g) sirve primero el que se vende por kg, después el que dice su peso.
 function mejorProducto(lista) {
   const puntaje = p => (p.activo !== false ? 4 : 0) +
-    (clave(p.unidad) === 'kg' ? 2 : pesoUnitarioKg(p) != null ? 1 : 0) +
+    (clave(p.unidad) === 'kg' ? 2 : kgPorUnidadDe(p) != null ? 1 : 0) +
     (num(p.chacra) > 0 ? 1 : 0);
   return lista.slice().sort((a, b) => puntaje(b) - puntaje(a))[0] || null;
 }
@@ -122,8 +122,11 @@ function precioPorKg(p, lista) {
   if (!p) return { motivo: 'no está en Productos' };
   const precio = precioDe(p, lista);
   if (!precio) return { motivo: 'sin precio cargado' };
-  const peso = pesoUnitarioKg(p);
-  if (!peso) return { motivo: `se vende por ${p.unidad || 'unidad'} y no dice cuánto pesa` };
+  // El mismo peso que usa Productos: el de la presentación, o el que se anotó
+  // en la tabla para un atado que no lo dice.
+  const peso = kgPorUnidadDe(p);
+  if (!peso) return { motivo: `se vende por ${p.unidad || 'unidad'}: falta cuánto pesa ` +
+    '(Productos → casillero Presentación)' };
   return { valor: precio / peso };
 }
 
