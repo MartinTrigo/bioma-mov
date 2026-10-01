@@ -269,3 +269,25 @@ de la planilla. Lo encontró la planilla simulada el 01/10: el egreso "flete
 hoja (`idManual_`). Y lo que se completa al leer hay que escribirlo en su
 renglón (`persistirNormalizados_`): sin la reescritura entera, un renglón sin id
 recibiría uno distinto en cada lectura y volvería de los teléfonos duplicado.
+
+## 16. Bajar todo en cada sincronización
+**Qué pasó:** la respuesta de cada sincronización traía todas las listas
+aunque no hubiera cambiado nada. Con tres temporadas (3000 movimientos, 300
+ventas, 110 productos): **458 KB por sincronización**, al abrir la app y
+después de cada cosa guardada, por datos móviles. Además el service worker
+pedía cada archivo con `cache: 'reload'`: bajaba la app entera en cada
+apertura, sin plazo con señal débil, y guardaba cualquier respuesta, también
+un 404.
+
+**Cómo quedó (01/10, API 12):** cada lista viaja con su firma (`firmaDe_`,
+sobre los campos de la hoja). La app la devuelve y, si la lista no cambió —o
+si lo único nuevo es lo que mandó ella misma—, la respuesta dice "sin
+cambios". Guardar algo baja 4 KB en vez de 458; lo que cambió otro teléfono o
+alguien a mano en la planilla vuelve entero. Una vez por día, todo sin firmas.
+El service worker pregunta con ETag, guarda solo lo que llegó bien y espera a
+la red 3 s como máximo al abrir.
+
+**Lo que encontraron las pruebas en el camino:** con una lista "sin cambios",
+una edición hecha mientras viajaba el pedido quedaba marcada como subida (la
+detección vivía dentro de la función que junta listas) y las tumbas propias
+no se confirmaban. Las dos quedaron cubiertas.

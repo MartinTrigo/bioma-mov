@@ -14,6 +14,11 @@ const API_VENTAS = 7;    // desde acá entiende la hoja de ventas
    renglón, sin reescribir la hoja), así que alcanza con mandarle lo que
    cambió desde la última sincronización. Contra uno anterior se manda todo. */
 const API_POR_CAMBIOS = 11;
+/* Desde acá el servidor no repite las listas que la app ya tiene: la app le
+   devuelve la firma de lo último que recibió y, si la lista no cambió, la
+   respuesta dice "sin cambios" en vez de traerla (~450 KB menos por
+   sincronización con tres temporadas cargadas). */
+const API_FIRMAS = 12;
 // Una vez por día se manda todo igual, por las dudas: si algo no viajó (un
 // reloj del teléfono corrido, por ejemplo), la diferencia no dura más de eso.
 const ENVIO_COMPLETO_CADA = 24 * 60 * 60 * 1000;
@@ -73,7 +78,10 @@ async function sincronizar(silencioso) {
         productos: elegir(db.productos),
         ventas: elegir(db.ventas),
         borrados: db.borrados,
-        conceptos: conceptosEnviados
+        conceptos: conceptosEnviados,
+        // Las firmas de lo que ya está en el dispositivo. El envío completo de
+        // una vez por día va sin ellas: así también se pide todo de vuelta.
+        firmas: !completo && db.apiServidor >= API_FIRMAS ? (db.firmas || {}) : {}
       })
     });
     const remoto = await res.json();
@@ -85,6 +93,9 @@ async function sincronizar(silencioso) {
       return;
     }
 
+    // Lo que el servidor no repitió porque no cambió (ver API_FIRMAS): se
+    // queda como está en el dispositivo.
+    const igual = new Set(remoto.sinCambios || []);
     const tumbas = new Set((remoto.borrados || []).map(b => b.id));
     const idsRemotos = new Set([
       ...(remoto.movimientos || []).map(x => x.id),
@@ -123,17 +134,17 @@ async function sincronizar(silencioso) {
       ];
     };
 
-    db.movimientos = unir(remoto.movimientos, db.movimientos);
-    db.deudas = unir(remoto.deudas, db.deudas);
+    if (!igual.has('movimientos')) db.movimientos = unir(remoto.movimientos, db.movimientos);
+    if (!igual.has('deudas')) db.deudas = unir(remoto.deudas, db.deudas);
     db.deudas.forEach(x => { if (x.estado === 'pagada') x.estado = 'saldada'; });
 
     // Productos y listas solo si el servidor ya los entiende: contra una
     // versión anterior del script se conserva lo que haya en el dispositivo.
     if (remoto.api >= API_PRODUCTOS) {
-      db.productos = unir(remoto.productos || [], db.productos);
+      if (!igual.has('productos')) db.productos = unir(remoto.productos || [], db.productos);
       if (remoto.listas && remoto.listas.length) db.listas = remoto.listas;
     }
-    if (remoto.api >= API_VENTAS) {
+    if (remoto.api >= API_VENTAS && !igual.has('ventas')) {
       /* La respuesta trae solo las últimas ventas, no todas: lo que falta no
          está borrado, está más atrás en la planilla. Por eso acá no se
          conserva "lo que no vino" salvo que sea más nuevo que la ventana, y
@@ -148,9 +159,22 @@ async function sincronizar(silencioso) {
        app solo las muestra. Por eso se reemplazan enteras, sin fusionar. */
     if (Array.isArray(remoto.horas)) db.horas = remoto.horas;
 
+    /* Lo tocado mientras viajaba el pedido, en cualquier lista. Se mira acá
+       y no solo al juntar las listas: las que volvieron "sin cambios" no se
+       juntan, y sin esto una edición hecha en vuelo quedaba marcada como
+       subida (encontrado el 01/10 en las pruebas). */
+    if (borradosEnVuelo.size ||
+        [db.movimientos, db.deudas, db.productos, db.ventas].some(l => l.some(x => (x.mod || 0) >= enviadoEn))) {
+      quedaAlgoSinSubir = true;
+    }
+
     adoptarConceptos(remoto, conceptosEnviados);
 
     db.borrados = db.borrados.filter(b => !tumbas.has(b.id));
+    // Si las tumbas volvieron "sin cambios", las que viajaron en este pedido
+    // ya están aplicadas: no hace falta volver a mandarlas. Las de después de
+    // que salió el pedido siguen esperando.
+    if (igual.has('borrados')) db.borrados = db.borrados.filter(b => (b.mod || 0) >= enviadoEn);
     // Qué versión del script respondió: hay campos que solo se pueden editar
     // si la planilla los guarda (ver API_PUBLICO en productos.js).
     db.apiServidor = remoto.api;
@@ -160,10 +184,15 @@ async function sincronizar(silencioso) {
     if (remoto.api >= API_POR_CAMBIOS) {
       db.subidoHasta = enviadoEn;
       if (completo) db.envioCompletoEn = enviadoEn;
+      // (Una lista que volvió "sin cambios" no tenía nada para reenviar: si
+      // lo hubiera tenido, el servidor lo habría agregado y la lista habría
+      // cambiado.)
       db.reenviar = faltan;
+      db.firmas = Object.assign({}, db.firmas, remoto.firmas || {});
     } else {
       db.subidoHasta = 0;
       db.reenviar = [];
+      db.firmas = {};
     }
     // Si algo se tocó mientras viajaba el pedido, todavía no está en la
     // planilla: queda marcado y sale otra sincronización enseguida.

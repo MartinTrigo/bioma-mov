@@ -162,7 +162,7 @@ async function cargar(ruta) {
 
     // 2) El código actual.
     await cargar('Code.gs');
-    igual('el servidor dice API 11', API, 11);
+    igual('el servidor dice API 12', API, 12);
     const ahora = {};
     for (const [n, fn] of Object.entries(ESCENARIOS)) {
       const { r: resp, escrituras } = fn();
@@ -229,6 +229,47 @@ async function cargar(ruta) {
         borrados: [{ id: 'no-existe', mod: 900 }] }));
       igual('hoja llena hasta la última fila: la venta nueva entra igual',
         PLANILLA.hojas.ventas.datos.some((f) => f[0] === 'v-nueva'), true);
+    }
+
+    // 4 ter) Firmas: lo que la app ya tiene no se vuelve a mandar.
+    {
+      nuevaPlanilla(planillaBase());
+      const r1 = sincronizarCon(pedido()).r;
+      const r2 = sincronizarCon(pedido({ firmas: r1.firmas })).r;
+      igual('firmas: sin cambios, la respuesta no repite ninguna lista',
+        [r2.sinCambios.slice().sort(), ['movimientos', 'deudas', 'productos', 'ventas', 'borrados'].filter((k) => k in r2)],
+        [['borrados', 'deudas', 'movimientos', 'productos', 'ventas'], []]);
+      cierto('firmas: la respuesta sin cambios es chica', JSON.stringify(r2).length < 1500, JSON.stringify(r2).length);
+      // Una corrección hecha a mano en la planilla (sin tocar el mod) llega igual.
+      PLANILLA.hojas.ingresos.datos.find((f) => f[0] === 'i2')[3] = 2999;
+      const r3 = sincronizarCon(pedido({ firmas: r2.firmas })).r;
+      igual('firmas: una corrección a mano en la planilla llega aunque el mod no cambie',
+        [r3.sinCambios.includes('movimientos'), (r3.movimientos || []).find((m) => m.id === 'i2')?.monto], [false, 2999]);
+      // Lo que manda la propia app no vuelve: ya lo tiene.
+      const r35 = sincronizarCon(pedido({ firmas: r3.firmas, movimientos: [{ id: 'i7', tipo: 'ingreso', fecha: '2026-09-07', concepto: 'CSA', monto: 700, obs: '', mod: 990 }] })).r;
+      const r36 = sincronizarCon(pedido({ firmas: r35.firmas })).r;
+      igual('firmas: lo que la app manda no le vuelve, ni en esta ni en la siguiente',
+        [r35.sinCambios.includes('movimientos'), r36.sinCambios.includes('movimientos'), PLANILLA.hojas.ingresos.datos.some((f) => f[0] === 'i7')], [true, true, true]);
+      // Si otro teléfono cambió algo antes, sí vuelve la lista entera.
+      const otro = sincronizarCon(pedido({ movimientos: [{ id: 'i8', tipo: 'ingreso', fecha: '2026-09-08', concepto: 'CSA', monto: 800, obs: '', mod: 991 }] })).r;
+      const r37 = sincronizarCon(pedido({ firmas: r36.firmas, movimientos: [{ id: 'i9b', tipo: 'ingreso', fecha: '2026-09-09', concepto: 'CSA', monto: 900, obs: '', mod: 992 }] })).r;
+      igual('firmas: si otro teléfono cambió algo, la lista vuelve entera con lo de los dos',
+        [r37.sinCambios.includes('movimientos'), ['i8', 'i9b'].every((id) => (r37.movimientos || []).some((m) => m.id === id))], [false, true]);
+      // Lo que manda la app también cambia la firma.
+      const r4 = sincronizarCon(pedido({ firmas: r37.firmas, borrados: [{ id: 'd1', mod: 999 }] })).r;
+      igual('firmas: lo que borra la propia app no le vuelve (ya lo sabe)',
+        [r4.sinCambios.includes('deudas'), r4.sinCambios.includes('borrados'), PLANILLA.hojas.deudas.datos.some((f) => f[0] === 'd1')], [true, true, false]);
+      // Si lo borró otro teléfono, vuelven las listas que cambiaron.
+      sincronizarCon(pedido({ borrados: [{ id: 'i1', mod: 1000 }] }));
+      const r5 = sincronizarCon(pedido({ firmas: r4.firmas })).r;
+      igual('firmas: lo que borró otro teléfono sí vuelve (la lista y la tumba)',
+        [r5.sinCambios.includes('movimientos'), r5.sinCambios.includes('borrados'),
+         (r5.movimientos || []).some((m) => m.id === 'i1'), (r5.borrados || []).some((b) => b.id === 'i1')], [false, false, false, true]);
+      // La cuenta sin Math.imul da lo mismo que con Math.imul.
+      const conImul = (s) => { let h = 0x811c9dc5; for (let j = 0; j < s.length; j++) h = Math.imul(h ^ s.charCodeAt(j), 0x01000193) >>> 0; return h; };
+      const sinImul = (s) => { let h = 0x811c9dc5; for (let j = 0; j < s.length; j++) { h = (h ^ s.charCodeAt(j)) >>> 0; h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0; } return h; };
+      const muestras = ['', 'a', '{"id":"i1","monto":1000}', 'ñandú · $1.234,50', 'x'.repeat(500)];
+      igual('firmas: FNV sin Math.imul coincide con Math.imul', muestras.map(sinImul), muestras.map(conImul));
     }
 
     // 5) Columnas que alguien agregó a la derecha siguen con su renglón al ordenar.

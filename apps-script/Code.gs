@@ -27,7 +27,8 @@
 // Versión del protocolo. La app rechaza las respuestas que no la traigan:
 // así una implementación vieja que haya quedado publicada no puede
 // sobrescribir los datos del teléfono con un esquema que ya no existe.
-var API = 11; // 9: action 'proyeccion' · 10: presentación al público · 11: escribe por cambios
+var API = 12; // 9: action 'proyeccion' · 10: presentación al público · 11: escribe por cambios
+           // 12: no repite las listas que la app ya tiene (firmas)
 
 /* Cuántos renglones de venta viaja la app. La hoja las guarda todas; el
    teléfono solo necesita las últimas para mostrarlas y poder corregirlas.
@@ -212,18 +213,87 @@ function sincronizar_(entrada) {
   var listaBorrados = Object.keys(borrados).map(function (id) {
     return { id: id, mod: borrados[id].mod };
   });
-  return {
+  var salida = {
     api: API,
-    movimientos: movimientos,
-    deudas: deudas,
-    productos: productos,
-    ventas: ventas.slice(-VENTANA_VENTAS),
     ventasTotal: ventas.length,
     horas: resumirHoras_(),
     conceptos: conceptos,
     listas: estado.listas,
-    borrados: listaBorrados
+    firmas: {},
+    sinCambios: []
   };
+  /* Las listas grandes viajan solo si cambiaron (API 12, 01/10). Antes cada
+     sincronización devolvía todo —con tres temporadas, ~450 KB, 350 de ellos
+     movimientos— aunque nadie hubiera tocado nada: al abrir la app y después
+     de cada cosa guardada, por datos móviles. Ahora va con cada lista su
+     firma (firmaDe_); la app la devuelve la vez siguiente, y si la lista da
+     la misma firma se contesta "sin cambios" en vez de mandarla.
+
+     La firma mira el renglón entero, no solo el mod: una corrección hecha a
+     mano en la planilla no cambia el mod y tiene que llegar igual a la app. */
+  /* También se mira cómo estaba cada lista ANTES de este pedido: si la firma
+     de la app coincide con esa, nadie más tocó nada desde su última
+     sincronización, y lo único nuevo es lo que ella misma mandó, que ya
+     tiene. Es el caso más común —guardar algo y sincronizar— y sin esto
+     volvía la lista de movimientos entera cada vez. */
+  var conocidas = entrada.firmas || {};
+  var partes = {
+    movimientos: [movimientos, estado.movimientos],
+    deudas: [deudas, estado.deudas],
+    productos: [productos, estado.productos],
+    ventas: [ventas.slice(-VENTANA_VENTAS), estado.ventas.slice(-VENTANA_VENTAS)],
+    borrados: [listaBorrados, estado.borrados]
+  };
+  Object.keys(partes).forEach(function (k) {
+    var despues = firmaDe_(partes[k][0], k);
+    salida.firmas[k] = despues;
+    var suya = conocidas[k];
+    if (suya && (suya === despues || suya === firmaDe_(partes[k][1], k))) salida.sinCambios.push(k);
+    else salida[k] = partes[k][0];
+  });
+  return salida;
+}
+
+/* Los campos que entran en la firma de cada lista, en orden fijo: los de la
+   hoja. Así un registro da la misma firma armado por la app o leído de la
+   planilla, que guardan los mismos datos con otra forma. */
+var CAMPOS_FIRMA = {
+  movimientos: ['id', 'tipo', 'fecha', 'concepto', 'monto', 'obs', 'persona', 'mod'],
+  deudas: COLUMNAS.deudas,
+  productos: COLUMNAS.productos,
+  ventas: COLUMNAS.ventas,
+  borrados: ['id', 'mod']
+};
+
+function textoFirma_(v) {
+  if (v == null) return '';
+  if (v instanceof Date) return normFecha_(v);
+  return String(v);
+}
+
+/* Una huella de la lista: cantidad y dos sumas de comprobación de 32 bits
+   (FNV-1a y djb2) de los campos de cada registro (CAMPOS_FIRMA), combinadas
+   sin importar el orden. Que dos listas distintas den la misma firma es tan improbable que no
+   se considera; igual, una vez por día la app pide todo sin firmas. */
+function firmaDe_(lista, nombre) {
+  var campos = CAMPOS_FIRMA[nombre];
+  var a = 0, b = 0;
+  for (var i = 0; i < lista.length; i++) {
+    var o = lista[i] || {};
+    var s = campos.map(function (k) { return textoFirma_(o[k]); }).join('');
+    var h1 = 0x811c9dc5, h2 = 5381;
+    for (var j = 0; j < s.length; j++) {
+      var c = s.charCodeAt(j);
+      // h1 × 16777619 (el primo de FNV) con sumas y corrimientos: no depende
+      // de Math.imul, que el motor viejo de Apps Script podría no tener.
+      h1 = (h1 ^ c) >>> 0;
+      h1 = (h1 + (h1 << 1) + (h1 << 4) + (h1 << 7) + (h1 << 8) + (h1 << 24)) >>> 0;
+      h2 = ((h2 << 5) + h2 + c) >>> 0;
+    }
+    a = (a + h1) >>> 0;
+    b = (b ^ h2) >>> 0;
+  }
+  return lista.length + '.' + a.toString(36) + '.' + b.toString(36);
 }
 
 function fusionar_(remotos, locales, borrados) {

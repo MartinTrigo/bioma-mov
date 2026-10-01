@@ -59,6 +59,7 @@ $('#inputImport').addEventListener('change', e => {
       // la próxima sincronización tiene que mandar todo, no solo lo nuevo.
       db.subidoHasta = 0;
       db.reenviar = [];
+      db.firmas = {};
       save();
       initAll();
       toast('Respaldo importado ✓');

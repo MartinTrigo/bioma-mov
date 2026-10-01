@@ -15,6 +15,9 @@ que produce en **Chacra Tica** (Comarca Andina del Paralelo 42).
   la última sincronización (`subidoHasta` en `sincro.js`) y una vez por día
   todo. Todo lo que modifique un registro **tiene que poner `mod: Date.now()`**:
   si no, no viaja. Importar un respaldo pone `subidoHasta` en 0.
+- **Y la respuesta trae solo lo que cambió (API 12):** cada lista viaja con
+  su firma y vuelve "sin cambios" si la app ya la tiene (DECISIONES 16). Si se
+  suma un campo a una hoja, va en `COLUMNAS` y con eso entra en la firma.
 - **Esta app la usan solo Martín y Luna**, que llevan administración y
   comercialización. Los demás socios están en MonAgric, no acá.
 - **App publicada:** <https://martintrigo.github.io/bioma-mov/>
