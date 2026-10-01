@@ -11,6 +11,10 @@ App de gestión económica del **Proyecto Bioma**, emprendimiento agroecológico
 que produce en **Chacra Tica** (Comarca Andina del Paralelo 42).
 
 - **Socios:** Luna, Tomi, Belu, Nati, Luis y Martín.
+- **Sincronización por cambios (01/10):** la app manda solo lo tocado desde
+  la última sincronización (`subidoHasta` en `sincro.js`) y una vez por día
+  todo. Todo lo que modifique un registro **tiene que poner `mod: Date.now()`**:
+  si no, no viaja. Importar un respaldo pone `subidoHasta` en 0.
 - **Esta app la usan solo Martín y Luna**, que llevan administración y
   comercialización. Los demás socios están en MonAgric, no acá.
 - **App publicada:** <https://martintrigo.github.io/bioma-mov/>
@@ -106,7 +110,10 @@ publica. Al cambiar archivos hay que subir `CACHE` en `sw.js` (`bioma-vN`).
    `cliente: 2`.
 2. **Nunca borrar por ausencia.** Un registro local solo se elimina si el
    servidor confirma su tumba (`borrados`). Una respuesta vacía o incompleta
-   jamás debe vaciar el dispositivo.
+   jamás debe vaciar el dispositivo. **Y el servidor nunca vacía una hoja**
+   (01/10, API 11): escribe por cambios, renglón por renglón
+   (`guardarCambios_`). Reescribir la hoja entera dejaba una ventana en la que,
+   si el script se cortaba, las ventas viejas se perdían (DECISIONES 14).
    **Y nunca pisar lo que se tocó mientras el pedido viajaba** (28/09): la
    sincronización tarda varios segundos, y reemplazar la lista local por la
    respuesta borraba en silencio los cambios hechos en ese rato (precios que
@@ -129,6 +136,12 @@ publica. Al cambiar archivos hay que subir `CACHE` en `sw.js` (`bioma-vN`).
 ```bash
 # probar local
 python -m http.server 8642      # y abrir http://localhost:8642
+
+# probar el servidor (Code.gs) contra una planilla simulada, sin tocar bioma-db:
+#   http://localhost:8642/apps-script/pruebas-servidor.html
+# Correrla antes de implementar cualquier cambio en Code.gs: tiene que dar
+# todo en verde. Para comparar con la versión anterior, copiar el Code.gs
+# viejo a apps-script/_Code.antes.gs (está en .gitignore).
 
 # ver el estado real de la planilla (sin tocar nada)
 curl -sL "<URL del Web App>" | python -m json.tool

@@ -234,3 +234,38 @@ MonAgric con las URLs (`CUENTAS_URLS`), y había que copiarlo.
 La constante quedó como respaldo, vacía a propósito, y una prueba verifica que
 **estando vacía el endpoint funciona igual**: si mañana alguien vuelve a
 depender de ella, la prueba lo dice.
+
+## 14. Reescribir cada hoja entera en cada sincronización
+**Qué pasó:** desde el principio, cada sincronización leía todas las hojas,
+**borraba** ingresos, egresos, deudas, productos, ventas, tumbas y conceptos, y
+las volvía a escribir enteras. Funcionaba, pero cada vez más lento con cada
+venta, y con un riesgo que crecía en silencio: si el script se cortaba entre el
+borrado y la escritura (el límite de 6 minutos de Apps Script, un error de
+Google), la hoja quedaba vacía. Movimientos y deudas se recuperaban del
+teléfono, que los tiene completos; **las ventas viejas no**, porque el teléfono
+guarda solo las últimas 300. Quedaban solo en el respaldo diario.
+
+**Cómo quedó (01/10, API 11):** el servidor escribe por cambios
+(`guardarCambios_`): agrega lo nuevo, reescribe el renglón cuyo `mod` es más
+nuevo, borra el que tiene tumba. Nunca vacía una hoja. La respuesta no cambió.
+La app manda solo lo tocado desde la última sincronización (`subidoHasta`),
+más lo que la planilla no devolvió (`reenviar`); una vez por día, todo.
+
+**Cómo se probó:** `apps-script/pruebas-servidor.html` corre el `Code.gs` real
+contra una planilla simulada (`planilla-simulada.js`) y compara, escenario por
+escenario, con el código anterior: la planilla y la respuesta quedan iguales;
+cambia cuánto escribe (0 si no hay nada nuevo, 2 para corregir una venta entre
+3000).
+
+## 15. Dos renglones cargados a mano con el mismo id
+**Qué pasó:** a un renglón cargado a mano sin id el script le inventaba uno con
+la hora y un contador que arrancaba en 0 **en cada hoja**. Un ingreso y un
+egreso cargados a mano, leídos en el mismo milisegundo, recibían el mismo id;
+al juntar los movimientos por id uno desaparecía, y la reescritura lo borraba
+de la planilla. Lo encontró la planilla simulada el 01/10: el egreso "flete
+800" cargado a mano no estaba después de sincronizar.
+
+**Lección:** un id inventado tiene que ser único en todo el pedido, no en cada
+hoja (`idManual_`). Y lo que se completa al leer hay que escribirlo en su
+renglón (`persistirNormalizados_`): sin la reescritura entera, un renglón sin id
+recibiría uno distinto en cada lectura y volvería de los teléfonos duplicado.

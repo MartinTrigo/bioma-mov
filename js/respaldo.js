@@ -55,6 +55,10 @@ $('#inputImport').addEventListener('change', e => {
         '¿Reemplazar los datos actuales?';
       if (!confirm(msg)) return;
       db = normalizar(datos);
+      // Los registros del respaldo tienen sus fechas de modificación viejas:
+      // la próxima sincronización tiene que mandar todo, no solo lo nuevo.
+      db.subidoHasta = 0;
+      db.reenviar = [];
       save();
       initAll();
       toast('Respaldo importado ✓');

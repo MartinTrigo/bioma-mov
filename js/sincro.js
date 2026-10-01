@@ -10,6 +10,13 @@ const SYNC_URL_KEY = 'bioma-sync-url';
 const API_MINIMA = 4;   // por debajo de esto la respuesta se descarta
 const API_PRODUCTOS = 5; // desde acá el servidor entiende productos y listas
 const API_VENTAS = 7;    // desde acá entiende la hoja de ventas
+/* Desde acá el servidor escribe por cambios (agrega, corrige o borra el
+   renglón, sin reescribir la hoja), así que alcanza con mandarle lo que
+   cambió desde la última sincronización. Contra uno anterior se manda todo. */
+const API_POR_CAMBIOS = 11;
+// Una vez por día se manda todo igual, por las dudas: si algo no viajó (un
+// reloj del teléfono corrido, por ejemplo), la diferencia no dura más de eso.
+const ENVIO_COMPLETO_CADA = 24 * 60 * 60 * 1000;
 /* La app guarda solo los últimos renglones de venta: la planilla los tiene
    todos. Sin este tope, una temporada entera viajaría en cada sincronización
    y en cada carga del teléfono. */
@@ -37,6 +44,20 @@ async function sincronizar(silencioso) {
   const enviadoEn = Date.now();
   let quedaAlgoSinSubir = false;
 
+  /* Qué se manda. Antes, todo en cada sincronización: los movimientos y las
+     deudas de la temporada, el catálogo y las últimas 300 ventas, cada vez
+     más grande. Ahora, si el servidor escribe por cambios, solo lo tocado
+     desde la última sincronización que salió bien (`subidoHasta`), más lo
+     que la planilla no devolvió la vez pasada (`reenviar`, ver abajo). Las
+     tumbas pendientes viajan siempre: son pocas y se van cuando el servidor
+     las confirma. */
+  const completo = !(db.apiServidor >= API_POR_CAMBIOS) || !db.subidoHasta
+    || db.subidoHasta > enviadoEn                        // el reloj volvió atrás
+    || enviadoEn - (db.envioCompletoEn || 0) > ENVIO_COMPLETO_CADA;
+  const reenviar = new Set(db.reenviar || []);
+  const elegir = lista => completo ? lista
+    : lista.filter(x => (x.mod || 0) >= db.subidoHasta || reenviar.has(x.id));
+
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -47,10 +68,10 @@ async function sincronizar(silencioso) {
         // conceptos de clientes >= 2: los anteriores mandaban su lista
         // entera y reponían lo que se borraba a mano en la planilla.
         cliente: 2,
-        movimientos: db.movimientos,
-        deudas: db.deudas,
-        productos: db.productos,
-        ventas: db.ventas,
+        movimientos: elegir(db.movimientos),
+        deudas: elegir(db.deudas),
+        productos: elegir(db.productos),
+        ventas: elegir(db.ventas),
         borrados: db.borrados,
         conceptos: conceptosEnviados
       })
@@ -72,6 +93,16 @@ async function sincronizar(silencioso) {
       ...(remoto.ventas || []).map(x => x.id)
     ]);
     const conservar = x => !idsRemotos.has(x.id) && !tumbas.has(x.id);
+    /* Lo que el dispositivo tiene y la planilla no devolvió (y no tiene
+       tumba): alguien lo borró a mano en la planilla, o nunca llegó. Se
+       conserva —nunca se borra por ausencia— y se vuelve a mandar en la
+       próxima, que es lo que pasaba antes al mandar todo. Las ventas viejas
+       no cuentan: la respuesta trae solo las últimas, y que una más vieja no
+       venga no quiere decir que falte. */
+    const faltan = [];
+    const fechaVentasDesde = (remoto.ventas || []).reduce(
+      (m, v) => (!m || String(v.fecha) < m ? String(v.fecha) : m), '');
+    const ventaFalta = v => (remoto.ventasTotal || 0) <= VENTANA_VENTAS || String(v.fecha) > fechaVentasDesde;
 
     /* Lo que se cambió o se borró en el dispositivo MIENTRAS el pedido
        viajaba. La respuesta no lo trae, y reemplazar la lista por la de la
@@ -81,12 +112,14 @@ async function sincronizar(silencioso) {
        en el dispositivo y viajan en la sincronización siguiente. */
     const borradosEnVuelo = new Set(db.borrados.filter(b => (b.mod || 0) >= enviadoEn).map(b => b.id));
     const tocadoEnVuelo = lista => new Map(lista.filter(x => (x.mod || 0) >= enviadoEn).map(x => [x.id, x]));
-    const unir = (remotos, locales) => {
+    const unir = (remotos, locales, falta = () => true) => {
       const enVuelo = tocadoEnVuelo(locales);
       if (enVuelo.size || borradosEnVuelo.size) quedaAlgoSinSubir = true;
+      const conservados = locales.filter(conservar);
+      conservados.filter(falta).forEach(x => faltan.push(x.id));
       return [
         ...remotos.filter(x => !borradosEnVuelo.has(x.id)).map(x => enVuelo.get(x.id) || x),
-        ...locales.filter(conservar)
+        ...conservados
       ];
     };
 
@@ -105,7 +138,7 @@ async function sincronizar(silencioso) {
          está borrado, está más atrás en la planilla. Por eso acá no se
          conserva "lo que no vino" salvo que sea más nuevo que la ventana, y
          se recorta al final para que el dispositivo no crezca sin límite. */
-      const ventas = unir(remoto.ventas || [], db.ventas);
+      const ventas = unir(remoto.ventas || [], db.ventas, ventaFalta);
       ventas.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) ||
         (a.mod || 0) - (b.mod || 0));
       db.ventas = ventas.slice(-VENTANA_VENTAS);
@@ -122,6 +155,16 @@ async function sincronizar(silencioso) {
     // si la planilla los guarda (ver API_PUBLICO en productos.js).
     db.apiServidor = remoto.api;
     db.ultimaSync = new Date().toISOString();
+    // Hasta acá llegó todo. Lo tocado mientras viajaba el pedido tiene un mod
+    // posterior y entra en la próxima.
+    if (remoto.api >= API_POR_CAMBIOS) {
+      db.subidoHasta = enviadoEn;
+      if (completo) db.envioCompletoEn = enviadoEn;
+      db.reenviar = faltan;
+    } else {
+      db.subidoHasta = 0;
+      db.reenviar = [];
+    }
     // Si algo se tocó mientras viajaba el pedido, todavía no está en la
     // planilla: queda marcado y sale otra sincronización enseguida.
     save(!quedaAlgoSinSubir);

@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bioma-db · pruebas del servidor</title>
+<style>
+  body { font: 15px/1.45 system-ui, sans-serif; margin: 24px; color: #233; background: #faf8f2; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .res { font-weight: 700; margin: 14px 0; font-size: 17px; }
+  .ok { color: #3d6b35; } .mal { color: #b0533c; }
+  table { border-collapse: collapse; width: 100%; max-width: 980px; }
+  td { border-top: 1px solid #e3ddcf; padding: 6px 8px; vertical-align: top; }
+  td:first-child { width: 22px; font-weight: 700; }
+  code { font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>bioma-db · pruebas del servidor</h1>
+<p>Corre el <code>Code.gs</code> real contra una planilla simulada en memoria: no toca
+bioma-db ni ninguna planilla de verdad. Abrir con <code>python -m http.server 8642</code>
+en la carpeta del proyecto y entrar a <code>/apps-script/pruebas-servidor.html</code>.
+Correrla antes de implementar un cambio en <code>Code.gs</code>.</p>
+<div id="resultado" class="res">Corriendo…</div>
+<table id="tabla"></table>
+<script src="planilla-simulada.js"></script>
+<script>
+/* ============ Datos de partida ============
+   Con los encabezados REALES de la planilla (ENCABEZADOS en Code.gs): usar
+   unos idealizados ya dejó pasar un error con 42 pruebas en verde. */
+const F = (s) => { const [a, m, d] = s.split('-').map(Number); return new Date(a, m - 1, d); };
+function planillaBase() {
+  return {
+    ingresos: [['id', 'fecha', 'punto de venta', 'monto', 'observaciones', 'mod'],
+      ['i1', F('2026-08-01'), 'Feria Puelo', 1000, '', 100],
+      ['i2', F('2026-08-10'), 'CSA', 2000, '', 100],
+      ['i3', F('2026-09-05'), 'Peninsula', 3000, '', 100]],
+    egresos: [['id', 'fecha', 'concepto', 'monto', 'observaciones', 'mod', 'persona'],
+      ['e1', F('2026-08-03'), 'semillas', 500, '', 100, '']],
+    deudas: [['id', 'fecha', 'persona', 'concepto', 'monto', 'tipo', 'estado', 'mod'],
+      ['d1', F('2026-08-02'), 'Luna', 'flete', 300, 'debemos', 'pendiente', 100]],
+    productos: [['id', 'producto', 'unidad', 'presentación', 'precio chacra', 'comarca (fijo)', 'bariloche (fijo)', 'verdulerías (fijo)', 'activo', 'mod', 'categoría', 'SKU', 'al público (kg)'],
+      ['p1', 'Acelga', 'kg', '', 3000, '', '', '', true, 100, 'hortaliza', '', ''],
+      ['p2', 'Miel', 'frasco', '500 g', 9000, '', '', '', true, 100, 'elaborado', '', '']],
+    ventas: [['id', 'venta', 'fecha', 'cliente', 'lista', 'producto', 'presentación', 'unidad', 'cantidad', 'kg', 'precio', 'subtotal', 'origen', 'observaciones', 'mod'],
+      ['v1', 'i1', F('2026-08-01'), 'Feria Puelo', 'chacra', 'Acelga', '', 'kg', 2, 2, 3000, 6000, 'manual', '', 100],
+      ['v2', 'i2', F('2026-08-10'), 'CSA', 'chacra', 'Miel', '500 g', 'frasco', 1, 0.5, 9000, 9000, 'manual', '', 100]],
+    borrados: [['id', 'mod']],
+    conceptos: [['ingresos', 'egresos'], ['Feria Puelo', 'semillas'], ['CSA', 'flete'], ['Peninsula', '']],
+    listas: [['clave', 'nombre', 'ajuste %'], ['chacra', 'Chacra', 0], ['comarca', 'Comarca', 30]],
+  };
+}
+// Lo que tiene la app: lo mismo que la planilla, como objetos (lo que devolvió la última sincronización).
+function estadoDeLaApp() {
+  nuevaPlanilla(planillaBase());
+  const e = leerEstado_();
+  return JSON.parse(JSON.stringify({ movimientos: e.movimientos, deudas: e.deudas, productos: e.productos, ventas: e.ventas }));
+}
+const pedido = (extra = {}) => Object.assign({ action: 'sync', cliente: 2, movimientos: [], deudas: [], productos: [], ventas: [], borrados: [], conceptos: { ingresos: [], egresos: [] } }, extra);
+function sincronizarCon(p) {
+  ESCRITURAS = 0;
+  const r = doPost({ postData: { contents: JSON.stringify(p) } });
+  if (r.error) throw new Error('el servidor respondió: ' + r.error);
+  return { r, escrituras: ESCRITURAS };
+}
+// Una foto de la planilla, comparable: cada hoja de datos como lista ordenada de renglones.
+function foto() {
+  const out = {};
+  ['ingresos', 'egresos', 'deudas', 'productos', 'ventas', 'borrados', 'conceptos'].forEach((n) => {
+    const h = PLANILLA.hojas[n];
+    out[n] = h ? h.datos.slice(1).filter((f) => f.some((c) => !vacio(c)))
+      // Lo que el script inventa al completar un renglón a mano (el id "man…" y
+      // el mod, que es la hora) cambia en cada corrida: se compara sin eso.
+      .map((f) => JSON.stringify(f.map((c) => (c instanceof Date ? 'D:' + Utilities.formatDate(c)
+        : /^man[0-9a-z]+$/.test(String(c)) ? 'man*' : (typeof c === 'number' && c > 1e12) ? 'hora' : c))))
+      .sort() : [];
+  });
+  return out;
+}
+const sinMod = (lista) => lista.map((x) => { const y = { ...x }; if (String(y.id).startsWith('man')) y.id = 'man*'; delete y.mod; return y; });
+const respuestaComparable = (r) => JSON.stringify({
+  movimientos: sinMod(r.movimientos), deudas: sinMod(r.deudas), productos: sinMod(r.productos),
+  ventas: sinMod(r.ventas), conceptos: r.conceptos, borrados: r.borrados.map((b) => b.id).sort(),
+});
+
+/* ============ Los escenarios ============
+   Cada uno arma la planilla, sincroniza, y devuelve lo que hay que mirar. Se
+   corren con el código anterior y con el nuevo: la planilla y la respuesta
+   tienen que dar igual; lo que cambia es cuánto escribe. */
+const ESCENARIOS = {
+  'nada nuevo (la app manda lo mismo que hay)': () => {
+    const app = estadoDeLaApp(); nuevaPlanilla(planillaBase());
+    return sincronizarCon(pedido(app));
+  },
+  'una venta nueva, con fecha del medio': () => {
+    nuevaPlanilla(planillaBase());
+    return sincronizarCon(pedido({
+      movimientos: [{ id: 'i9', tipo: 'ingreso', fecha: '2026-08-05', concepto: 'CSA', monto: 1500, obs: '', mod: 500 }],
+      ventas: [{ id: 'v9', venta: 'i9', fecha: '2026-08-05', cliente: 'CSA', lista: 'chacra', producto: 'Acelga', presentacion: '', unidad: 'kg', cantidad: 0.5, kg: 0.5, precio: 3000, subtotal: 1500, origen: 'manual', obs: '', mod: 500 }],
+    }));
+  },
+  'un cambio más nuevo y uno más viejo que la planilla': () => {
+    nuevaPlanilla(planillaBase());
+    return sincronizarCon(pedido({
+      movimientos: [{ id: 'i2', tipo: 'ingreso', fecha: '2026-08-10', concepto: 'CSA', monto: 2500, obs: 'corregido', mod: 200 },
+                    { id: 'i3', tipo: 'ingreso', fecha: '2026-09-05', concepto: 'Peninsula', monto: 1, obs: 'viejo', mod: 50 }],
+      productos: [{ id: 'p1', nombre: 'Acelga', unidad: 'kg', presentacion: '', chacra: 3500, comarca: '', bariloche: '', verduleria: '', activo: true, mod: 300, categoria: 'hortaliza', sku: '', publico: 1 }],
+    }));
+  },
+  'borrar: una tumba nueva': () => {
+    nuevaPlanilla(planillaBase());
+    return sincronizarCon(pedido({ borrados: [{ id: 'i1', mod: 600 }, { id: 'v1', mod: 600 }] }));
+  },
+  'renglones cargados a mano (sin id, fecha y monto como texto)': () => {
+    const p = planillaBase();
+    p.ingresos.push(['', '3/8/2026', 'Feria Franca', '$1.234,50', 'a mano', '']);
+    p.egresos.push(['', '15/08/2026', 'flete', '800', '', '', '']);
+    nuevaPlanilla(p);
+    return sincronizarCon(pedido());
+  },
+  'un id repetido en la hoja (copiar y pegar)': () => {
+    const p = planillaBase();
+    p.deudas.push(['d1', F('2026-08-02'), 'Luna', 'flete', 350, 'debemos', 'saldada', 150]);
+    nuevaPlanilla(p);
+    return sincronizarCon(pedido());
+  },
+  'un ingreso que pasa a egreso': () => {
+    nuevaPlanilla(planillaBase());
+    return sincronizarCon(pedido({ movimientos: [{ id: 'i3', tipo: 'egreso', fecha: '2026-09-05', concepto: 'flete', monto: 3000, obs: '', persona: '', mod: 700 }] }));
+  },
+  'concepto nuevo desde la app': () => {
+    nuevaPlanilla(planillaBase());
+    return sincronizarCon(pedido({ conceptos: { ingresos: ['Restaurantes'], egresos: [] } }));
+  },
+};
+
+const casos = [];
+const igual = (nombre, obtenido, esperado) => casos.push({ nombre, ok: JSON.stringify(obtenido) === JSON.stringify(esperado), obtenido, esperado });
+const cierto = (nombre, valor, detalle) => casos.push({ nombre, ok: !!valor, obtenido: detalle, esperado: true });
+
+async function cargar(ruta) {
+  const texto = await (await fetch(ruta, { cache: 'no-store' })).text();
+  (0, eval)(texto);          // las funciones del script quedan globales, como en Apps Script
+}
+
+(async () => {
+  try {
+    PROPS.esquema = 'v13';   // planilla ya migrada: asegurarEsquema_ no rehace nada
+    // 1) El código anterior, si está (solo para comparar; no se publica).
+    let antes = null;
+    try {
+      const r = await fetch('_Code.antes.gs', { cache: 'no-store' });
+      if (r.ok) {
+        (0, eval)(await r.text());
+        antes = {};
+        for (const [n, fn] of Object.entries(ESCENARIOS)) {
+          const { r: resp, escrituras } = fn();
+          antes[n] = { foto: foto(), resp: respuestaComparable(resp), escrituras };
+        }
+      }
+    } catch (e) { antes = null; }
+
+    // 2) El código actual.
+    await cargar('Code.gs');
+    igual('el servidor dice API 11', API, 11);
+    const ahora = {};
+    for (const [n, fn] of Object.entries(ESCENARIOS)) {
+      const { r: resp, escrituras } = fn();
+      ahora[n] = { foto: foto(), resp: respuestaComparable(resp), escrituras, crudo: resp, hojas: PLANILLA.hojas };
+      // Acá el código anterior perdía un renglón (ver idManual_): se mira aparte.
+      if (antes && n !== 'renglones cargados a mano (sin id, fecha y monto como texto)') {
+        igual(`${n}: la planilla queda igual que con el código anterior`, ahora[n].foto, antes[n].foto);
+        igual(`${n}: la app recibe lo mismo que con el código anterior`, ahora[n].resp, antes[n].resp);
+      }
+    }
+
+    // 3) Lo propio de escribir por cambios.
+    igual('nada nuevo: no escribe nada', ahora['nada nuevo (la app manda lo mismo que hay)'].escrituras, 0);
+    cierto('una venta nueva: pocas escrituras (no reescribe las hojas)',
+      ahora['una venta nueva, con fecha del medio'].escrituras <= 6, ahora['una venta nueva, con fecha del medio'].escrituras);
+    {
+      const h = ahora['una venta nueva, con fecha del medio'].hojas.ingresos;
+      igual('una venta nueva: la hoja queda ordenada por fecha',
+        h.datos.slice(1).map((f) => f[0]), ['i1', 'i9', 'i2', 'i3']);
+    }
+    {
+      const h = ahora['renglones cargados a mano (sin id, fecha y monto como texto)'].hojas.ingresos;
+      const fila = h.datos.find((f) => f[2] === 'Feria Franca');
+      cierto('a mano: el renglón queda con id, fecha de verdad y monto en número',
+        fila && String(fila[0]).startsWith('man') && fila[1] instanceof Date && fila[3] === 1234.5 && fila[5] > 0, fila);
+      const escena = ahora['renglones cargados a mano (sin id, fecha y monto como texto)'];
+      igual('a mano: un ingreso y un egreso cargados a la vez quedan los dos, con ids distintos',
+        [escena.hojas.egresos.datos.filter((f) => f[2] === 'flete' && f[3] === 800).length,
+         escena.crudo.movimientos.filter((m) => String(m.id).startsWith('man')).length], [1, 2]);
+      // El error de antes dependía de caer en el mismo milisegundo: se prueba
+      // el generador directamente, muchos seguidos.
+      const ids = Array.from({ length: 500 }, () => idManual_());
+      igual('a mano: 500 ids generados seguidos no se repiten', new Set(ids).size, 500);
+      // La segunda vez el id es el mismo: no se duplica al volver de la app.
+      const id = fila[0];
+      PLANILLA = { hojas: escena.hojas };     // la planilla de este escenario, no la del último
+      const r2 = sincronizarCon(pedido({ movimientos: ahora['renglones cargados a mano (sin id, fecha y monto como texto)'].crudo.movimientos }));
+      igual('a mano: la segunda sincronización no duplica ni escribe', [PLANILLA.hojas.ingresos.datos.filter((f) => f[0] === id).length, r2.escrituras], [1, 0]);
+    }
+
+    // 4) Muchas ventas: un cambio escribe un renglón, no la temporada.
+    {
+      const p = planillaBase();
+      for (let i = 0; i < 3000; i++) {
+        const d = F('2026-08-01'); d.setDate(d.getDate() + (i % 300));
+        p.ventas.push(['vv' + i, 'x' + i, d, 'Feria', 'chacra', 'Acelga', '', 'kg', 1, 1, 3000, 3000, 'manual', '', 100]);
+      }
+      nuevaPlanilla(p);
+      const t0 = performance.now();
+      const r = sincronizarCon(pedido({ ventas: [{ id: 'vv1500', venta: 'x1500', fecha: '2026-08-01', cliente: 'Feria', lista: 'chacra', producto: 'Acelga', presentacion: '', unidad: 'kg', cantidad: 3, kg: 3, precio: 3000, subtotal: 9000, origen: 'manual', obs: '', mod: 900 }] }));
+      cierto('3000 ventas y se corrige una: 2 escrituras (el renglón y ordenar), no 3000', r.escrituras <= 2, r.escrituras);
+      igual('3000 ventas: siguen siendo 3002 renglones y la corregida dice 3', [PLANILLA.hojas.ventas.getLastRow() - 1, PLANILLA.hojas.ventas.datos.find((f) => f[0] === 'vv1500')[8]], [3002, 3]);
+      igual('3000 ventas: a la app viajan las últimas 300', r.r.ventas.length, 300);
+      cierto(`(tardó ${Math.round(performance.now() - t0)} ms en la simulación)`, true, '');
+    }
+
+    // 4 bis) Una hoja llena hasta su última fila: agregar no puede dar error.
+    {
+      const p = planillaBase();
+      for (let i = 0; i < 997; i++) p.ventas.push(['ll' + i, 'x', F('2026-08-01'), 'Feria', 'chacra', 'Acelga', '', 'kg', 1, 1, 3000, 3000, 'manual', '', 100]);
+      nuevaPlanilla(p);
+      PLANILLA.hojas.ventas.maxFilas = 1000;          // 1 encabezado + 999 ventas: llena
+      sincronizarCon(pedido({ ventas: [{ id: 'v-nueva', venta: 'x', fecha: '2026-09-01', cliente: 'CSA', lista: 'chacra', producto: 'Miel', presentacion: '500 g', unidad: 'frasco', cantidad: 1, kg: 0.5, precio: 9000, subtotal: 9000, origen: 'manual', obs: '', mod: 900 }],
+        borrados: [{ id: 'no-existe', mod: 900 }] }));
+      igual('hoja llena hasta la última fila: la venta nueva entra igual',
+        PLANILLA.hojas.ventas.datos.some((f) => f[0] === 'v-nueva'), true);
+    }
+
+    // 5) Columnas que alguien agregó a la derecha siguen con su renglón al ordenar.
+    {
+      const p = planillaBase();
+      p.ventas[1].push('nota de v1'); p.ventas[2].push('nota de v2');
+      nuevaPlanilla(p);
+      sincronizarCon(pedido({ ventas: [{ id: 'v0', venta: 'i0', fecha: '2026-07-15', cliente: 'CSA', lista: 'chacra', producto: 'Acelga', presentacion: '', unidad: 'kg', cantidad: 1, kg: 1, precio: 3000, subtotal: 3000, origen: 'manual', obs: '', mod: 800 }] }));
+      const v = PLANILLA.hojas.ventas.datos;
+      igual('columna agregada a mano: la nota sigue con su venta después de ordenar',
+        v.slice(1).map((f) => [f[0], f[15] || '']), [['v0', ''], ['v1', 'nota de v1'], ['v2', 'nota de v2']]);
+    }
+
+    // 6) Alguien insertó una fila arriba mientras corría: se busca el renglón por id.
+    {
+      nuevaPlanilla(planillaBase());
+      const h = PLANILLA.hojas.ingresos;
+      const getRangeOrig = h.getRange.bind(h);
+      let primera = true;
+      h.getRange = function (...a) {
+        // Justo después de leer la hoja, alguien inserta una fila arriba.
+        const r = getRangeOrig(...a);
+        if (primera && a[0] === 2 && a[2] > 1) {
+          primera = false;
+          const lectura = r.getValues();
+          h.datos.splice(1, 0, ['', F('2026-07-01'), 'insertada a mano', 1, '', '']);
+          return { getValues: () => lectura };
+        }
+        return r;
+      };
+      sincronizarCon(pedido({ movimientos: [{ id: 'i2', tipo: 'ingreso', fecha: '2026-08-10', concepto: 'CSA', monto: 2222, obs: '', mod: 999 }] }));
+      const filas = h.datos.slice(1);
+      igual('fila insertada a mano mientras corría: se corrige i2 y la insertada queda intacta',
+        [filas.find((f) => f[0] === 'i2')[3], filas.filter((f) => f[2] === 'insertada a mano').length], [2222, 1]);
+    }
+
+    if (!antes) cierto('(no está _Code.antes.gs: no se comparó con el código anterior)', true, '');
+  } catch (e) {
+    casos.push({ nombre: 'Las pruebas no pudieron correr: ' + e.message, ok: false, obtenido: e.stack, esperado: '' });
+  }
+  const mal = casos.filter((c) => !c.ok);
+  const res = document.getElementById('resultado');
+  res.textContent = mal.length ? `${mal.length} de ${casos.length} fallaron` : `Las ${casos.length} pruebas dan bien`;
+  res.className = 'res ' + (mal.length ? 'mal' : 'ok');
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  document.getElementById('tabla').innerHTML = casos.map((c) => `<tr><td class="${c.ok ? 'ok' : 'mal'}">${c.ok ? '✓' : '✗'}</td>
+    <td>${esc(c.nombre)}${c.ok ? '' : `<br><code>dio ${esc(JSON.stringify(c.obtenido))}\nesperaba ${esc(JSON.stringify(c.esperado))}</code>`}</td></tr>`).join('');
+  window.__resultado = { total: casos.length, fallaron: mal.map((c) => c.nombre) };
+})();
+</script>
+</body>
+</html>

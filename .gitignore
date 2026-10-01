@@ -26,3 +26,4 @@ _prueba*
 *.tmp
 .DS_Store
 Thumbs.db
+apps-script/_Code.antes.gs

@@ -27,7 +27,7 @@
 // Versión del protocolo. La app rechaza las respuestas que no la traigan:
 // así una implementación vieja que haya quedado publicada no puede
 // sobrescribir los datos del teléfono con un esquema que ya no existe.
-var API = 10; // 9: entiende action 'proyeccion' · 10: presentación al público
+var API = 11; // 9: action 'proyeccion' · 10: presentación al público · 11: escribe por cambios
 
 /* Cuántos renglones de venta viaja la app. La hoja las guarda todas; el
    teléfono solo necesita las últimas para mostrarlas y poder corregirlas.
@@ -142,11 +142,20 @@ function doPost(e) {
 /* ================= Sincronización ================= */
 
 function sincronizar_(entrada) {
+  NORMALIZAR_ = [];
   var estado = leerEstado_();
+  // Lo cargado a mano en la planilla (sin id, con la fecha como texto) se
+  // guarda ya normalizado en su propio renglón: ver persistirNormalizados_.
+  var normalizados = persistirNormalizados_();
 
   var borrados = {};
   estado.borrados.forEach(function (b) { borrados[b.id] = b; });
-  (entrada.borrados || []).forEach(function (b) { borrados[b.id] = b; });
+  var tumbasNuevas = [];
+  (entrada.borrados || []).forEach(function (b) {
+    if (!b || !b.id) return;
+    if (!borrados[b.id]) tumbasNuevas.push(b);
+    borrados[b.id] = b;
+  });
 
   var movimientos = fusionar_(estado.movimientos, entrada.movimientos || [], borrados);
   var deudas = fusionar_(estado.deudas, entrada.deudas || [], borrados);
@@ -170,15 +179,32 @@ function sincronizar_(entrada) {
     egresos: unirConceptos_(estado.conceptos.egresos, aporta.egresos)
   };
 
-  escribirDatos_('ingresos', movimientos.filter(function (m) { return m.tipo !== 'egreso'; }));
-  escribirDatos_('egresos', movimientos.filter(function (m) { return m.tipo === 'egreso'; }));
-  escribirDatos_('deudas', deudas);
-  escribirDatos_('productos', productos);
-  escribirDatos_('ventas', ventas);
-  escribirBorrados_(borrados);
-  escribirConceptos_(conceptos);
-  actualizarFlujo_(movimientos);
-  actualizarGraficos_();
+  /* Escritura por cambios (API 11, 01/10). Hasta acá se borraba cada hoja y
+     se la volvía a escribir entera en cada sincronización: lento, cada vez
+     más con cada venta, y peligroso. Si el script se cortaba entre el borrado
+     y la escritura (el límite de 6 minutos de Apps Script, un error de
+     Google), la hoja quedaba vacía; movimientos y deudas se recuperaban del
+     teléfono, pero las ventas viejas no, porque el teléfono guarda solo las
+     últimas 300. Ahora se agrega lo nuevo, se cambia el renglón que tiene un
+     mod más nuevo y se borra el que tiene tumba: nunca se vacía una hoja.
+
+     La respuesta no cambia: sigue siendo la fusión de la planilla con lo que
+     llegó (fusionar_, arriba), que es justamente lo que queda escrito. */
+  var entrantes = entrada.movimientos || [];
+  var ing = entrantes.filter(function (m) { return m && m.tipo !== 'egreso'; });
+  var egr = entrantes.filter(function (m) { return m && m.tipo === 'egreso'; });
+  var cambiosMov = guardarCambios_('ingresos', ing, borrados, modsPorId_(egr))
+    + guardarCambios_('egresos', egr, borrados, modsPorId_(ing));
+  guardarCambios_('deudas', entrada.deudas || [], borrados, {});
+  guardarCambios_('productos', entrada.productos || [], borrados, {});
+  guardarCambios_('ventas', entrada.ventas || [], borrados, {});
+  agregarBorrados_(tumbasNuevas);
+  if (JSON.stringify(conceptos) !== JSON.stringify(estado.conceptos)) escribirConceptos_(conceptos);
+  // El flujo y los gráficos solo cambian si cambió algún ingreso o egreso.
+  if (cambiosMov || normalizados.ingresos || normalizados.egresos) {
+    actualizarFlujo_(movimientos);
+    actualizarGraficos_();
+  }
 
   // Se devuelve la lista completa de tumbas: la app la necesita para saber
   // qué borrar de su copia local sin tener que confiar ciegamente en que
@@ -247,6 +273,184 @@ function unirConceptos_(existentes, entrantes) {
   return out;
 }
 
+/* El id de un renglón cargado a mano. Antes era la hora más un contador que
+   arrancaba en 0 en cada hoja: un ingreso y un egreso cargados a mano y
+   leídos en el mismo milisegundo recibían EL MISMO id, y al juntarlos por id
+   uno desaparecía de la planilla (encontrado el 01/10 con la planilla
+   simulada). Ahora el contador es uno solo para todo el pedido, con algo de
+   azar por si dos pedidos caen en el mismo milisegundo. */
+var CONTADOR_MANUAL_ = 0;
+function idManual_() {
+  return 'man' + Date.now().toString(36) + (CONTADOR_MANUAL_++).toString(36) +
+    Math.floor(Math.random() * 1296).toString(36);
+}
+
+/* ================= Escritura por cambios ================= */
+
+/* Los renglones cargados a mano que el script tuvo que completar al leerlos:
+   sin id, sin mod, con la fecha escrita como texto. Antes quedaban bien
+   porque la hoja se reescribía entera; ahora cada uno se escribe en su
+   lugar. Sin esto, un renglón sin id recibiría un id distinto en cada
+   lectura y volvería de los teléfonos como uno nuevo, duplicado. */
+var NORMALIZAR_ = [];
+
+function marcarParaNormalizar_(nombre, filaHoja, obj, idOriginal) {
+  NORMALIZAR_.push({ nombre: nombre, fila: filaHoja, obj: obj, id: idOriginal });
+}
+
+function persistirNormalizados_() {
+  var cuantos = {};
+  NORMALIZAR_.forEach(function (n) {
+    var h = hoja_(n.nombre);
+    // Se confirma que el renglón siga siendo el mismo que se leyó.
+    if (String(h.getRange(n.fila, 1).getValue() || '').trim() !== n.id) return;
+    h.getRange(n.fila, 1, 1, COLUMNAS[n.nombre].length).setValues([aFila_(n.nombre, n.obj)]);
+    cuantos[n.nombre] = (cuantos[n.nombre] || 0) + 1;
+  });
+  NORMALIZAR_ = [];
+  return cuantos;
+}
+
+// Un registro como renglón de la hoja, igual que lo escribía escribirDatos_.
+function aFila_(nombre, o) {
+  return COLUMNAS[nombre].map(function (c) {
+    var v = o[c];
+    if (c === 'fecha') return fechaADate_(v);
+    if (c === 'direccion') return v === 'nos_deben' ? 'nos deben' : 'debemos';
+    return v == null ? '' : v;
+  });
+}
+
+function modsPorId_(lista) {
+  var out = {};
+  lista.forEach(function (o) {
+    if (o && o.id && (!out[o.id] || (o.mod || 0) > out[o.id])) out[o.id] = Number(o.mod) || 0;
+  });
+  return out;
+}
+
+/* Lleva a la hoja lo que llegó, sin tocar lo demás.
+   · id nuevo → se agrega al final;
+   · id que ya está → se reescribe ese renglón solo si lo que llegó tiene un
+     mod más nuevo (lo mismo que decide fusionar_);
+   · id con tumba → se borra el renglón;
+   · `mudados` (id → mod): los que pasaron a la otra hoja (un ingreso que
+     ahora es egreso) se sacan de esta si el cambio es más nuevo.
+   Si la hoja tenía el mismo id dos veces (un copiar y pegar a mano), queda
+   el de mod más nuevo, como hacía la reescritura.
+   Antes de escribir o borrar un renglón se confirma que siga teniendo ese id:
+   si alguien insertó filas a mano mientras corría, se lo vuelve a buscar.
+   Devuelve cuántos renglones cambió. */
+function guardarCambios_(nombre, entrantes, borrados, mudados) {
+  var h = hoja_(nombre);
+  var cols = COLUMNAS[nombre];
+  var ancho = cols.length;
+  var iMod = cols.indexOf('mod');
+  var ultima = h.getLastRow();
+  var valores = ultima > 1 ? h.getRange(2, 1, ultima - 1, ancho).getValues() : [];
+  var modDe = function (i) { return Number(valores[i][iMod]) || 0; };
+
+  var filaDe = {}, sacar = {}, ultimaConDatos = -1;
+  valores.forEach(function (v, i) {
+    if (v.some(function (c) { return c !== '' && c != null; })) ultimaConDatos = i;
+    var id = String(v[0] || '').trim();
+    if (!id) return;
+    if (filaDe[id] !== undefined) {               // repetido: queda el más nuevo
+      var otra = filaDe[id];
+      if (modDe(i) > modDe(otra)) { sacar[otra] = id; filaDe[id] = i; } else { sacar[i] = id; }
+      return;
+    }
+    filaDe[id] = i;
+  });
+  Object.keys(filaDe).forEach(function (id) {
+    var i = filaDe[id];
+    if (borrados[id] || (mudados[id] && mudados[id] > modDe(i))) sacar[i] = id;
+  });
+
+  var mejor = {};
+  entrantes.forEach(function (o) {
+    if (!o || !o.id || borrados[o.id]) return;
+    var p = mejor[o.id];
+    if (!p || (Number(o.mod) || 0) > (Number(p.mod) || 0)) mejor[o.id] = o;
+  });
+
+  var nuevas = [], cambios = 0;
+  Object.keys(mejor).forEach(function (id) {
+    var o = mejor[id], i = filaDe[id];
+    if (i === undefined) { nuevas.push(aFila_(nombre, o)); return; }
+    if (sacar[i] !== undefined) return;
+    if ((Number(o.mod) || 0) <= modDe(i)) return;            // la hoja ya está igual o más nueva
+    var fila = filaVigente_(h, i + 2, id);
+    if (!fila) { nuevas.push(aFila_(nombre, o)); return; }   // ya no está: se agrega
+    h.getRange(fila, 1, 1, ancho).setValues([aFila_(nombre, o)]);
+    cambios++;
+  });
+
+  // Se borra de abajo hacia arriba, así los números de fila no se corren.
+  var borradas = 0;
+  Object.keys(sacar).map(Number).sort(function (a, b) { return b - a; }).forEach(function (i) {
+    var fila = filaVigente_(h, i + 2, sacar[i]);
+    if (fila) { h.deleteRow(fila); borradas++; }
+  });
+  if (nuevas.length) {
+    // Después del último renglón con datos (no de getLastRow, que cuenta
+    // también columnas que alguien haya agregado a la derecha).
+    var desde = ultimaConDatos + 3 - borradas;
+    if (desde < 2) desde = 2;
+    asegurarFilas_(h, desde + nuevas.length - 1);
+    h.getRange(desde, 1, nuevas.length, ancho).setValues(nuevas);
+  }
+  if (nuevas.length || cambios) ordenarHoja_(h, nombre);
+  return nuevas.length + cambios + borradas;
+}
+
+/* La fila donde está hoy el renglón con ese id: la esperada si sigue ahí,
+   y si no se lo busca. 0 si ya no está. */
+function filaVigente_(h, filaEsperada, id) {
+  if (filaEsperada <= h.getLastRow() &&
+      String(h.getRange(filaEsperada, 1).getValue() || '').trim() === id) return filaEsperada;
+  var n = h.getLastRow();
+  if (n < 2) return 0;
+  var ids = h.getRange(2, 1, n - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0] || '').trim() === id) return i + 2;
+  }
+  return 0;
+}
+
+/* El mismo orden que dejaba la reescritura: por fecha (los productos, por
+   nombre). Lo hace la planilla, renglones enteros, incluidas las columnas
+   que alguien haya agregado a la derecha. */
+function ordenarHoja_(h, nombre) {
+  var n = h.getLastRow();
+  if (n < 3) return;
+  var cols = COLUMNAS[nombre];
+  var clave = cols.indexOf(nombre === 'productos' ? 'nombre' : 'fecha') + 1;
+  if (clave < 1) return;
+  var orden = [{ column: clave, ascending: true }];
+  var iMod = cols.indexOf('mod') + 1;
+  if (iMod > 0) orden.push({ column: iMod, ascending: true });
+  h.getRange(2, 1, n - 1, Math.max(h.getLastColumn(), cols.length)).sort(orden);
+}
+
+// Las tumbas nuevas, al final de la hoja oculta: las que ya estaban no se tocan.
+function agregarBorrados_(lista) {
+  if (!lista.length) return;
+  var h = hoja_('borrados');
+  var filas = lista.map(function (b) { return [b.id, Number(b.mod) || Date.now()]; });
+  var desde = h.getLastRow() + 1;
+  asegurarFilas_(h, desde + filas.length - 1);
+  h.getRange(desde, 1, filas.length, 2).setValues(filas);
+}
+
+/* Una hoja tiene una cantidad fija de filas (1000 al crearla) y escribir más
+   allá da error. La reescritura de antes reusaba las que había; agregar al
+   final puede pasarse, así que primero se agregan las que falten. */
+function asegurarFilas_(h, hasta) {
+  var hay = h.getMaxRows();
+  if (hasta > hay) h.insertRowsAfter(hay, hasta - hay + 100);
+}
+
 /* ================= Lectura ================= */
 
 function leerEstado_() {
@@ -272,7 +476,6 @@ function leerProductos_() {
   var valores = h.getDataRange().getValues();
   var cols = COLUMNAS.productos;
   var filas = [];
-  var contador = 0;
   for (var i = 1; i < valores.length; i++) {
     var v = valores[i];
     var obj = {};
@@ -281,7 +484,9 @@ function leerProductos_() {
     obj.nombre = String(obj.nombre || '').trim();
     if (!obj.nombre) continue; // fila vacía o decorativa
 
-    obj.id = String(obj.id || '').trim() || ('man' + Date.now().toString(36) + (contador++));
+    var idLeido = String(obj.id || '').trim();
+    var faltaba = !idLeido || !Number(obj.mod);
+    obj.id = idLeido || idManual_();
     obj.mod = Number(obj.mod) || Date.now();
     obj.unidad = String(obj.unidad || '').trim() || 'kg';
     obj.presentacion = String(obj.presentacion || '').trim();
@@ -299,6 +504,7 @@ function leerProductos_() {
        ventas sacan los kilos. Vacío = 1 kg, o el peso del atado. */
     var kgPublico = normMonto_(obj.publico);
     obj.publico = kgPublico > 0 ? kgPublico : '';
+    if (faltaba) marcarParaNormalizar_('productos', i + 1, obj, idLeido);
     filas.push(obj);
   }
   return filas;
@@ -311,19 +517,21 @@ function leerVentas_() {
   var valores = h.getDataRange().getValues();
   var cols = COLUMNAS.ventas;
   var filas = [];
-  var contador = 0;
   for (var i = 1; i < valores.length; i++) {
     var v = valores[i];
     var obj = {};
     for (var j = 0; j < cols.length; j++) obj[cols[j]] = v[j];
 
     obj.producto = String(obj.producto || '').trim();
+    var fechaEraTexto = !(obj.fecha instanceof Date);
     obj.fecha = normFecha_(obj.fecha);
     obj.cantidad = normMonto_(obj.cantidad);
     if (!obj.producto || (!obj.fecha && !obj.cantidad)) continue;
     if (!obj.fecha) obj.fecha = normFecha_(new Date());
 
-    obj.id = String(obj.id || '').trim() || ('man' + Date.now().toString(36) + (contador++));
+    var idLeido = String(obj.id || '').trim();
+    var faltaba = !idLeido || !Number(obj.mod) || fechaEraTexto;
+    obj.id = idLeido || idManual_();
     obj.venta = String(obj.venta || '').trim() || obj.id;
     obj.mod = Number(obj.mod) || Date.now();
     obj.cliente = String(obj.cliente || '').trim() || 'sin cliente';
@@ -335,6 +543,7 @@ function leerVentas_() {
     obj.subtotal = normMonto_(obj.subtotal) || (obj.cantidad * obj.precio);
     obj.origen = String(obj.origen || '').trim() || 'manual';
     obj.obs = String(obj.obs || '');
+    if (faltaba) marcarParaNormalizar_('ventas', i + 1, obj, idLeido);
     filas.push(obj);
   }
   return filas;
@@ -383,7 +592,6 @@ function leerDatos_(nombre, tipo) {
   var valores = h.getDataRange().getValues();
   var cols = COLUMNAS[nombre];
   var filas = [];
-  var contador = 0;
   for (var i = 1; i < valores.length; i++) {
     var v = valores[i];
     var vacia = v.every(function (c) { return c === '' || c == null; });
@@ -391,7 +599,9 @@ function leerDatos_(nombre, tipo) {
     var obj = {};
     for (var j = 0; j < cols.length; j++) obj[cols[j]] = v[j];
 
-    obj.id = String(obj.id || '').trim() || ('man' + Date.now().toString(36) + (contador++));
+    var idLeido = String(obj.id || '').trim();
+    var faltaba = !idLeido || !Number(obj.mod) || !(obj.fecha instanceof Date) || typeof obj.monto !== 'number';
+    obj.id = idLeido || idManual_();
     obj.mod = Number(obj.mod) || Date.now();
     obj.fecha = normFecha_(obj.fecha);
     obj.monto = normMonto_(obj.monto);
@@ -410,6 +620,7 @@ function leerDatos_(nombre, tipo) {
       obj.direccion = normDireccion_(obj.direccion);
       obj.estado = normEstado_(obj.estado);
     }
+    if (faltaba) marcarParaNormalizar_(nombre, i + 1, obj, idLeido);
     filas.push(obj);
   }
   return filas;
