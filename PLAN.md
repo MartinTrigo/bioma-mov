@@ -59,10 +59,25 @@ hojas: «Respuestas de formulario 1» (el buzón, oculta), «Registro Horas»
   fuente. `tarifasPorTrabajador_` lee la primera tabla trabajador/tarifa que
   encuentra, que hoy es esta copia; da lo mismo mientras sea fórmula.
 
-### O5. Tarifas con fecha de vigencia
-Hoy `importarHoras` valúa TODAS las horas con la tarifa actual: un aumento
-reescribiría el devengado del pasado. Cada tarifa con su "desde", y cada
-hora con la vigente el día que se trabajó. Antes de que cambie alguna.
+### O5. Tarifas con fecha de vigencia · **hecho (07/10)**
+Antes `importarHoras` valuaba TODAS las horas con la tarifa actual: un
+aumento reescribía el devengado del pasado. Ahora cada hora se paga con la
+tarifa vigente el día que se trabajó (`tarifaDelDia_`):
+- **Config** sigue diciendo la tarifa de HOY; ahí se cambia, como siempre.
+- La hoja **«Cambios de tarifa»** (planilla de horas) anota cada aumento:
+  trabajador · desde · tarifa anterior · tarifa nueva · nota. La crea
+  `prepararCambiosDeTarifa()`, a mano, una vez.
+- Lo anterior al primer cambio va con su "tarifa anterior"; entre dos
+  cambios, con la anterior del siguiente; después del último, con Config.
+- La importación avisa (⚠ CAMBIOS DE TARIFA) si una fila está incompleta
+  (no se usa), si el nombre no está en Config o si la "nueva" no coincide
+  con lo que rige después.
+- Si se cambia Config sin anotar el cambio, pasa lo de antes: se recalcula
+  la temporada entera con la nueva.
+- `tarifasPorTrabajador_` mira primero Config y saltea «Cambios de tarifa».
+- La hoja `cuentas` pasa pesos a horas con la tarifa real (devengado ÷
+  horas), como Cuentas.gs. En Pagos, con dos tarifas en la temporada se lee
+  "~$8.250/h promedio".
 
 ### O6. Nombres seguros
 El pago solo deja elegir nombres que ya tienen horas (no tipearlos), hasta

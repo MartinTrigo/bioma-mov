@@ -1563,8 +1563,19 @@ function tarifasPorTrabajador_(libro) {
      tarifa por defecto, inflando el devengado en $50.000.
 
      Sirve cualquier tabla con un encabezado que diga "trabajador" y otra
-     columna que diga "tarifa": debajo, nombre y número. */
-  libro.getSheets().forEach(function (h) {
+     columna que diga "tarifa": debajo, nombre y número.
+
+     "Config" se mira primero: es la fuente (07/10; «Resumen General de
+     Horas» tiene una copia por fórmula y antes ganaba por estar adelante).
+     "Cambios de tarifa" se saltea: también dice trabajador y tarifa, pero
+     son las tarifas viejas, no las de hoy. */
+  var hojas = libro.getSheets().filter(function (h) {
+    return h.getName() !== HOJA_CAMBIOS_TARIFA;
+  });
+  hojas.sort(function (a, b) {
+    return (b.getName() === 'Config' ? 1 : 0) - (a.getName() === 'Config' ? 1 : 0);
+  });
+  hojas.forEach(function (h) {
     var v = h.getDataRange().getValues();
     for (var i = 0; i < v.length && i < 40; i++) {
       var colNombre = -1, colTarifa = -1;
@@ -1606,6 +1617,109 @@ function tarifasPorTrabajador_(libro) {
   });
 
   return tarifas;
+}
+
+/* ================= Tarifas con fecha (07/10, objetivo 5) =================
+   Antes, cada importación valuaba TODAS las horas con la tarifa de hoy: un
+   aumento reescribía lo devengado de la temporada entera, y las deudas de
+   meses ya cerrados crecían solas.
+
+   Ahora cada hora se paga con la tarifa vigente EL DÍA QUE SE TRABAJÓ:
+     · Config sigue diciendo la tarifa de hoy. Ahí se cambia, como siempre.
+     · La hoja "Cambios de tarifa" (planilla de horas) guarda cada aumento:
+       trabajador · desde · tarifa anterior · tarifa nueva · nota.
+       "Desde" es el primer día con la tarifa nueva.
+     · Una hora anterior al primer cambio de alguien se paga con la "tarifa
+       anterior" de ese cambio; entre dos cambios, con la anterior del
+       siguiente; después del último, con la de Config.
+   Si se cambia Config y no se anota el cambio, pasa lo de antes (se
+   recalcula todo con la nueva): el aviso de la importación lo dice. */
+var HOJA_CAMBIOS_TARIFA = 'Cambios de tarifa';
+var CABECERA_CAMBIOS_TARIFA = ['Trabajador', 'Desde', 'Tarifa anterior ($/h)',
+                               'Tarifa nueva ($/h)', 'Nota'];
+
+// "Desde" puede venir como fecha de la planilla, d/m/aaaa o aaaa-mm-dd.
+function fechaDesde_(v) {
+  var s = String(v || '').trim();
+  if (!(v instanceof Date) && /^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return fechaHoras_(v);
+}
+
+/* Los cambios de cada persona, del más viejo al más nuevo, y los avisos de
+   lo que no cierra. Una fila incompleta NO se usa a medias: se avisa y se
+   ignora, porque una tarifa inventada es peor que una que falta. */
+function cambiosDeTarifa_(libro, vigentes) {
+  var por = {}, avisos = [], n = 0;
+  var h = libro.getSheetByName(HOJA_CAMBIOS_TARIFA);
+  if (!h || h.getLastRow() < 2) return { por: por, avisos: avisos, n: 0 };
+
+  var v = h.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    var quien = String(v[i][0] || '').trim();
+    if (!quien && !v[i][1] && !v[i][2]) continue;          // fila vacía
+    var desde = fechaDesde_(v[i][1]);
+    var anterior = normMonto_(v[i][2]);
+    var nueva = normMonto_(v[i][3]);
+    var fila = 'fila ' + (i + 1);
+    if (!quien || !desde || !(anterior > 0)) {
+      avisos.push(fila + ': falta el trabajador, la fecha "desde" o la tarifa anterior (no se usó)');
+      continue;
+    }
+    var k = normClave_(quien);
+    if (!vigentes[k]) avisos.push(fila + ': ' + quien + ' no está en Config');
+    (por[k] = por[k] || []).push({ desde: desde, anterior: anterior, nueva: nueva, fila: fila });
+    n++;
+  }
+
+  Object.keys(por).forEach(function (k) {
+    var lista = por[k].sort(function (a, b) { return a.desde.localeCompare(b.desde); });
+    for (var j = 0; j < lista.length; j++) {
+      var siguiente = lista[j + 1];
+      // Lo que rige después de este cambio: la anterior del siguiente o Config.
+      var despues = siguiente ? siguiente.anterior : vigentes[k];
+      if (lista[j].nueva && despues && lista[j].nueva !== despues) {
+        avisos.push(lista[j].fila + ': dice que desde el ' + lista[j].desde + ' cobra $' +
+          lista[j].nueva + ', pero ' + (siguiente ? 'el cambio siguiente dice que cobraba $'
+          : 'Config dice $') + despues);
+      }
+    }
+  });
+  return { por: por, avisos: avisos, n: n };
+}
+
+// La tarifa de un día: la "anterior" del primer cambio que todavía no había
+// empezado ese día, o la de hoy si ya pasaron todos.
+function tarifaDelDia_(vigente, cambios, fecha) {
+  for (var i = 0; i < (cambios || []).length; i++) {
+    if (fecha < cambios[i].desde) return cambios[i].anterior;
+  }
+  return vigente;
+}
+
+/* Crea la hoja "Cambios de tarifa" en la planilla de horas, vacía y con
+   las instrucciones. Se ejecuta A MANO una vez; si ya existe no la toca. */
+function prepararCambiosDeTarifa() {
+  var libro = SpreadsheetApp.openById(ID_PLANILLA_HORAS);
+  if (libro.getSheetByName(HOJA_CAMBIOS_TARIFA)) {
+    Logger.log('La hoja "' + HOJA_CAMBIOS_TARIFA + '" ya existe: no se tocó.');
+    return;
+  }
+  var h = libro.insertSheet(HOJA_CAMBIOS_TARIFA);
+  h.getRange(1, 1, 1, CABECERA_CAMBIOS_TARIFA.length).setValues([CABECERA_CAMBIOS_TARIFA])
+    .setFontWeight('bold').setBackground('#fce8b2');
+  h.setFrozenRows(1);
+  h.getRange('B:B').setNumberFormat('dd/mm/yyyy');
+  h.getRange('C:D').setNumberFormat('"$"#,##0');
+  h.setColumnWidth(1, 120);
+  h.setColumnWidth(5, 280);
+  h.getRange(1, 1).setNote(
+    'Cuando cambia la tarifa de alguien:\n' +
+    '1) En Config, poné la tarifa NUEVA (como siempre).\n' +
+    '2) Acá, una fila: trabajador, desde qué día rige la nueva, cuánto ' +
+    'cobraba antes y la nueva.\n' +
+    'Así las horas anteriores se siguen pagando con la tarifa vieja. ' +
+    'Sin esta fila, el aumento se aplica a toda la temporada.');
+  Logger.log('Hoja "' + HOJA_CAMBIOS_TARIFA + '" creada en la planilla de horas.');
 }
 
 /* Para cada texto escrito de varias formas ("Frutícola" / "Fruticola"),
@@ -1678,6 +1792,7 @@ function importarHoras() {
   }
 
   var tarifas = tarifasPorTrabajador_(libro);
+  var cambios = cambiosDeTarifa_(libro, tarifas);
   /* Las áreas y los nombres se escriben a mano en un formulario: tarde o
      temprano aparece "Fruticola" sin tilde junto a "Frutícola", o "marto"
      junto a "Marto", y los totales se parten en dos. Ya nos pasó con los
@@ -1702,12 +1817,15 @@ function importarHoras() {
     var actividad = iAct > -1 ? unificar(f[iAct]) : '';
     if (!actividad) { actividad = 'sin actividad'; sinActividad++; }
 
+    // La tarifa del día trabajado, no la de hoy (ver cambiosDeTarifa_)
+    var k = normClave_(quien);
+    var tarifa = tarifaDelDia_(tarifas[k] || TARIFA_POR_DEFECTO, cambios.por[k], fecha);
     filas.push([
       fecha, fecha.slice(0, 7), quien, horas,
       actividad,
       area,
-      tarifas[normClave_(quien)] || TARIFA_POR_DEFECTO,
-      horas * (tarifas[normClave_(quien)] || TARIFA_POR_DEFECTO),
+      tarifa,
+      horas * tarifa,
       iObs > -1 ? String(f[iObs] || '').trim() : ''
     ]);
   }
@@ -1727,6 +1845,10 @@ function importarHoras() {
   aviso += ' · tarifas encontradas para ' + conTarifa + ' personas';
   if (!conTarifa) {
     aviso += ' (¡ninguna! se usó $' + TARIFA_POR_DEFECTO + ' para todos)';
+  }
+  if (cambios.n) aviso += ' · ' + cambios.n + ' cambios de tarifa aplicados por fecha';
+  if (cambios.avisos.length) {
+    aviso += ' · ⚠ CAMBIOS DE TARIFA: ' + cambios.avisos.join(' / ');
   }
   if (sinFecha) aviso += ' · ' + sinFecha + ' sin fecha entendible (quedaron afuera)';
   if (sinArea) aviso += ' · ⚠ ' + sinArea + ' SIN ÁREA';
@@ -2102,8 +2224,13 @@ function escribirCuentasYPagos_() {
   var filas = lista.map(function (c) {
     var saldo = c.devengado - c.pagado;
     tot.horas += c.horas; tot.devengado += c.devengado; tot.pagado += c.pagado;
+    /* "tarifa $/h" es la de hoy (la última hora importada). Para pasar
+       pesos a horas se usa la real, devengado ÷ horas: con un aumento en la
+       temporada, las horas pagadas con la de hoy no darían el total. Igual
+       que Cuentas.gs. */
+    var real = c.horas ? c.devengado / c.horas : 0;
     return [c.nombre, c.tarifa || '', c.horas, c.devengado, c.pagado, saldo,
-            c.tarifa ? c.pagado / c.tarifa : '', c.tarifa ? saldo / c.tarifa : '',
+            real ? c.pagado / real : '', real ? saldo / real : '',
             c.ultimo ? fechaADate_(c.ultimo) : '', c.pagos];
   });
   filas.push(['TOTAL', '', tot.horas, tot.devengado, tot.pagado, tot.devengado - tot.pagado,

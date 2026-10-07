@@ -367,6 +367,98 @@ async function cargar(ruta) {
         [...new Set(leerHojaHoras_().map((x) => x.mes))], ['2026-10']);
     }
 
+    {
+      /* 07/10, objetivo 5: cada hora se paga con la tarifa vigente el día
+         que se trabajó. La planilla de horas es otra planilla (openById):
+         se simula aparte de bioma-db. */
+      window.Logger = window.Logger || { log() {} };
+      const libroDe = (hojas) => {
+        const hs = Object.entries(hojas).map(([n, filas]) => {
+          const h = new Hoja(n); h.datos = filas.map((f) => f.slice()); return h;
+        });
+        return { getSheets: () => hs.slice(), getSheetByName: (n) => hs.find((h) => h.getName() === n) || null,
+                 insertSheet: (n) => { const h = new Hoja(n); hs.push(h); return h; } };
+      };
+      const d = (a, m, dia) => new Date(a, m - 1, dia);
+      const respuestas = ['Marca temporal', 'Fecha', 'Biomere', 'Horas', 'Actividad [Fila 1]', 'Observaciones', 'Área', 'Cargado por'];
+      const config = [['Configuración — Trabajadores y tarifas', '', ''], ['Trabajador', 'Tarifa ($/h)', 'Rol / Notas'],
+        ['Luqui', 9000, 'Operador'], ['Tomi', 10000, 'Admin']];
+      const horasDeLaPlanilla = () => ({
+        'Registro Horas': [respuestas],
+        // Una copia vieja adelante de Config: no tiene que ganar.
+        'Resumen General de Horas': [['Trabajador', 'Tarifa ($/h)'], ['Luqui', 7500], ['Tomi', 10000]],
+        'Respuestas de formulario 1': [respuestas,
+          [d(2026, 10, 21), d(2026, 10, 20), 'Luqui', 4, 'Siembras', '', 'Hortícola', 'Luqui'],
+          [d(2026, 11, 2), d(2026, 11, 1), 'Luqui', 2, 'Siembras', '', 'Hortícola', 'Luqui'],
+          [d(2026, 11, 3), d(2026, 11, 2), 'Luqui', 4, 'Desyuye', '', 'Hortícola', 'Luqui'],
+          [d(2026, 10, 16), d(2026, 10, 15), 'Tomi', 3, 'Trasplante', '', 'Hortícola', 'Tomi']],
+        Config: config,
+      });
+      const importarCon = (hojas) => {
+        const libro = libroDe(hojas);
+        SpreadsheetApp.openById = () => libro;
+        nuevaPlanilla(planillaBase());
+        const aviso = importarHoras();
+        const filas = PLANILLA.hojas.horas.datos.slice(1).map((f) => [f[0], f[2], f[3], f[6], f[7]]);
+        return { aviso, filas, libro };
+      };
+
+      // Sin cambios anotados: como antes, todo con la tarifa de Config.
+      let r = importarCon(horasDeLaPlanilla());
+      igual('tarifas: sin cambios anotados, todo con la de Config (y Config gana a la copia de Resumen General)',
+        r.filas.map((f) => f[3]), [10000, 9000, 9000, 9000]);
+
+      // Con el aumento de Luqui desde el 01/11: lo anterior queda a $7.500.
+      const conCambio = (fila) => Object.assign(horasDeLaPlanilla(), { 'Cambios de tarifa': [
+        ['Trabajador', 'Desde', 'Tarifa anterior ($/h)', 'Tarifa nueva ($/h)', 'Nota'], fila] });
+      r = importarCon(conCambio(['Luqui', d(2026, 11, 1), 7500, 9000, 'aumento']));
+      igual('tarifas: cada hora con la del día trabajado (el 01/11 ya es la nueva)', r.filas, [
+        ['2026-10-15', 'Tomi', 3, 10000, 30000],
+        ['2026-10-20', 'Luqui', 4, 7500, 30000],
+        ['2026-11-01', 'Luqui', 2, 9000, 18000],
+        ['2026-11-02', 'Luqui', 4, 9000, 36000]]);
+      cierto('tarifas: el aviso cuenta el cambio y no tiene advertencias',
+        /1 cambios de tarifa/.test(r.aviso) && !/⚠ CAMBIOS/.test(r.aviso), r.aviso);
+      const luqui = PLANILLA.hojas.cuentas.datos.find((f) => f[0] === 'Luqui');
+      igual('tarifas: la hoja cuentas muestra la tarifa de hoy y el devengado real',
+        [luqui[1], luqui[2], luqui[3], luqui[7]], [9000, 10, 84000, 10]);
+
+      // La fecha escrita como texto también sirve.
+      r = importarCon(conCambio(['Luqui', '1/11/2026', 7500, 9000, '']));
+      igual('tarifas: "desde" escrito como d/m/aaaa', r.filas.map((f) => f[3]), [10000, 7500, 9000, 9000]);
+
+      // Mal anotado: se avisa. La "nueva" no coincide con Config.
+      r = importarCon(conCambio(['Luqui', d(2026, 11, 1), 7500, 9500, '']));
+      cierto('tarifas: avisa si la tarifa nueva del cambio no es la de Config',
+        /CAMBIOS DE TARIFA.*Config dice \$9000/.test(r.aviso), r.aviso);
+
+      // Incompleto: no se usa a medias.
+      r = importarCon(conCambio(['Luqui', '', 7500, 9000, '']));
+      igual('tarifas: un cambio sin fecha no se usa y se avisa',
+        [r.filas.map((f) => f[3]), /no se usó/.test(r.aviso)], [[10000, 9000, 9000, 9000], true]);
+
+      // Dos aumentos: entre los dos rige la anterior del segundo.
+      const dos = horasDeLaPlanilla();
+      dos['Cambios de tarifa'] = [['Trabajador', 'Desde', 'Tarifa anterior ($/h)', 'Tarifa nueva ($/h)', 'Nota'],
+        ['Luqui', d(2026, 11, 2), 8000, 9000, ''], ['Luqui', d(2026, 10, 25), 7500, 8000, '']];
+      dos['Respuestas de formulario 1'].push([d(2026, 10, 28), d(2026, 10, 27), 'Luqui', 1, 'Siembras', '', 'Hortícola', 'Luqui']);
+      r = importarCon(dos);
+      igual('tarifas: con dos aumentos (anotados en cualquier orden), cada tramo con la suya',
+        r.filas.filter((f) => f[1] === 'Luqui').map((f) => [f[0], f[3]]),
+        [['2026-10-20', 7500], ['2026-10-27', 8000], ['2026-11-01', 8000], ['2026-11-02', 9000]]);
+      cierto('tarifas: dos aumentos encadenados bien no dan advertencias', !/⚠ CAMBIOS/.test(r.aviso), r.aviso);
+
+      // La hoja se crea una vez, con su encabezado, y no se pisa.
+      const libro = libroDe(horasDeLaPlanilla());
+      SpreadsheetApp.openById = () => libro;
+      prepararCambiosDeTarifa();
+      libro.getSheetByName('Cambios de tarifa').datos.push(['Luqui', d(2026, 11, 1), 7500, 9000, '']);
+      prepararCambiosDeTarifa();
+      igual('tarifas: prepararCambiosDeTarifa crea la hoja una vez y no pisa lo anotado',
+        libro.getSheetByName('Cambios de tarifa').datos.map((f) => f[0]), ['Trabajador', 'Luqui']);
+      delete SpreadsheetApp.openById;
+    }
+
     if (!antes) cierto('(no está _Code.antes.gs: no se comparó con el código anterior)', true, '');
   } catch (e) {
     casos.push({ nombre: 'Las pruebas no pudieron correr: ' + e.message, ok: false, obtenido: e.stack, esperado: '' });

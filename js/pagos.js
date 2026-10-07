@@ -46,8 +46,14 @@ function cuentasTrabajadores() {
     });
   return Object.values(gente).map(c => {
     c.saldo = c.devengado - c.pagado;
-    // Una tarifa por persona: el devengado dividido las horas la da exacta.
+    /* La tarifa real: devengado ÷ horas. Desde el 07/10 cada hora se paga
+       con la tarifa del día trabajado, así que con un aumento en la
+       temporada esto es un promedio: se marca para no confundirlo con la
+       tarifa de hoy. Pasar el saldo a horas con él es una aproximación. */
     c.tarifa = c.horas ? c.devengado / c.horas : 0;
+    const porMes = Object.values(c.meses).filter(m => m.horas)
+      .map(m => Math.round(m.devengado / m.horas));
+    c.tarifaPromedio = new Set(porMes).size > 1;
     c.pagos.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
     c.ultimo = c.pagos[0] ? c.pagos[0].fecha : '';
     c.liquidado = c.devengado ? Math.min(100, c.pagado / c.devengado * 100) : (c.pagado ? 100 : 0);
@@ -113,7 +119,7 @@ function cuentaHTML(c) {
     ${c.conHoras ? '' : `<p class="hint"><span class="alerta">⚠ Este nombre no tiene horas registradas.</span>
       Puede ser un pago cargado con otro nombre: corregilo en Egresos.</p>`}
     <div class="kpis">
-      <div class="kpi"><span class="kpi-label">Horas${c.tarifa ? ` · ${fmt(c.tarifa)}/h` : ''}</span><span class="kpi-val">${horasTxt(c.horas)}</span></div>
+      <div class="kpi"><span class="kpi-label">Horas${c.tarifa ? ` · ${c.tarifaPromedio ? '~' : ''}${fmt(c.tarifa)}/h${c.tarifaPromedio ? ' promedio' : ''}` : ''}</span><span class="kpi-val">${horasTxt(c.horas)}</span></div>
       <div class="kpi kpi-out"><span class="kpi-label">Devengado</span><span class="kpi-val">${fmt(c.devengado)}</span></div>
       <div class="kpi kpi-in"><span class="kpi-label">Pagado</span><span class="kpi-val">${fmt(c.pagado)}</span></div>
       <div class="kpi kpi-debt"><span class="kpi-label">Se le debe</span><span class="kpi-val ${c.saldo > 0 ? 'neg' : ''}">${fmt(c.saldo)}</span></div>

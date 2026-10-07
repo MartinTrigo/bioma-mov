@@ -290,8 +290,13 @@ los bolsones abiertos en componentes, y la planificación semanal (Fase 4.7).
   `d/m/aaaa 12:00:00`) según se carguen por formulario o a mano. Sin
   normalizarlas los meses salen mal. Lo que no se entiende **se descarta y
   se avisa**; no se adivina.
-- La tarifa sale de la hoja "Cuenta individual — Nombre" de cada persona,
-  así respeta tarifas distintas.
+- La tarifa de hoy sale de **Config** (planilla de horas); las hojas
+  "Cuenta individual" ya no existen. **Cada hora se paga con la tarifa del
+  día trabajado** (07/10): los aumentos se anotan en la hoja «Cambios de
+  tarifa» (desde · tarifa anterior). Cambiar Config sin anotarlo recalcula
+  la temporada entera con la nueva. Ver O5 en PLAN.md.
+- La hoja de origen se busca por nombre («Respuestas de formulario…»), no
+  por posición.
 - **No corre en cada sincronización** (leer otra planilla es lento): va con
   el respaldo diario, o a mano con `importarHoras`.
 - A la app viajan **agregadas por mes + persona + área**, no los ~400
