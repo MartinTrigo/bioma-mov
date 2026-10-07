@@ -127,7 +127,10 @@ function cuentaHTML(c) {
     <div class="barra-liq">${barraLiq(c.liquidado)}<span class="liq-texto">${c.liquidado.toFixed(1)}% pagado${
       c.tarifa && c.saldo > 0 ? ` · faltan ${horasTxt(c.saldo / c.tarifa)}` : ''}</span></div>
 
-    <form id="form-pago" class="form pago-form" autocomplete="off">
+    ${c.conHoras ? '' : `<p class="hint">Desde acá no se le registran pagos: si el nombre está
+      mal escrito, cada pago nuevo agranda el error. Si es un adelanto a propósito, el
+      siguiente va por Egresos → sueldos → «Otra persona».</p>`}
+    ${!c.conHoras ? '' : `<form id="form-pago" class="form pago-form" autocomplete="off">
       <h3>Registrar pago</h3>
       <div class="row">
         <label>Fecha <input type="date" name="fecha" value="${hoy()}" required></label>
@@ -145,7 +148,7 @@ function cuentaHTML(c) {
       <label>Observaciones <input type="text" name="obs" placeholder="detalle (opcional)"></label>
       <button type="submit" class="btn btn-out">Registrar pago a ${esc(c.nombre)}</button>
       <p class="hint" style="margin-top:8px">Queda como egreso de sueldos, igual que si se cargara en Egresos.</p>
-    </form>
+    </form>`}
 
     <h3>Pagos <small class="hint">${c.pagos.length}</small></h3>
     ${c.pagos.length ? `<ul class="mov-list">${c.pagos.map(p => `<li>

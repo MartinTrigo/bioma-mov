@@ -79,9 +79,15 @@ tarifa vigente el día que se trabajó (`tarifaDelDia_`):
   horas), como Cuentas.gs. En Pagos, con dos tarifas en la temporada se lee
   "~$8.250/h promedio".
 
-### O6. Nombres seguros
-El pago solo deja elegir nombres que ya tienen horas (no tipearlos), hasta
-migrar a identificadores por persona (pendiente en todo AMA).
+### O6. Nombres seguros · **hecho (07/10)**
+En Egresos → sueldos el nombre se ELIGE de una lista con quienes tienen
+horas, escrito como figura en ellas (`trabajadoresConHoras`). «Otra
+persona (adelanto)…» pide el nombre: si coincide con alguien con horas
+(sin tildes ni mayúsculas) lo elige de la lista; si no, avisa del riesgo de
+cuenta aparte y pide confirmar. Honorarios sigue con texto libre (gente de
+afuera). En Pagos, una cuenta «⚠ sin horas» no ofrece registrar más pagos.
+Es un parche hasta migrar a identificadores por persona (pendiente en todo
+AMA).
 
 ## Datos, revisados el 07/10
 - Planificación en Hortícola: 100 h de julio y agosto. Martín lo confirmó.

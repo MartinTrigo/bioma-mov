@@ -47,11 +47,13 @@
       </label>
       <!-- Aparece al liquidar horas (obligatorio: de ahí sale el saldo de
            cada persona) y al pagar honorarios (opcional: ahí es alguien de
-           afuera, que no tiene cuenta). -->
+           afuera, que no tiene cuenta).
+           Sueldos: el nombre se ELIGE entre quienes tienen horas, no se
+           escribe (07/10: "Lucas" por "Luqui" abrió una cuenta aparte).
+           Honorarios: se escribe, es gente de afuera. -->
       <label id="label-persona" class="hidden">Persona
-        <input type="text" name="persona" list="lista-trabajadores"
-               placeholder="a quién se le paga">
-        <datalist id="lista-trabajadores"></datalist>
+        <select name="trabajador"></select>
+        <input type="text" name="persona" placeholder="a quién se le pagó (opcional)">
       </label>
       <!-- Solo al pagar sueldos: quedan en la hoja "pagos" de bioma-db. -->
       <div id="datos-pago" class="row hidden">
