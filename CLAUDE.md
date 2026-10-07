@@ -322,6 +322,17 @@ los bolsones abiertos en componentes, y la planificación semanal (Fase 4.7).
   a gente que nunca trabajó una hora.
 - Al pagar honorarios **no se sugiere la lista de trabajadores**: los nombres
   salen de las horas registradas y ofrecerlos ahí empuja al error.
+- **Pagos de sueldos: una sola contabilidad, fácil de leer (07/10, objetivo 1
+  del plan de pagos).** Se guardan SOLO en `egresos` (concepto `sueldos` +
+  persona), ahora también con `medio` (efectivo / transferencia / otro) y
+  `periodo` (hasta qué día cubre las horas), al final de la hoja. Para leer,
+  el script arma dos hojas de **solo lectura** que rehace cuando cambia un
+  egreso o se importan horas: **`pagos`** (cada pago por fecha) y
+  **`cuentas`** (por trabajador: horas, devengado, pagado, saldo, horas
+  adeudadas, último pago). Nunca se cargan pagos en esas hojas: se pisan.
+  Los registran solo Martín y Luna. Lo que sigue (pestaña Pagos en la app,
+  tarifas con fecha, sacar las columnas viejas de la planilla de horas) está
+  en `PLAN.md`, "Pagos a trabajadores".
 
 ## Cuentas de los trabajadores
 

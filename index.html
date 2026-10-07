@@ -53,6 +53,20 @@
                placeholder="a quién se le paga">
         <datalist id="lista-trabajadores"></datalist>
       </label>
+      <!-- Solo al pagar sueldos: quedan en la hoja "pagos" de bioma-db. -->
+      <div id="datos-pago" class="row hidden">
+        <label>Medio de pago
+          <select name="medio">
+            <option value="">—</option>
+            <option>Efectivo</option>
+            <option>Transferencia</option>
+            <option>Otro</option>
+          </select>
+        </label>
+        <label>Cubre las horas hasta
+          <input type="date" name="periodo">
+        </label>
+      </div>
       <label>Observaciones
         <input type="text" name="obs" placeholder="detalle (opcional)">
       </label>

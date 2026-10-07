@@ -8,6 +8,8 @@
      · conceptos  (dos columnas: ingresos | egresos)
      · borrados   (oculta; propaga eliminaciones entre dispositivos)
      · resumen    (fórmulas vivas; se crea una sola vez)
+     · pagos, cuentas  (SOLO LECTURA: las rehace el script con los egresos
+                  de sueldos y la hoja horas; ver escribirCuentasYPagos_)
    Cualquier otra hoja de la planilla (calendarios, préstamos, etc.)
    NO es tocada por el script.
 
@@ -40,7 +42,10 @@ var COLUMNAS = {
   /* "persona" va al final (agregarla en el medio correría las columnas ya
      escritas). Se usa al liquidar horas: un egreso con concepto "sueldos"
      dice a quién se le pagó, y con eso sale el saldo de cada trabajador. */
-  egresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod', 'persona'],
+  /* "medio" y "periodo" (07/10) también al final, por lo mismo: se llenan al
+     pagar sueldos. Medio: efectivo, transferencia u otro. Periodo: hasta qué
+     día cubre las horas ese pago (aaaa-mm-dd). */
+  egresos: ['id', 'fecha', 'concepto', 'monto', 'obs', 'mod', 'persona', 'medio', 'periodo'],
   deudas: ['id', 'fecha', 'persona', 'concepto', 'monto', 'direccion', 'estado', 'mod'],
   // Solo se carga el precio de chacra; los otros tres quedan vacíos y los
   // calcula la app con el porcentaje de la hoja "listas". Escribir un valor
@@ -67,7 +72,8 @@ var CATEGORIAS = ['hortaliza', 'fruta', 'congelado', 'elaborado',
 
 var ENCABEZADOS = {
   ingresos: ['id', 'fecha', 'punto de venta', 'monto', 'observaciones', 'mod'],
-  egresos: ['id', 'fecha', 'concepto', 'monto', 'observaciones', 'mod', 'persona'],
+  egresos: ['id', 'fecha', 'concepto', 'monto', 'observaciones', 'mod', 'persona',
+            'medio de pago', 'horas hasta'],
   deudas: ['id', 'fecha', 'persona', 'concepto', 'monto', 'tipo', 'estado', 'mod'],
   productos: ['id', 'producto', 'unidad', 'presentación', 'precio chacra',
               'comarca (fijo)', 'bariloche (fijo)', 'verdulerías (fijo)',
@@ -194,8 +200,9 @@ function sincronizar_(entrada) {
   var entrantes = entrada.movimientos || [];
   var ing = entrantes.filter(function (m) { return m && m.tipo !== 'egreso'; });
   var egr = entrantes.filter(function (m) { return m && m.tipo === 'egreso'; });
-  var cambiosMov = guardarCambios_('ingresos', ing, borrados, modsPorId_(egr))
-    + guardarCambios_('egresos', egr, borrados, modsPorId_(ing));
+  var cambiosIng = guardarCambios_('ingresos', ing, borrados, modsPorId_(egr));
+  var cambiosEgr = guardarCambios_('egresos', egr, borrados, modsPorId_(ing));
+  var cambiosMov = cambiosIng + cambiosEgr;
   guardarCambios_('deudas', entrada.deudas || [], borrados, {});
   guardarCambios_('productos', entrada.productos || [], borrados, {});
   guardarCambios_('ventas', entrada.ventas || [], borrados, {});
@@ -206,6 +213,8 @@ function sincronizar_(entrada) {
     actualizarFlujo_(movimientos);
     actualizarGraficos_();
   }
+  // Un pago nuevo o corregido cambia las cuentas de los trabajadores.
+  if (cambiosEgr || normalizados.egresos) escribirCuentasYPagos_();
 
   // Se devuelve la lista completa de tumbas: la app la necesita para saber
   // qué borrar de su copia local sin tener que confiar ciegamente en que
@@ -258,7 +267,8 @@ function sincronizar_(entrada) {
    hoja. Así un registro da la misma firma armado por la app o leído de la
    planilla, que guardan los mismos datos con otra forma. */
 var CAMPOS_FIRMA = {
-  movimientos: ['id', 'tipo', 'fecha', 'concepto', 'monto', 'obs', 'persona', 'mod'],
+  movimientos: ['id', 'tipo', 'fecha', 'concepto', 'monto', 'obs', 'persona', 'mod',
+                'medio', 'periodo'],
   deudas: COLUMNAS.deudas,
   productos: COLUMNAS.productos,
   ventas: COLUMNAS.ventas,
@@ -386,6 +396,9 @@ function aFila_(nombre, o) {
   return COLUMNAS[nombre].map(function (c) {
     var v = o[c];
     if (c === 'fecha') return fechaADate_(v);
+    // Como fecha de verdad: escrita como texto, la planilla la convierte sola
+    // en unas filas sí y en otras no (ver escribirHoras_).
+    if (c === 'periodo') return v ? fechaADate_(v) : '';
     if (c === 'direccion') return v === 'nos_deben' ? 'nos deben' : 'debemos';
     return v == null ? '' : v;
   });
@@ -684,6 +697,11 @@ function leerDatos_(nombre, tipo) {
       obj.concepto = String(obj.concepto || '').trim() || 'varios';
       obj.obs = String(obj.obs || '');
       obj.persona = String(obj.persona || '').trim();
+      if (tipo === 'egreso') {
+        obj.medio = String(obj.medio || '').trim();
+        // "Hasta qué día cubre": siempre aaaa-mm-dd, aunque se escriba a mano.
+        obj.periodo = obj.periodo ? normFecha_(obj.periodo) : '';
+      }
     } else {
       obj.persona = String(obj.persona || '').trim() || 'sin nombre';
       obj.concepto = String(obj.concepto || '');
@@ -854,6 +872,13 @@ function asegurarEsquema_() {
   if (n < 13) {
     estilizarProductos_();
     props.setProperty('esquema', 'v13');
+  }
+  /* v14 (07/10): los pagos de sueldos dicen el medio y hasta qué día cubren,
+     y aparecen las hojas "pagos" y "cuentas" para leer las liquidaciones. */
+  if (n < 14) {
+    columnasDePago_();
+    escribirCuentasYPagos_();
+    props.setProperty('esquema', 'v14');
   }
   /* Reparación de los efectos de una versión vieja del script (hoja
      "movimientos" recreada, conceptos vueltos al formato tipo|nombre).
@@ -1678,6 +1703,8 @@ function importarHoras() {
   filas.sort(function (a, b) { return String(a[0]).localeCompare(String(b[0])); });
   escribirHoras_(filas);
   escribirResumenHoras_();
+  // Horas nuevas cambian lo devengado de cada uno.
+  escribirCuentasYPagos_();
 
   var devengado = 0;
   filas.forEach(function (f) { devengado += f[7]; });
@@ -1802,6 +1829,7 @@ function leerHojaHoras_() {
       horas: Number(v[i][3]) || 0,
       actividad: String(v[i][4] || '').trim() || 'sin actividad',
       area: String(v[i][5] || 'sin área'),
+      tarifa: Number(v[i][6]) || 0,
       devengado: Number(v[i][7]) || 0
     });
   }
@@ -1951,6 +1979,137 @@ function liquidacionHoras_(h, datos) {
   h.getRange(102, 10, filas.length, 5).setValues(filas);
   h.getRange(102, 11, filas.length, 1).setNumberFormat('#,##0.##');
   h.getRange(102, 12, filas.length, 3).setNumberFormat('"$"#,##0');
+}
+
+/* ================= Pagos y cuentas de los trabajadores =================
+   Los pagos de sueldos se guardan en UN solo lugar: la hoja "egresos", con
+   concepto "sueldos" y la persona. Ahí se cargan y ahí se corrigen.
+
+   Para leerlos, el script arma dos hojas de SOLO LECTURA, que rehace cada
+   vez que cambia un egreso y cada vez que se importan las horas:
+     · "pagos":   cada pago, por fecha, con medio y hasta qué día cubre.
+     · "cuentas": una fila por trabajador: horas, devengado, pagado, saldo.
+   Son la misma cuenta que calcula Cuentas.gs para AMA Producción (devengado
+   de la hoja "horas" menos los egresos de sueldos), puesta a la vista en la
+   planilla. Si se las editara, la próxima vez se pisan: corregir en egresos.
+   Una contabilidad, no dos (07/10). */
+
+var CONCEPTOS_SUELDO_ = ['sueldos'];
+
+// Los encabezados nuevos de egresos y el formato de "hasta qué día cubre".
+function columnasDePago_() {
+  var h = hoja_('egresos');
+  var cols = COLUMNAS.egresos;
+  h.getRange(1, 1, 1, cols.length).setValues([ENCABEZADOS.egresos])
+    .setBackground(COLOR.tierra).setFontColor(COLOR.blanco).setFontWeight('bold');
+  h.getRange(2, cols.indexOf('periodo') + 1, 999).setNumberFormat('dd/mm/yyyy');
+}
+
+// Los egresos de sueldos, leídos tal cual están en la hoja.
+function pagosDeSueldo_() {
+  var h = hoja_('egresos');
+  var cols = COLUMNAS.egresos;
+  if (h.getLastRow() < 2) return [];
+  var v = h.getRange(2, 1, h.getLastRow() - 1, cols.length).getValues();
+  var out = [];
+  for (var i = 0; i < v.length; i++) {
+    var o = {};
+    cols.forEach(function (c, j) { o[c] = v[i][j]; });
+    if (CONCEPTOS_SUELDO_.indexOf(normClave_(o.concepto)) < 0) continue;
+    var monto = normMonto_(o.monto);
+    if (!monto) continue;
+    out.push({
+      id: String(o.id || '').trim(), fecha: normFecha_(o.fecha), monto: monto,
+      persona: String(o.persona || '').trim(), medio: String(o.medio || '').trim(),
+      periodo: o.periodo ? normFecha_(o.periodo) : '', obs: String(o.obs || '').trim()
+    });
+  }
+  return out.sort(function (a, b) { return a.fecha.localeCompare(b.fecha); });
+}
+
+/* Una hoja de solo lectura: se vacía y se escribe entera. El formato va
+   ANTES que los valores (ver escribirHoras_). */
+function hojaDeLectura_(nombre, encabezados, filas, formatos, nota, color) {
+  var ss = SpreadsheetApp.getActive();
+  var h = ss.getSheetByName(nombre) || ss.insertSheet(nombre);
+  h.clear();
+  h.setTabColor(color);
+  h.setFrozenRows(1);
+  h.getRange(1, 1, 1, encabezados.length).setValues([encabezados])
+    .setBackground(color).setFontColor(COLOR.blanco).setFontWeight('bold');
+  h.getRange(1, 1).setNote(nota);
+  if (filas.length) {
+    Object.keys(formatos).forEach(function (col) {
+      h.getRange(2, Number(col), filas.length, 1).setNumberFormat(formatos[col]);
+    });
+    h.getRange(2, 1, filas.length, encabezados.length).setValues(filas);
+  }
+  return h;
+}
+
+function escribirCuentasYPagos_() {
+  var pagos = pagosDeSueldo_();
+  var horas = leerHojaHoras_();
+  var NOTA = 'Esta hoja la arma el script y se rehace sola: no editarla, los ' +
+    'cambios se pierden. Los pagos se cargan y se corrigen en AMA Economía ' +
+    '(Egresos, concepto "sueldos"), que los guarda en la hoja egresos.';
+
+  /* --- pagos, del más viejo al más nuevo --- */
+  hojaDeLectura_('pagos',
+    ['fecha', 'trabajador', 'monto', 'medio de pago', 'horas hasta', 'observaciones', 'id'],
+    pagos.map(function (p) {
+      return [fechaADate_(p.fecha), p.persona || '(sin persona)', p.monto, p.medio,
+              p.periodo ? fechaADate_(p.periodo) : '', p.obs, p.id];
+    }),
+    { 1: 'dd/mm/yyyy', 3: '"$"#,##0', 5: 'dd/mm/yyyy', 7: '@' },
+    NOTA, COLOR.verde);
+
+  /* --- cuentas: una fila por persona, la que más se le debe arriba --- */
+  var gente = {};
+  var cuenta = function (nombre) {
+    var k = normClave_(nombre);
+    return gente[k] || (gente[k] = { nombre: nombre, tarifa: 0, horas: 0, devengado: 0,
+                                     pagado: 0, ultimo: '', pagos: 0 });
+  };
+  horas.forEach(function (d) {
+    var c = cuenta(d.trabajador);
+    c.nombre = d.trabajador;          // el nombre como figura en las horas
+    c.horas += d.horas;
+    c.devengado += d.devengado;
+    if (d.tarifa) c.tarifa = d.tarifa;
+  });
+  pagos.forEach(function (p) {
+    var c = cuenta(p.persona || '(sin persona)');
+    c.pagado += p.monto;
+    c.pagos++;
+    if (p.fecha > c.ultimo) c.ultimo = p.fecha;
+  });
+  var lista = Object.keys(gente).map(function (k) { return gente[k]; })
+    .sort(function (a, b) { return (b.devengado - b.pagado) - (a.devengado - a.pagado); });
+  var tot = { horas: 0, devengado: 0, pagado: 0 };
+  var filas = lista.map(function (c) {
+    var saldo = c.devengado - c.pagado;
+    tot.horas += c.horas; tot.devengado += c.devengado; tot.pagado += c.pagado;
+    return [c.nombre, c.tarifa || '', c.horas, c.devengado, c.pagado, saldo,
+            c.tarifa ? c.pagado / c.tarifa : '', c.tarifa ? saldo / c.tarifa : '',
+            c.ultimo ? fechaADate_(c.ultimo) : '', c.pagos];
+  });
+  filas.push(['TOTAL', '', tot.horas, tot.devengado, tot.pagado, tot.devengado - tot.pagado,
+              '', '', '', pagos.length]);
+  var h = hojaDeLectura_('cuentas',
+    ['trabajador', 'tarifa $/h', 'horas', 'devengado', 'pagado', 'saldo',
+     'horas pagadas', 'horas adeudadas', 'último pago', 'pagos'],
+    filas,
+    { 2: '"$"#,##0', 3: '#,##0.##', 4: '"$"#,##0', 5: '"$"#,##0', 6: '"$"#,##0',
+      7: '#,##0.##', 8: '#,##0.##', 9: 'dd/mm/yyyy', 10: '0' },
+    NOTA, COLOR.rojo);
+  h.getRange(filas.length + 1, 1, 1, 10).setFontWeight('bold');
+}
+
+/* Para correr a mano desde el editor, si hiciera falta rehacerlas. */
+function actualizarCuentas() {
+  escribirCuentasYPagos_();
+  return 'Hojas "pagos" y "cuentas" actualizadas';
 }
 
 /* ================= Respaldos automáticos =================

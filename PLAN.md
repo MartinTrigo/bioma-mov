@@ -6,48 +6,53 @@ y **qué depende de qué**.
 
 ---
 
-# Lo próximo · al 12/9/2026
+# Lo próximo · al 7/10/2026
 
-Lo de arriba lo hace Martín a mano; lo de abajo es programar. En orden.
+## Pagos a trabajadores — sistematizar registro y seguimiento
 
-### 1. Correr `importarHoras` en bioma-db — **pendiente, es de Martín**
-Martín corrigió en el origen las actividades que estaban en un área
-equivocada, pero la hoja `horas` de bioma-db es una copia y sigue mostrando
-las viejas ("Siembras" en Administración, "Ejecución" en Hortícola). Apps
-Script de bioma-db → `importarHoras` → Ejecutar. Después vale confirmarlo
-consultando el endpoint de economía.
+Acordado con Martín el 07/10. Los pagos los registran solo Martín y Luna;
+los trabajadores no confirman recibo; las tarifas no cambiaron en la
+temporada ($10.000 socios, $7.500 operadores).
 
-*(Las combinaciones imposibles son registros viejos: el área era antes un
-campo libre llamado "Proyecto", escrito a mano y sin relación con la
-actividad. El formulario de hoy en AMA no puede producirlas, porque cada
-área trae su propia lista de actividades.)*
+### O1. Una sola verdad, fácil de leer · **hecho (07/10)**
+Los pagos siguen guardándose SOLO en `egresos` (concepto `sueldos` +
+persona), con dos columnas nuevas al final: medio de pago y "horas hasta".
+El script arma dos hojas de solo lectura: `pagos` (cada pago por fecha) y
+`cuentas` (por trabajador: horas, devengado, pagado, saldo, horas adeudadas,
+último pago). Esquema v14. En la app, el formulario de egresos pide medio y
+"cubre las horas hasta" al elegir sueldos.
 
-### 2. Publicar — **pendiente**
-Hay commits sin subir, incluidos los dos endpoints, `honorarios` y los
-errores 12 y 13. `sw.js` ya está en `bioma-v22`, así que el push también
-actualiza la app en los teléfonos.
+### O2. Pestaña «Pagos» en AMA Economía · **lo próximo**
+Lista de trabajadores con su saldo (el que más se le debe arriba); la cuenta
+de cada uno (horas por mes, pagos, saldo), igual que en AMA Producción; y
+«Registrar pago» desde la cuenta: persona puesta, monto sugerido = saldo,
+medio y período. Guarda el egreso de sueldos sin poder errar concepto ni
+nombre. Los datos ya están en la app (`db.horas` + egresos de sueldos).
 
-### 3. La pantalla del resumen económico en AMA — **otra conversación**
-El endpoint está implementado y verificado; falta dibujarlo. Contrato en
-`apps-script/ECONOMIA.md`. Mensaje para pasarle a esa conversación:
+### O3. Lo que ven los trabajadores en AMA Producción
+`Cuentas.gs` sumando medio y período a cada pago, y la pantalla de AMA
+mostrándolos. Sin confirmación de recibo (decidido).
 
-> El endpoint de economía ya está implementado y verificado. La URL va en
-> las propiedades del script, como las otras. El contrato actualizado está
-> en ECONOMIA.md: incluye `horas` (por área, con las actividades anidadas)
-> y el flujo mes a mes sale de `meses`, no hay campo aparte.
+### O4. Limpiar lo viejo de la planilla de horas
+Jubilar «Registro de pagos realizados» y las columnas Pagado / Saldo de
+«Resumen General» (hoy dan #N/A). Dejar una nota: las cuentas están en AMA
+y en bioma-db → `cuentas`.
 
-### 4. Mirar dos cosas de los datos, no del código
-- **El 91,4% de los ingresos de la temporada son préstamos** ($7.070.000 de
-  $7.733.211). Coherente con septiembre, pero es lo que van a ver los socios
-  al abrir la pantalla.
-- **"Planificación" en Hortícola son 100 h**, la actividad más grande de la
-  temporada, un cuarto del total. Cuadra con julio; conviene confirmarlo.
+### O5. Tarifas con fecha de vigencia
+Hoy `importarHoras` valúa TODAS las horas con la tarifa actual: un aumento
+reescribiría el devengado del pasado. Cada tarifa con su "desde", y cada
+hora con la vigente el día que se trabajó. Antes de que cambie alguna.
 
-### 5. Jubilar "Registro de pagos realizados"
-En la planilla de horas. Recién cuando la pantalla de AMA funcione, para que
-haya una sola contabilidad. Es el punto 4 de la Fase 4.8.
+### O6. Nombres seguros
+El pago solo deja elegir nombres que ya tienen horas (no tipearlos), hasta
+migrar a identificadores por persona (pendiente en todo AMA).
 
-### Y lo que sigue después, por valor
+## Datos, revisados el 07/10
+- Planificación en Hortícola: 100 h de julio y agosto. Martín lo confirmó.
+- El 91,4 % de los ingresos de la temporada son préstamos: coherente con la
+  etapa (todavía no hay cosecha).
+
+## Y lo que sigue después, por valor
 Fase 4.5 (análisis de ventas) y los SKU en Whataform. Ver más abajo.
 
 ---

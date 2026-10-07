@@ -38,6 +38,8 @@ function mostrarPersona() {
   const f = $('#form-egreso');
   const sueldo = esConceptoSueldo(f.concepto.value);
   $('#label-persona').classList.toggle('hidden', !pidePersona(f.concepto.value));
+  // Medio y "hasta qué día cubre": solo para sueldos (hoja "pagos").
+  $('#datos-pago').classList.toggle('hidden', !sueldo);
   /* La lista de nombres sale de las horas registradas. Al pagar honorarios
      la persona es de afuera: sugerirle "Tomi" sería empujar al error. */
   f.persona.setAttribute('list', sueldo ? 'lista-trabajadores' : '');
@@ -87,12 +89,16 @@ $('#form-egreso select[name=concepto]').addEventListener('change', mostrarPerson
       monto: num(f.monto.value),
       obs: f.obs.value.trim(),
       persona: pidePersona(f.concepto.value) ? f.persona.value.trim() : '',
+      medio: esSueldo ? f.medio.value : '',
+      periodo: esSueldo ? f.periodo.value : '',
       mod: Date.now()
     });
     save();
     f.monto.value = '';
     f.obs.value = '';
     f.persona.value = '';
+    f.medio.value = '';
+    f.periodo.value = '';
     renderLista(tipo);
     toast(tipo === 'ingreso' ? 'Ingreso registrado ✓' : 'Egreso registrado ✓');
     sincronizar(true);
@@ -118,7 +124,11 @@ function renderLista(tipo) {
     li.innerHTML = `
       <div class="mov-info">
         <div class="mov-concepto">${esc(m.concepto)}</div>
-        <div class="mov-detalle">${fmtFecha(m.fecha)}${m.obs ? ' · ' + esc(m.obs) : ''}</div>
+        <div class="mov-detalle">${fmtFecha(m.fecha)}${
+          m.persona ? ' · ' + esc(m.persona) : ''}${
+          m.medio ? ' · ' + esc(m.medio.toLowerCase()) : ''}${
+          m.periodo ? ' · horas hasta ' + fmtFecha(m.periodo) : ''}${
+          m.obs ? ' · ' + esc(m.obs) : ''}</div>
       </div>
       <span class="mov-monto ${tipo === 'ingreso' ? 'monto-in' : 'monto-out'}">${tipo === 'ingreso' ? '+' : '−'}${fmt(m.monto)}</span>
       <button class="mov-del" title="Eliminar">✕</button>`;

@@ -145,7 +145,7 @@ async function cargar(ruta) {
 
 (async () => {
   try {
-    PROPS.esquema = 'v13';   // planilla ya migrada: asegurarEsquema_ no rehace nada
+    PROPS.esquema = 'v14';   // planilla ya migrada: asegurarEsquema_ no rehace nada
     // 1) El código anterior, si está (solo para comparar; no se publica).
     let antes = null;
     try {
@@ -304,6 +304,51 @@ async function cargar(ruta) {
       const filas = h.datos.slice(1);
       igual('fila insertada a mano mientras corría: se corrige i2 y la insertada queda intacta',
         [filas.find((f) => f[0] === 'i2')[3], filas.filter((f) => f[2] === 'insertada a mano').length], [2222, 1]);
+    }
+
+    {
+      /* 07/10, objetivo 1: los pagos de sueldos, con medio y "hasta qué día
+         cubre", y las hojas de solo lectura "pagos" y "cuentas". */
+      const D = (h) => (h instanceof Date ? Utilities.formatDate(h) : h);
+      const cabHoras = ['fecha', 'mes', 'trabajador', 'horas', 'actividad', 'área', 'tarifa $/h', 'devengado $', 'observaciones'];
+      const conHoras = () => Object.assign(planillaBase(), { horas: [cabHoras,
+        ['2026-09-10', '2026-09', 'Luqui', 27.5, 'Siembras', 'Hortícola', 7500, 206250, ''],
+        ['2026-09-12', '2026-09', 'Tomi', 10, 'Ejecución', 'Plantinera', 10000, 100000, '']] });
+
+      // La planilla real está en v13: la primera sincronización la migra una vez.
+      PROPS.esquema = 'v13';
+      nuevaPlanilla(conHoras());
+      sincronizarCon(pedido());
+      igual('pagos: la migración suma las columnas a egresos y crea las hojas pagos y cuentas',
+        [PLANILLA.hojas.egresos.datos[0].slice(7), !!PLANILLA.hojas.pagos, !!PLANILLA.hojas.cuentas, PROPS.esquema],
+        [['medio de pago', 'horas hasta'], true, true, 'v14']);
+      const segunda = sincronizarCon(pedido());
+      igual('pagos: migrada, la sincronización siguiente no escribe nada', segunda.escrituras, 0);
+
+      // Un pago desde la app.
+      nuevaPlanilla(conHoras());
+      const pago = { id: 'e9', tipo: 'egreso', fecha: '2026-10-05', concepto: 'sueldos', monto: 206250, obs: '',
+                     persona: 'Luqui', medio: 'Transferencia', periodo: '2026-09-30', mod: 800 };
+      const r = sincronizarCon(pedido({ movimientos: [pago] }));
+      const filaEgr = PLANILLA.hojas.egresos.datos.find((f) => f[0] === 'e9');
+      igual('pagos: el egreso guarda el medio y hasta qué día cubre (como fecha)',
+        [filaEgr[6], filaEgr[7], D(filaEgr[8])], ['Luqui', 'Transferencia', '2026-09-30']);
+      const vuelve = (r.r.movimientos || []).find((m) => m.id === 'e9');
+      igual('pagos: la app lo recibe igual que lo mandó', vuelve && [vuelve.medio, vuelve.periodo], ['Transferencia', '2026-09-30']);
+      const pagosH = PLANILLA.hojas.pagos.datos;
+      igual('pagos: la hoja pagos tiene el pago, con fecha, medio y período',
+        pagosH.slice(1).map((f) => [D(f[0]), f[1], f[2], f[3], D(f[4]), f[6]]),
+        [['2026-10-05', 'Luqui', 206250, 'Transferencia', '2026-09-30', 'e9']]);
+      const cuentasH = PLANILLA.hojas.cuentas.datos;
+      igual('pagos: la hoja cuentas da el saldo de cada uno, el que más se le debe arriba, y el total',
+        cuentasH.slice(1).map((f) => [f[0], f[2], f[3], f[4], f[5], f[7]]),
+        [['Tomi', 10, 100000, 0, 100000, 10], ['Luqui', 27.5, 206250, 206250, 0, 0], ['TOTAL', 37.5, 306250, 206250, 100000, '']]);
+
+      // Un egreso que no es sueldo no aparece en pagos.
+      nuevaPlanilla(conHoras());
+      sincronizarCon(pedido({ movimientos: [{ id: 'e10', tipo: 'egreso', fecha: '2026-10-06', concepto: 'semillas', monto: 900, obs: '', persona: '', mod: 900 }] }));
+      igual('pagos: un egreso de semillas no aparece en la hoja pagos', PLANILLA.hojas.pagos.datos.length, 1);
+      PROPS.esquema = 'v14';
     }
 
     {
