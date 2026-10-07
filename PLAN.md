@@ -36,7 +36,10 @@ cargarlos (pedido de Martín). `js/pagos.js`.
 30/09/26". Los pagos viejos los traen vacíos y se ven como antes. Sin
 confirmación de recibo (decidido).
 
-### O4. Limpiar lo viejo de la planilla de horas · **código hecho (07/10), falta la planilla**
+### O4. Limpiar lo viejo de la planilla de horas · **hecho (07/10)**
+Martín borró Pagado / Saldo y renombró la hoja a «Resumen General de Horas»
+(sin #N/A, verificado). O3 implementado y verificado en vivo: el pago de
+Luqui llega con medio y período.
 «Registro de pagos realizados» ya se había borrado el 23/09. Quedan cuatro
 hojas: «Respuestas de formulario 1» (el buzón, oculta), «Registro Horas»
 (espejo por fórmula, la única visible), «Resumen General» y «Config»
