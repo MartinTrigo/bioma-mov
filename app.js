@@ -4,7 +4,7 @@
 
    El código está repartido en js/ por tema:
      util.js  db.js  sincro.js  movimientos.js
-     deudas.js  productos.js  resumen.js  respaldo.js
+     deudas.js  productos.js  resumen.js  pagos.js  respaldo.js
    Este archivo se carga último y los coordina.
    ============================================================ */
 
@@ -13,7 +13,8 @@ const AL_ENTRAR = {
   resumen: () => renderResumen(),
   proyeccion: () => entrarProyeccion(),
   producto: () => renderProductos(),
-  venta: () => renderUltimasVentas()
+  venta: () => renderUltimasVentas(),
+  pagos: () => renderPagos()
 };
 
 document.querySelectorAll('.tabbar button').forEach(btn => {
@@ -37,6 +38,7 @@ function initAll() {
   renderFormVenta();
   renderUltimasVentas();
   renderResumen();
+  renderPagos();
   actualizarSyncInfo();
 }
 

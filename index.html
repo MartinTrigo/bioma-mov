@@ -197,6 +197,17 @@
     <div id="lista-producto" class="prod-tabla-marco"></div>
   </section>
 
+  <!-- ============ TAB: PAGOS ============ -->
+  <!-- La cuenta de cada trabajador y el registro de sus pagos (js/pagos.js).
+       Los pagos se guardan como egresos de sueldos: Egresos los sigue
+       cargando igual. -->
+  <section id="tab-pagos" class="tab">
+    <div class="card">
+      <div class="resumen-selector"><h2>Pagos a trabajadores</h2></div>
+      <div id="pagos-contenido"></div>
+    </div>
+  </section>
+
   <!-- ============ TAB: PROYECCIÓN ============ -->
   <!-- Lo planificado en AMA Producción por los precios de acá. -->
   <section id="tab-proyeccion" class="tab">
@@ -286,6 +297,7 @@
 <nav class="tabbar">
   <button data-tab="venta" class="active"><span class="t-ico">↑</span>Ventas</button>
   <button data-tab="egreso"><span class="t-ico">↓</span>Egresos</button>
+  <button data-tab="pagos"><span class="t-ico">$</span>Pagos</button>
   <button data-tab="deuda"><span class="t-ico">✦</span>Deudas</button>
   <button data-tab="producto"><span class="t-ico">☘</span>Productos</button>
   <button data-tab="proyeccion"><span class="t-ico">↗</span>Proyección</button>
@@ -392,6 +404,7 @@
 <script src="js/ventas-importar.js"></script>
 <script src="js/resumen.js"></script>
 <script src="js/proyeccion.js"></script>
+<script src="js/pagos.js"></script>
 <script src="js/respaldo.js"></script>
 <script src="app.js"></script>
 </body>

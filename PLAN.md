@@ -22,12 +22,13 @@ El script arma dos hojas de solo lectura: `pagos` (cada pago por fecha) y
 último pago). Esquema v14. En la app, el formulario de egresos pide medio y
 "cubre las horas hasta" al elegir sueldos.
 
-### O2. Pestaña «Pagos» en AMA Economía · **lo próximo**
+### O2. Pestaña «Pagos» en AMA Economía · **hecho (07/10)**
 Lista de trabajadores con su saldo (el que más se le debe arriba); la cuenta
 de cada uno (horas por mes, pagos, saldo), igual que en AMA Producción; y
 «Registrar pago» desde la cuenta: persona puesta, monto sugerido = saldo,
-medio y período. Guarda el egreso de sueldos sin poder errar concepto ni
-nombre. Los datos ya están en la app (`db.horas` + egresos de sueldos).
+medio y período; avisa si el pago supera lo adeudado. Guarda el egreso de
+sueldos sin poder errar concepto ni nombre. Egresos sigue sirviendo para
+cargarlos (pedido de Martín). `js/pagos.js`.
 
 ### O3. Lo que ven los trabajadores en AMA Producción
 `Cuentas.gs` sumando medio y período a cada pago, y la pantalla de AMA

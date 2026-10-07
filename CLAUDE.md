@@ -90,6 +90,8 @@ js/ventas.js        ventas por producto y punto de venta
 js/ventas-importar.js  importar la descarga de la tienda virtual
 js/resumen.js       resumen mensual
 js/proyeccion.js    lo planificado en AMA Producción × los precios de acá
+js/pagos.js         pestaña Pagos: la cuenta de cada trabajador y registrar
+                    sus pagos (se guardan como egresos de sueldos)
 js/respaldo.js      exportar / importar
 app.js              arranque y pestañas (se carga ÚLTIMO)
 apps-script/Code.gs  el "servidor": vive en la planilla
@@ -330,9 +332,15 @@ los bolsones abiertos en componentes, y la planificación semanal (Fase 4.7).
   egreso o se importan horas: **`pagos`** (cada pago por fecha) y
   **`cuentas`** (por trabajador: horas, devengado, pagado, saldo, horas
   adeudadas, último pago). Nunca se cargan pagos en esas hojas: se pisan.
-  Los registran solo Martín y Luna. Lo que sigue (pestaña Pagos en la app,
-  tarifas con fecha, sacar las columnas viejas de la planilla de horas) está
-  en `PLAN.md`, "Pagos a trabajadores".
+  Los registran solo Martín y Luna.
+- **Pestaña Pagos (07/10, objetivo 2):** la cuenta de cada trabajador
+  (horas, devengado, pagado, saldo, pagos, horas por mes) y «Registrar
+  pago» con el nombre y el concepto puestos. Guarda exactamente lo mismo que
+  Egresos con «sueldos», que **se mantiene** como otra forma de cargarlos.
+  Se arma con `db.horas` + egresos de sueldos, así anda sin señal. Un pago a
+  un nombre sin horas («Lucas» por «Luqui») queda en su propia cuenta,
+  marcado «⚠ sin horas». Lo que sigue está en `PLAN.md`, "Pagos a
+  trabajadores".
 
 ## Cuentas de los trabajadores
 
