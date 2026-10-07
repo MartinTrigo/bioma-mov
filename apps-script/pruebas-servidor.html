@@ -306,6 +306,22 @@ async function cargar(ruta) {
         [filas.find((f) => f[0] === 'i2')[3], filas.filter((f) => f[2] === 'insertada a mano').length], [2222, 1]);
     }
 
+    {
+      /* 07/10: la planilla convirtió el mes "2026-10" en fecha en las filas
+         nuevas de la hoja horas. Leído con String() daba "Thu Oct 01 2026…":
+         el resumen económico perdía esas horas y la cuenta mostraba un mes
+         con ese nombre. Las dos filas tienen que caer en el mismo mes. */
+      const cab = ['fecha', 'mes', 'trabajador', 'horas', 'actividad', 'área', 'tarifa $/h', 'devengado $', 'observaciones'];
+      nuevaPlanilla({ horas: [cab,
+        ['2026-10-01', '2026-10', 'Tomi', 6, 'Trasplante', 'Hortícola', 10000, 60000, ''],
+        ['2026-10-06', new Date(2026, 9, 1), 'Tomi', 2, 'Siembras', 'Hortícola', 10000, 20000, '']] });
+      const r = resumirHoras_();
+      igual('horas: un mes que la planilla convirtió en fecha se lee como "aaaa-mm"',
+        [[...new Set(r.map((x) => x.mes))], r.reduce((s, x) => s + x.horas, 0)], [['2026-10'], 8]);
+      igual('horas: lo mismo al armar las tablas de la hoja resumen',
+        [...new Set(leerHojaHoras_().map((x) => x.mes))], ['2026-10']);
+    }
+
     if (!antes) cierto('(no está _Code.antes.gs: no se comparó con el código anterior)', true, '');
   } catch (e) {
     casos.push({ nombre: 'Las pruebas no pudieron correr: ' + e.message, ok: false, obtenido: e.stack, esperado: '' });

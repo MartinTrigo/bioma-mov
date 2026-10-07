@@ -269,20 +269,34 @@ function renderHoras(periodo) {
     return `${h.area || 'sin área'} · ${h.actividad || 'sin actividad'}`;
   };
   const por = {};
+  /* Por área, cada una lleva debajo sus actividades. Si no, lo que no es un
+     área quedaba escondido: las 100 horas de Planificación de julio estaban
+     adentro de "Hortícola" y solo se veían eligiendo "Por actividad" (07/10). */
+  const actividadesDe = {};
   items.forEach(h => {
     const k = etiqueta(h);
     por[k] = (por[k] || 0) + num(h.horas);
+    if (vista === 'area') {
+      const a = actividadesDe[k] || (actividadesDe[k] = {});
+      const act = h.actividad || 'sin actividad';
+      a[act] = (a[act] || 0) + num(h.horas);
+    }
   });
   const filas = Object.entries(por).sort((a, b) => b[1] - a[1]);
   const max = filas[0][1] || 1;
+  const horasTexto = hs => `${hs.toLocaleString('es-AR')} h`;
 
   $('#horas-desglose').innerHTML = filas.map(([nombre, hs]) => {
     const pct = totHoras ? (hs / totHoras * 100) : 0;
+    const acts = actividadesDe[nombre]
+      ? Object.entries(actividadesDe[nombre]).sort((a, b) => b[1] - a[1])
+      : [];
     return `<div class="dg-row">
       <span class="dg-name">${esc(nombre)}</span>
       <span class="dg-bar-wrap"><span class="dg-bar horas" style="width:${(hs / max * 100).toFixed(1)}%"></span></span>
-      <span class="dg-val">${hs.toLocaleString('es-AR')} h <span class="dg-pct">${pct.toFixed(1)}%</span></span>
-    </div>`;
+      <span class="dg-val">${horasTexto(hs)} <span class="dg-pct">${pct.toFixed(1)}%</span></span>
+    </div>${acts.length ? `<div class="dg-sub">${
+      acts.map(([act, h]) => `${esc(act)} <b>${horasTexto(h)}</b>`).join(' · ')}</div>` : ''}`;
   }).join('');
 }
 

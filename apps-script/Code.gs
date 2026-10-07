@@ -1503,6 +1503,16 @@ var TARIFA_POR_DEFECTO = 10000;
 
 /* Fechas: d/m/aaaa, d/m/aa o d/m/aaaa hh:mm:ss, y también Date real.
    Devuelve 'yyyy-mm-dd' o '' si no se entiende. Nunca adivina. */
+/* El mes de la hoja "horas" como "aaaa-mm", aunque la planilla lo haya
+   convertido en fecha (ver escribirHoras_). Leído a ciegas con String(),
+   una fecha daba "Thu Oct 01 2026 00:00:00 GMT-0300…". */
+function mesTexto_(v) {
+  if (v instanceof Date && !isNaN(v)) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM');
+  }
+  return String(v || '').trim().slice(0, 7);
+}
+
 function fechaHoras_(v) {
   if (v instanceof Date && !isNaN(v)) {
     return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
@@ -1700,7 +1710,7 @@ function resumirHoras_() {
   var v = h.getRange(2, 1, h.getLastRow() - 1, 8).getValues();
   var acum = {};
   for (var i = 0; i < v.length; i++) {
-    var mes = String(v[i][1] || '');
+    var mes = mesTexto_(v[i][1]);
     var quien = String(v[i][2] || '');
     var act = String(v[i][4] || '').trim() || 'sin actividad';
     var area = String(v[i][5] || '');
@@ -1728,9 +1738,14 @@ function escribirHoras_(filas) {
   ]]).setBackground(COLOR.tierra).setFontColor(COLOR.blanco).setFontWeight('bold');
 
   if (filas.length) {
+    /* Fecha y mes como TEXTO, y el formato va ANTES de escribir. Al revés,
+       la planilla convertía "2026-10" en una fecha en las filas nuevas (las
+       que pasaban del largo de la importación anterior, que conservaban el
+       formato viejo), el resumen económico las descartaba por no caer en la
+       temporada y en la cuenta de Tomi aparecía un mes llamado
+       "Thu Oct 01 2026…" (07/10: 8 horas que faltaban). */
+    h.getRange(2, 1, filas.length, 2).setNumberFormat('@');
     h.getRange(2, 1, filas.length, 9).setValues(filas);
-    h.getRange(2, 1, filas.length, 1).setNumberFormat('@');
-    h.getRange(2, 2, filas.length, 1).setNumberFormat('@');
     h.getRange(2, 4, filas.length, 1).setNumberFormat('#,##0.##');
     h.getRange(2, 7, filas.length, 2).setNumberFormat('"$"#,##0');
   }
@@ -1782,7 +1797,7 @@ function leerHojaHoras_() {
   for (var i = 0; i < v.length; i++) {
     if (!v[i][2]) continue;
     out.push({
-      mes: String(v[i][1] || ''),
+      mes: mesTexto_(v[i][1]),
       trabajador: String(v[i][2] || ''),
       horas: Number(v[i][3]) || 0,
       actividad: String(v[i][4] || '').trim() || 'sin actividad',

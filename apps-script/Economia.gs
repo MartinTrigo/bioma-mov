@@ -230,7 +230,7 @@ function horas_(libro, rango) {
   var total = 0;
 
   leerHoja_(libro, 'horas').forEach(function (f) {
-    var mes = texto_(f['mes']);
+    var mes = mes_(f['mes']);
     if (!(mes >= desde && mes <= hasta)) return;
     var hs = numero_(f['horas']);
     if (!hs) return;
@@ -285,7 +285,7 @@ function sueldos_(libro, egresos, rango) {
 
   var desde = rango.desde.slice(0, 7), hasta = rango.hasta.slice(0, 7);
   var devengado = leerHoja_(libro, 'horas').reduce(function (s, f) {
-    var mes = texto_(f['mes']);
+    var mes = mes_(f['mes']);
     return (mes >= desde && mes <= hasta) ? s + numero_(f['devengado $']) : s;
   }, 0);
 
@@ -407,6 +407,16 @@ function fecha_(v) {
     return a + '-' + dos_(m[2]) + '-' + dos_(m[1]);
   }
   return s.slice(0, 10);
+}
+
+/* El mes de la hoja "horas" como "aaaa-mm". Si la planilla lo convirtió en
+   fecha, texto_ daba "Thu Oct 01 2026…", no caía en la temporada y esas
+   horas desaparecían del resumen (07/10: 8 horas de Tomi). */
+function mes_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM');
+  }
+  return texto_(v).slice(0, 7);
 }
 
 function dos_(n) {

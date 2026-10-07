@@ -294,6 +294,15 @@ los bolsones abiertos en componentes, y la planificación semanal (Fase 4.7).
   el respaldo diario, o a mano con `importarHoras`.
 - A la app viajan **agregadas por mes + persona + área**, no los ~400
   registros sueltos.
+- **Fecha y mes van como TEXTO, con el formato puesto ANTES de escribir**
+  (07/10). Al revés, la planilla convertía "2026-10" en fecha en las filas
+  nuevas: `Economia.gs` las descartaba (8 h de Tomi faltaban en el resumen,
+  572 en Cuentas contra 564 en Economía) y la cuenta mostraba un mes
+  "Thu Oct 01 2026…". Los tres scripts leen el mes con `mesTexto_` / `mes_`,
+  que aguanta las dos formas.
+- En Resumen → Horas → «Por área», cada área lleva debajo sus actividades:
+  las 100 h de Planificación de julio están cargadas en Hortícola y antes
+  solo se veían eligiendo «Por actividad».
 - **Lo devengado no es un egreso hasta que se paga.** Mientras tanto es
   plata que el proyecto debe. Por eso se muestra aparte del balance y no
   se suma al flujo de fondos.

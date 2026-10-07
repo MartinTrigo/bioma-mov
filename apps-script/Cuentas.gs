@@ -144,7 +144,7 @@ function cuentas_() {
     t.devengado += dev;
     if (tar) t.tarifa = tar;   // se queda con la última vista: la vigente
 
-    var mes = texto_(f['mes']);
+    var mes = mes_(f['mes']);
     if (!mes) return;
     var m = t._meses[mes] || (t._meses[mes] =
       { mes: mes, horas: 0, devengado: 0, _areas: {} });
@@ -304,6 +304,16 @@ function fecha_(v) {
     return a + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
   }
   return s.slice(0, 10);
+}
+
+/* El mes de la hoja "horas" como "aaaa-mm". Si la planilla lo convirtió en
+   fecha, texto_ daba "Thu Oct 01 2026…" y la cuenta mostraba un mes con ese
+   nombre (07/10, en la de Tomi). */
+function mes_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM');
+  }
+  return texto_(v).slice(0, 7);
 }
 
 function redondear_(n) {

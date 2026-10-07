@@ -230,10 +230,14 @@ input:focus, select:focus { border-color: var(--verde); }
 .desglose .dg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 0.85rem; }
 .dg-name { flex: 0 0 38%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dg-bar-wrap { flex: 1; background: var(--crema); border-radius: 6px; height: 14px; overflow: hidden; }
-.dg-bar { height: 100%; border-radius: 6px; background: var(--verde-claro); }
+/* Es un <span>: sin display block ignora el ancho y la barra quedaba vacía. */
+.dg-bar { display: block; height: 100%; border-radius: 6px; background: var(--verde-claro); }
 .dg-bar.out { background: var(--tierra-claro); }
 .dg-val { flex: 0 0 auto; font-weight: 700; font-size: 0.8rem; min-width: 84px; text-align: right; }
 .dg-pct { color: var(--gris); font-weight: 400; }
+/* Las actividades de un área, debajo de su barra. */
+.dg-sub { font-size: 0.74rem; color: var(--gris); margin: -3px 0 10px; line-height: 1.45; }
+.dg-sub b { color: var(--texto, inherit); font-weight: 600; }
 
 /* ===== Productos ===== */
 .prod-barra { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }

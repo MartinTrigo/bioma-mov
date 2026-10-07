@@ -110,7 +110,9 @@ window.PropertiesService = {
 window.LockService = { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) };
 window.Session = { getScriptTimeZone: () => 'America/Argentina/Buenos_Aires' };
 window.Utilities = {
-  formatDate: (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+  // Los dos formatos que usa Code.gs: el día entero y el mes solo.
+  formatDate: (d, _tz, patron) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}${
+    patron === 'yyyy-MM' ? '' : `-${String(d.getDate()).padStart(2, '0')}`}`,
 };
 window.ContentService = { createTextOutput: (s) => ({ setMimeType: () => JSON.parse(s) }), MimeType: { JSON: 'json' } };
 window.Charts = { ChartType: {} };
