@@ -238,7 +238,10 @@ function pago_(f) {
   return {
     fecha: fecha_(f['fecha']),
     monto: numero_(f['monto']),
-    obs: texto_(f['obs'])
+    obs: texto_(f['obs']),
+    medio: texto_(f['medio']),
+    // Hasta qué día cubre el pago (07/10). Vacío en los pagos viejos.
+    periodo: f['periodo'] ? fecha_(f['periodo']) : ''
   };
 }
 
@@ -252,7 +255,9 @@ function pago_(f) {
    lista de pagos salía sin el detalle. Acá se traducen las que difieren. */
 var CANONICO = {
   'observaciones': 'obs',
-  'punto de venta': 'concepto'
+  'punto de venta': 'concepto',
+  'medio de pago': 'medio',
+  'horas hasta': 'periodo'
 };
 
 function leerHoja_(libro, nombre) {

@@ -30,9 +30,11 @@ medio y período; avisa si el pago supera lo adeudado. Guarda el egreso de
 sueldos sin poder errar concepto ni nombre. Egresos sigue sirviendo para
 cargarlos (pedido de Martín). `js/pagos.js`.
 
-### O3. Lo que ven los trabajadores en AMA Producción
-`Cuentas.gs` sumando medio y período a cada pago, y la pantalla de AMA
-mostrándolos. Sin confirmación de recibo (decidido).
+### O3. Lo que ven los trabajadores en AMA Producción · **hecho (07/10)**
+`Cuentas.gs` devuelve `medio` y `periodo` en cada pago (contrato en
+`CUENTAS.md`) y AMA los muestra: "05/10/26 · Transferencia · cubre hasta el
+30/09/26". Los pagos viejos los traen vacíos y se ven como antes. Sin
+confirmación de recibo (decidido).
 
 ### O4. Limpiar lo viejo de la planilla de horas
 Jubilar «Registro de pagos realizados» y las columnas Pagado / Saldo de

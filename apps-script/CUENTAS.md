@@ -91,12 +91,14 @@ blanco.
         }
       ],
       "pagos": [                    // del más nuevo al más viejo
-        { "fecha": "2026-08-20", "monto": 30000, "obs": "efectivo" }
+        { "fecha": "2026-08-20", "monto": 30000, "obs": "",
+          "medio": "Efectivo", "periodo": "2026-08-15" }
       ]
     }
   ],
   "totales": { "horas": 53, "devengado": 472500, "pagado": 95000, "saldo": 377500 },
-  "pagosSinPersona": [ { "fecha": "2026-08-25", "monto": 20000, "obs": "" } ]
+  "pagosSinPersona": [ { "fecha": "2026-08-25", "monto": 20000, "obs": "",
+                         "medio": "", "periodo": "" } ]
 }
 ```
 
@@ -117,6 +119,12 @@ mostrarlos al lado de una sola cuenta haría creer que son suyos.
 - **`pagosSinPersona`** son pagos de sueldos que quedaron sin nombre en
   bioma-db. No entran en ninguna cuenta: si aparece algo ahí, hay que
   corregirlo en la app de Bioma, no en MonAgric.
+- **`medio` y `periodo` de cada pago** (desde el 07/10): con qué se pagó
+  (Efectivo / Transferencia / Otro) y hasta qué día cubre las horas
+  (aaaa-mm-dd). Salen de las columnas "medio de pago" y "horas hasta" de
+  `egresos`. Los pagos anteriores los traen vacíos: no mostrar nada, no
+  inventar. `periodo` es lo que dijo quien pagó, no una cuenta: el saldo se
+  sigue calculando con todos los pesos contra todas las horas.
 - Los nombres se unifican **sin acentos ni mayúsculas**: "Belu" y "Belú" son
   la misma persona. Se muestra la forma que figura en la hoja `horas`.
 
@@ -129,7 +137,7 @@ Sección **Cuentas** en MonAgric:
    - horas de cada mes, desglosadas por área
    - horas y pesos ya pagados
    - horas y pesos adeudados
-   - lista de pagos con fecha, monto y observación
+   - lista de pagos con fecha, monto, medio, "cubre hasta" y observación
    - cuánto falta para liquidar (`liquidado` sirve para una barra de progreso)
 
 ## Lo que NO hace y no debería hacerse acá
