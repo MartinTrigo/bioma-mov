@@ -1640,9 +1640,21 @@ function formasCanonicas_(valores, columnas) {
    se quitó porque no correspondía y podía romper el envío de MonAgric.
    Las validaciones de carga van en MonAgric, no acá. */
 
+/* La hoja donde AMA escribe las horas, buscada por NOMBRE (07/10). Antes
+   era "la primera hoja": mover una pestaña bastaba para importar otra cosa
+   sin aviso, y la planilla tiene también «Registro Horas», «Resumen
+   General» y «Config». Es el mismo criterio que usa el Code.gs de AMA. */
+function hojaDeRespuestas_(libro) {
+  var hojas = libro.getSheets();
+  for (var i = 0; i < hojas.length; i++) {
+    if (hojas[i].getName().indexOf('Respuestas de formulario') === 0) return hojas[i];
+  }
+  return hojas[0];
+}
+
 function importarHoras() {
   var libro = SpreadsheetApp.openById(ID_PLANILLA_HORAS);
-  var origen = libro.getSheets()[0];   // la hoja del formulario
+  var origen = hojaDeRespuestas_(libro);
   var valores = origen.getDataRange().getValues();
   if (valores.length < 2) return 'La planilla de horas está vacía';
 

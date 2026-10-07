@@ -36,10 +36,25 @@ cargarlos (pedido de Martín). `js/pagos.js`.
 30/09/26". Los pagos viejos los traen vacíos y se ven como antes. Sin
 confirmación de recibo (decidido).
 
-### O4. Limpiar lo viejo de la planilla de horas
-Jubilar «Registro de pagos realizados» y las columnas Pagado / Saldo de
-«Resumen General» (hoy dan #N/A). Dejar una nota: las cuentas están en AMA
-y en bioma-db → `cuentas`.
+### O4. Limpiar lo viejo de la planilla de horas · **código hecho (07/10), falta la planilla**
+«Registro de pagos realizados» ya se había borrado el 23/09. Quedan cuatro
+hojas: «Respuestas de formulario 1» (el buzón, oculta), «Registro Horas»
+(espejo por fórmula, la única visible), «Resumen General» y «Config»
+(ocultas).
+- Hecho: `importarHoras` busca la hoja «Respuestas de formulario» por
+  nombre (`hojaDeRespuestas_`). Antes tomaba la primera hoja: mover una
+  pestaña importaba otra cosa sin aviso.
+- Falta, a mano (Martín): en «Resumen General» borrar las columnas E
+  (Pagado: `SUMAR.SI` sobre una hoja «Pagos» que ya no existe → #N/A) y F
+  (Saldo = D − E); título → "Resumen general de horas" con la nota "Pagos y
+  saldos: AMA → Cuentas, o bioma-db → cuentas". Volver a ocultarla.
+- Ojo: su tabla de áreas es una lista fija y no tiene «Comunicación»
+  (área propia de Tica, 2 h el 07/10): suma 575 h contra 577. Agregar la
+  fila o aceptar que esa tabla es aproximada; la cuenta buena está en AMA
+  Economía.
+- Su columna B (tarifa) es `=Config!B…`: la tarifa sigue teniendo una sola
+  fuente. `tarifasPorTrabajador_` lee la primera tabla trabajador/tarifa que
+  encuentra, que hoy es esta copia; da lo mismo mientras sea fórmula.
 
 ### O5. Tarifas con fecha de vigencia
 Hoy `importarHoras` valúa TODAS las horas con la tarifa actual: un aumento
