@@ -44,7 +44,11 @@ function cuentasTrabajadores() {
       c.pagado += num(m.monto);
       c.pagos.push(m);
     });
+  // El equipo de Config: quien está ahí y todavía no cargó horas (un
+  // adelanto) es alguien conocido, no un nombre mal escrito.
+  const equipo = new Set((db.trabajadores || []).map(clave));
   return Object.values(gente).map(c => {
+    c.conocido = c.conHoras || equipo.has(c.k);
     c.saldo = c.devengado - c.pagado;
     /* La tarifa real: devengado ÷ horas. Desde el 07/10 cada hora se paga
        con la tarifa del día trabajado, así que con un aumento en la
@@ -99,7 +103,9 @@ function listaHTML(cuentas) {
     <ul class="mov-list cuentas-lista">
       ${cuentas.map(c => `<li class="cuenta-fila" data-cuenta="${esc(c.k)}" role="button" tabindex="0">
         <div class="mov-info">
-          <div class="mov-concepto">${esc(c.nombre)}${c.conHoras ? '' : ' <span class="alerta">⚠ sin horas</span>'}</div>
+          <div class="mov-concepto">${esc(c.nombre)}${c.conHoras ? ''
+            : c.conocido ? ' <small class="hint">todavía sin horas</small>'
+            : ' <span class="alerta">⚠ no está en el equipo</span>'}</div>
           <div class="mov-detalle">${horasTxt(c.horas)}${
             c.tarifa && c.saldo > 0 ? ` · le faltan ${horasTxt(c.saldo / c.tarifa)}` : ''}${
             c.ultimo ? ` · último pago ${fmtFecha(c.ultimo)}` : ' · sin pagos'}</div>
@@ -116,8 +122,8 @@ function cuentaHTML(c) {
   return `
     <button type="button" class="btn-ghost volver-cuentas">← Todas las cuentas</button>
     <h3 class="cuenta-nombre">${esc(c.nombre)}</h3>
-    ${c.conHoras ? '' : `<p class="hint"><span class="alerta">⚠ Este nombre no tiene horas registradas.</span>
-      Puede ser un pago cargado con otro nombre: corregilo en Egresos.</p>`}
+    ${c.conocido ? '' : `<p class="hint"><span class="alerta">⚠ Este nombre no tiene horas ni está en
+      Config.</span> Puede ser un pago cargado con otro nombre: corregilo en Egresos.</p>`}
     <div class="kpis">
       <div class="kpi"><span class="kpi-label">Horas${c.tarifa ? ` · ${c.tarifaPromedio ? '~' : ''}${fmt(c.tarifa)}/h${c.tarifaPromedio ? ' promedio' : ''}` : ''}</span><span class="kpi-val">${horasTxt(c.horas)}</span></div>
       <div class="kpi kpi-out"><span class="kpi-label">Devengado</span><span class="kpi-val">${fmt(c.devengado)}</span></div>
@@ -127,10 +133,10 @@ function cuentaHTML(c) {
     <div class="barra-liq">${barraLiq(c.liquidado)}<span class="liq-texto">${c.liquidado.toFixed(1)}% pagado${
       c.tarifa && c.saldo > 0 ? ` · faltan ${horasTxt(c.saldo / c.tarifa)}` : ''}</span></div>
 
-    ${c.conHoras ? '' : `<p class="hint">Desde acá no se le registran pagos: si el nombre está
-      mal escrito, cada pago nuevo agranda el error. Si es un adelanto a propósito, el
-      siguiente va por Egresos → sueldos → «Otra persona».</p>`}
-    ${!c.conHoras ? '' : `<form id="form-pago" class="form pago-form" autocomplete="off">
+    ${c.conocido ? '' : `<p class="hint">Desde acá no se le registran pagos: si el nombre está
+      mal escrito, cada pago nuevo agranda el error. Si es alguien nuevo, sumalo a Config
+      de la planilla de horas y aparece en la lista al día siguiente.</p>`}
+    ${!c.conocido ? '' : `<form id="form-pago" class="form pago-form" autocomplete="off">
       <h3>Registrar pago</h3>
       <div class="row">
         <label>Fecha <input type="date" name="fecha" value="${hoy()}" required></label>

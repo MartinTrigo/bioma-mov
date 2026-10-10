@@ -79,15 +79,18 @@ tarifa vigente el día que se trabajó (`tarifaDelDia_`):
   horas), como Cuentas.gs. En Pagos, con dos tarifas en la temporada se lee
   "~$8.250/h promedio".
 
-### O6. Nombres seguros · **hecho (07/10)**
-En Egresos → sueldos el nombre se ELIGE de una lista con quienes tienen
-horas, escrito como figura en ellas (`trabajadoresConHoras`). «Otra
-persona (adelanto)…» pide el nombre: si coincide con alguien con horas
-(sin tildes ni mayúsculas) lo elige de la lista; si no, avisa del riesgo de
-cuenta aparte y pide confirmar. Honorarios sigue con texto libre (gente de
-afuera). En Pagos, una cuenta «⚠ sin horas» no ofrece registrar más pagos.
-Es un parche hasta migrar a identificadores por persona (pendiente en todo
-AMA).
+### O6. Nombres seguros · **hecho (07/10, lista de Config el 10/10)**
+En Egresos → sueldos el nombre se ELIGE de una lista, nunca se escribe
+(`trabajadoresParaPagar`): el equipo de **Config de la planilla de horas**
+(nombre con tarifa, sin las filas genéricas «Operador 10/11/12») más quien
+tenga horas y ya no esté en Config (se le puede deber). La lista la guarda
+`importarHoras` en las propiedades del documento (`trabajadores_()`) y viaja
+en cada sincronización; vacía no pisa la que tiene el teléfono. Alguien
+nuevo: se suma a Config y aparece al día siguiente (o al correr
+`importarHoras`). Honorarios sigue con texto libre (gente de afuera). En
+Pagos, una cuenta que no tiene horas ni está en Config («⚠ no está en el
+equipo») no ofrece registrar más pagos. Es un parche hasta migrar a
+identificadores por persona (pendiente en todo AMA).
 
 ## Datos, revisados el 07/10
 - Planificación en Hortícola: 100 h de julio y agosto. Martín lo confirmó.

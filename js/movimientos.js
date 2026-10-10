@@ -28,15 +28,19 @@ function pidePersona(c) {
 
 /* Nombres seguros (07/10, objetivo 6). Un sueldo a "Lucas" cuando en las
    horas figura "Luqui" no da error: abre una cuenta aparte, con el pago de un
-   lado y la deuda del otro. Por eso el nombre se ELIGE entre quienes tienen
-   horas, escrito como figura en ellas. "Otra persona" queda para un
-   adelanto a alguien que todavía no cargó, y pregunta antes. */
-const OTRA_PERSONA = '__otra__';
-
-function trabajadoresConHoras() {
+   lado y la deuda del otro. Por eso el nombre se ELIGE, nunca se escribe:
+     · el equipo de Config de la planilla de horas (db.trabajadores), que es
+       la lista oficial e incluye a quien todavía no cargó horas (adelantos);
+     · más quien tenga horas y ya no esté en Config: se fue, pero se le
+       puede deber.
+   Escrito como figura en las horas si las tiene: así se agrupa su cuenta. */
+function trabajadoresParaPagar() {
   const vistos = {};
   (db.horas || []).forEach(h => {
     if (h.trabajador && !vistos[clave(h.trabajador)]) vistos[clave(h.trabajador)] = h.trabajador;
+  });
+  (db.trabajadores || []).forEach(n => {
+    if (n && !vistos[clave(n)]) vistos[clave(n)] = n;
   });
   return Object.values(vistos).sort((a, b) => a.localeCompare(b, 'es'));
 }
@@ -44,13 +48,9 @@ function trabajadoresConHoras() {
 function llenarTrabajadores() {
   const sel = $('#form-egreso select[name=trabajador]');
   const actual = sel.value;
-  const gente = trabajadoresConHoras();
-  // Un adelanto ya aceptado, todavía sin guardar: no se pierde al redibujar.
-  const extra = actual && actual !== OTRA_PERSONA && !gente.includes(actual) ? [actual] : [];
   sel.innerHTML = '<option value="">— elegí a quién —</option>' +
-    gente.concat(extra).map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') +
-    `<option value="${OTRA_PERSONA}">Otra persona (adelanto)…</option>`;
-  sel.value = actual === OTRA_PERSONA ? '' : actual;
+    trabajadoresParaPagar().map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value = actual;
 }
 
 function initConceptos() {
@@ -70,24 +70,6 @@ function mostrarPersona() {
   f.trabajador.classList.toggle('hidden', !sueldo);
   f.persona.classList.toggle('hidden', sueldo);
 }
-
-// Un adelanto a alguien sin horas: el nombre se escribe, pero a conciencia.
-$('#form-egreso select[name=trabajador]').addEventListener('change', e => {
-  const sel = e.target;
-  if (sel.value !== OTRA_PERSONA) return;
-  const nombre = (prompt('Nombre de quien cobra, exactamente como lo va a usar al cargar sus horas en AMA:') || '').trim();
-  sel.value = '';
-  if (!nombre) return;
-  const ya = trabajadoresConHoras().find(n => clave(n) === clave(nombre));
-  if (ya) { sel.value = ya; toast(`${ya} ya tiene horas: quedó elegido de la lista`); return; }
-  if (!confirm(`Nadie llamado «${nombre}» tiene horas registradas.\n\n` +
-      `Si en AMA figura con otro nombre (pasó con «Lucas» por «Luqui»), el pago va a quedar en ` +
-      `una cuenta aparte y su deuda no va a bajar.\n\n¿Es un adelanto a alguien que todavía no cargó horas?`)) return;
-  const o = document.createElement('option');
-  o.value = nombre; o.textContent = nombre + ' (sin horas)';
-  sel.insertBefore(o, sel.lastElementChild);
-  sel.value = nombre;
-});
 
 // "+ agregar nuevo…" en los desplegables de concepto
 ['egreso'].forEach(tipo => {
@@ -119,7 +101,7 @@ $('#form-egreso select[name=concepto]').addEventListener('change', mostrarPerson
     e.preventDefault();
     const f = e.target;
     const esSueldo = esConceptoSueldo(f.concepto.value);
-    if (esSueldo && (!f.trabajador.value || f.trabajador.value === OTRA_PERSONA)) {
+    if (esSueldo && !f.trabajador.value) {
       toast('Elegí a quién se le paga');
       f.trabajador.focus();
       return;
@@ -142,7 +124,6 @@ $('#form-egreso select[name=concepto]').addEventListener('change', mostrarPerson
     f.obs.value = '';
     f.persona.value = '';
     f.trabajador.value = '';
-    llenarTrabajadores();   // saca el adelanto recién usado de la lista
     f.medio.value = '';
     f.periodo.value = '';
     renderLista(tipo);

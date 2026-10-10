@@ -158,6 +158,11 @@ async function sincronizar(silencioso) {
     /* Las horas son de solo lectura: se cargan en su propia planilla y la
        app solo las muestra. Por eso se reemplazan enteras, sin fusionar. */
     if (Array.isArray(remoto.horas)) db.horas = remoto.horas;
+    // El equipo de Config (para elegir a quién se le paga). Vacía no pisa:
+    // un servidor viejo no la manda y uno nuevo sin importar todavía, tampoco.
+    if (Array.isArray(remoto.trabajadores) && remoto.trabajadores.length) {
+      db.trabajadores = remoto.trabajadores;
+    }
 
     /* Lo tocado mientras viajaba el pedido, en cualquier lista. Se mira acá
        y no solo al juntar las listas: las que volvieron "sin cambios" no se

@@ -456,6 +456,25 @@ async function cargar(ruta) {
       prepararCambiosDeTarifa();
       igual('tarifas: prepararCambiosDeTarifa crea la hoja una vez y no pisa lo anotado',
         libro.getSheetByName('Cambios de tarifa').datos.map((f) => f[0]), ['Trabajador', 'Luqui']);
+
+      /* 10/10, objetivo 6: el equipo para elegir a quién se le paga sale de
+         Config (nombre con tarifa), sin las filas genéricas ni la nota. */
+      delete PROPS.trabajadores;
+      const conLibres = horasDeLaPlanilla();
+      conLibres.Config = config.concat([['Mili', 7500, 'Operador'], ['Operador 10', 7500, 'Operador'],
+        ['Editá SOLO las celdas amarillas. El nombre debe coincidir…', '', '']]);
+      r = importarCon(conLibres);
+      igual('equipo: sale de Config, sin «Operador 10» ni la nota de abajo (Mili no tiene horas y está igual)',
+        trabajadores_(), ['Luqui', 'Tomi', 'Mili']);
+      cierto('equipo: el aviso de la importación lo dice', /equipo para pagos: Luqui, Tomi, Mili/.test(r.aviso), r.aviso);
+      const sinConfig = horasDeLaPlanilla(); delete sinConfig.Config;
+      r = importarCon(sinConfig);
+      igual('equipo: si Config no se pudo leer, queda la lista anterior (y se avisa)',
+        [trabajadores_(), /no se pudo leer el equipo/.test(r.aviso)], [['Luqui', 'Tomi', 'Mili'], true]);
+      nuevaPlanilla(planillaBase());
+      const viaje = sincronizarCon(pedido());
+      igual('equipo: viaja a la app en cada sincronización', viaje.r.trabajadores, ['Luqui', 'Tomi', 'Mili']);
+      delete PROPS.trabajadores;
       delete SpreadsheetApp.openById;
     }
 

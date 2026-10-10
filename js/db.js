@@ -56,6 +56,9 @@ function estadoInicial() {
     /* Horas de trabajo, traídas de la planilla de registro. Son solo de
        lectura: se corrigen en su planilla de origen, no acá. */
     horas: [],
+    /* El equipo, de Config de la planilla de horas: a quién se le puede
+       pagar un sueldo. También solo de lectura. */
+    trabajadores: [],
     listas: structuredClone(LISTAS_DEFAULT),
     // tumbas {id, mod}: propagan las eliminaciones entre dispositivos
     borrados: [],
@@ -82,6 +85,7 @@ function normalizar(d) {
   d.productos = d.productos || [];
   d.ventas = d.ventas || [];
   d.horas = d.horas || [];
+  d.trabajadores = d.trabajadores || [];
   d.borrados = d.borrados || [];
   d.conceptos = d.conceptos || base.conceptos;
   d.conceptosNuevos = d.conceptosNuevos || { ingresos: [], egresos: [] };

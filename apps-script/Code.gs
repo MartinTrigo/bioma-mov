@@ -111,6 +111,7 @@ function doGet() {
     var estado = leerEstado_();
     estado.api = API;
     estado.horas = resumirHoras_();
+    estado.trabajadores = trabajadores_();
     /* Diagnóstico: qué hojas hay, qué versión de esquema corrió y cuántas
        filas tiene cada cosa. Sin esto no se puede saber desde afuera si el
        código desplegado es el actual, y se diagnostica a ciegas. */
@@ -226,6 +227,7 @@ function sincronizar_(entrada) {
     api: API,
     ventasTotal: ventas.length,
     horas: resumirHoras_(),
+    trabajadores: trabajadores_(),
     conceptos: conceptos,
     listas: estado.listas,
     firmas: {},
@@ -1619,6 +1621,49 @@ function tarifasPorTrabajador_(libro) {
   return tarifas;
 }
 
+/* ================= Quiénes cobran sueldo (07/10, objetivo 6) =================
+   La lista del equipo sale de Config de la planilla de horas: nombre con
+   tarifa. Es la oficial (AMA la usa para las horas) y viaja a la app para
+   que el pago se ELIJA de ella, nunca se escriba: "Lucas" por "Luqui" abrió
+   una cuenta aparte. Las filas genéricas "Operador 10/11/12" son lugares
+   libres, no personas: quedan afuera hasta que tengan un nombre.
+   Se guarda en las propiedades del documento al importar las horas (de
+   madrugada): leer la otra planilla en cada sincronización es lento. */
+function trabajadoresDeConfig_(libro) {
+  var h = libro.getSheetByName('Config');
+  if (!h) return [];
+  var v = h.getDataRange().getValues();
+  for (var i = 0; i < v.length && i < 40; i++) {
+    var colNombre = -1, colTarifa = -1;
+    for (var c = 0; c < v[i].length; c++) {
+      var celda = normClave_(v[i][c]);
+      if (celda.indexOf('trabajador') > -1 && colNombre < 0) colNombre = c;
+      if (celda.indexOf('tarifa') > -1 && colTarifa < 0) colTarifa = c;
+    }
+    // Como en tarifasPorTrabajador_: el título no es el encabezado.
+    if (colNombre < 0 || colTarifa < 0 || colNombre === colTarifa) continue;
+    var out = [], vistos = {};
+    for (var j = i + 1; j < v.length; j++) {
+      var quien = String(v[j][colNombre] || '').trim();
+      // Sin tarifa no es una persona: es la nota de abajo de la tabla.
+      if (!quien || !(normMonto_(v[j][colTarifa]) > 0)) continue;
+      if (/^operador\s*\d+$/i.test(quien)) continue;
+      if (vistos[normClave_(quien)]) continue;
+      vistos[normClave_(quien)] = true;
+      out.push(quien);
+    }
+    return out;
+  }
+  return [];
+}
+
+function trabajadores_() {
+  try {
+    var t = JSON.parse(PropertiesService.getDocumentProperties().getProperty('trabajadores') || '[]');
+    return Array.isArray(t) ? t : [];
+  } catch (e) { return []; }
+}
+
 /* ================= Tarifas con fecha (07/10, objetivo 5) =================
    Antes, cada importación valuaba TODAS las horas con la tarifa de hoy: un
    aumento reescribía lo devengado de la temporada entera, y las deudas de
@@ -1793,6 +1838,13 @@ function importarHoras() {
 
   var tarifas = tarifasPorTrabajador_(libro);
   var cambios = cambiosDeTarifa_(libro, tarifas);
+  /* La lista del equipo para elegir a quién se le paga. Si Config no se
+     pudo leer, se conserva la anterior: una lista vacía dejaría a la app
+     sin a quién pagarle. */
+  var equipo = trabajadoresDeConfig_(libro);
+  if (equipo.length) {
+    PropertiesService.getDocumentProperties().setProperty('trabajadores', JSON.stringify(equipo));
+  }
   /* Las áreas y los nombres se escriben a mano en un formulario: tarde o
      temprano aparece "Fruticola" sin tilde junto a "Frutícola", o "marto"
      junto a "Marto", y los totales se parten en dos. Ya nos pasó con los
@@ -1843,6 +1895,8 @@ function importarHoras() {
   var aviso = filas.length + ' registros importados · $' +
     Math.round(devengado).toLocaleString('es-AR') + ' devengados';
   aviso += ' · tarifas encontradas para ' + conTarifa + ' personas';
+  aviso += equipo.length ? ' · equipo para pagos: ' + equipo.join(', ')
+                         : ' · ⚠ no se pudo leer el equipo de Config (quedó la lista anterior)';
   if (!conTarifa) {
     aviso += ' (¡ninguna! se usó $' + TARIFA_POR_DEFECTO + ' para todos)';
   }
