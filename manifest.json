@@ -4,8 +4,8 @@
   "description": "Gestión económica de emprendimientos agroecológicos: ventas, egresos, deudas y balance por temporada",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#faf8f2",
-  "theme_color": "#3d6b35",
+  "background_color": "#FBF6F7",
+  "theme_color": "#A33A55",
   "orientation": "portrait",
   "icons": [
     {

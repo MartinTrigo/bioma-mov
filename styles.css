@@ -1,17 +1,65 @@
-/* ===== Bioma · paleta basada en el logo ===== */
+/* ===== AMA Economía · paleta vino (10/10) =====
+   La marca es vino; los montos tienen su propio código, que no se mezcla con
+   la marca: positivo en verde, egresos en ocre, negativo en vino oscuro con
+   su signo "−". Modo claro y oscuro: el oscuro sigue al teléfono salvo que
+   se elija a mano (botón ◐ arriba → data-tema en <html>). Todo color va por
+   estas variables: uno escrito a mano no cambia con el modo.
+
+   Figtree, la misma letra que AMA Producción, dentro de la app (fuentes/)
+   para que se vea igual en todos los teléfonos y ande sin señal. OFL. */
+@font-face {
+  font-family: "Figtree";
+  src: url("fuentes/figtree.woff2") format("woff2");
+  font-weight: 300 900;
+  font-display: swap;
+}
+
 :root {
-  --verde-oscuro: #3d6b35;
-  --verde: #5a8a4a;
-  --verde-claro: #7ba36a;
-  --tierra: #b98a4a;
-  --tierra-claro: #d9b382;
-  --crema: #faf8f2;
-  --blanco: #ffffff;
-  --tinta: #2c3a28;
-  --gris: #8a927f;
-  --rojo: #b0533c;
-  --sombra: 0 1px 4px rgba(44, 58, 40, 0.10);
+  color-scheme: light;
+  --marca: #A33A55;         /* botones, bordes de tablas, barras, lo activo */
+  --marca-oscuro: #6E1A30;  /* títulos, pestaña activa, totales */
+  --marca-suave: #F7E6EA;
+  --sobre-color: #FFFFFF;   /* letra sobre cualquier fondo de color */
+  --cab: #A33A55;           /* encabezado */
+  --cab-tx: #FFFFFF;
+  --pos: #3F7A33;           /* ingresos, a favor, pagado */
+  --pos-claro: #B5D19C;
+  --neg: #8A2440;           /* negativos y deudas */
+  --neg-suave: #F7E3E8;
+  --tierra: #9A6B2E;        /* egresos y avisos */
+  --tierra-claro: #E3C79F;
+  --tierra-suave: #F8EEDF;
+  --aviso-bg: #F7E9C9; --aviso-tx: #6E5018; --aviso-borde: #E0CB9A;
+  --crema: #FBF6F7;         /* fondo de la página */
+  --blanco: #FFFFFF;        /* tarjetas y campos */
+  --tinta: #2E1A20;
+  --gris: #7D6A70;
+  --gris-claro: #A08C93;   /* íconos discretos (✕ de borrar): 3:1 como mínimo */
+  --linea: #EFE3E6;
+  --sombra: 0 1px 4px rgba(46, 26, 32, 0.10);
   --radio: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    color-scheme: dark;
+    --marca: #E68AA2; --marca-oscuro: #F2B8C6; --marca-suave: #331C25; --sobre-color: #2A0E17;
+    --cab: #24141A; --cab-tx: #F2B8C6;
+    --pos: #A9CF86; --pos-claro: #4E6B3C; --neg: #F08FA6; --neg-suave: #3A1A23;
+    --tierra: #E0B377; --tierra-claro: #6B4E28; --tierra-suave: #2E2216;
+    --aviso-bg: #3A2C12; --aviso-tx: #F0C27A; --aviso-borde: #5A4520;
+    --crema: #160D10; --blanco: #1F1217; --tinta: #F3E7EA; --gris: #B39BA2; --gris-claro: #8A747B;
+    --linea: #36202A; --sombra: 0 1px 4px rgba(0, 0, 0, 0.4);
+  }
+}
+:root[data-tema="oscuro"] {
+  color-scheme: dark;
+  --marca: #E68AA2; --marca-oscuro: #F2B8C6; --marca-suave: #331C25; --sobre-color: #2A0E17;
+  --cab: #24141A; --cab-tx: #F2B8C6;
+  --pos: #A9CF86; --pos-claro: #4E6B3C; --neg: #F08FA6; --neg-suave: #3A1A23;
+  --tierra: #E0B377; --tierra-claro: #6B4E28; --tierra-suave: #2E2216;
+  --aviso-bg: #3A2C12; --aviso-tx: #F0C27A; --aviso-borde: #5A4520;
+  --crema: #160D10; --blanco: #1F1217; --tinta: #F3E7EA; --gris: #B39BA2; --gris-claro: #8A747B;
+  --linea: #36202A; --sombra: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -19,7 +67,8 @@
 html { -webkit-text-size-adjust: 100%; }
 
 body {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;   /* las cifras quedan alineadas en columna */
   background: var(--crema);
   color: var(--tinta);
   min-height: 100dvh;
@@ -32,16 +81,18 @@ body {
   align-items: center;
   gap: 12px;
   padding: 14px 18px 10px;
-  background: var(--blanco);
-  border-bottom: 2px solid var(--verde);
+  background: var(--cab);
+  border-bottom: none;
   position: sticky;
   top: 0;
   z-index: 10;
 }
-.logo { width: 46px; height: 46px; }
+/* El logo tiene sus colores (brote verde, barras ocres): va sobre un cuadro
+   claro, como el ícono de AMA Producción, y no se pierde en el vino. */
+.logo { width: 46px; height: 46px; padding: 4px; border-radius: 12px; background: #FBF6F7; }
 .brand h1 {
   font-size: 1.5rem;
-  color: var(--verde-oscuro);
+  color: var(--cab-tx);
   font-weight: 700;
   letter-spacing: 0.5px;
   line-height: 1;
@@ -53,27 +104,27 @@ body {
 .brand .subtitle {
   display: block;
   font-size: 0.72rem;
-  color: var(--gris);
+  color: var(--cab-tx);
   font-style: italic;
 }
 .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
 .icon-btn {
   background: none;
-  border: 1.5px solid var(--verde);
-  color: var(--verde-oscuro);
+  border: 1.5px solid rgba(255,255,255,.35);
+  color: var(--cab-tx);
   border-radius: 10px;
   width: 40px;
   height: 40px;
   font-size: 1.2rem;
   cursor: pointer;
 }
-.icon-btn:active { background: var(--verde); color: var(--blanco); }
+.icon-btn:active { background: rgba(255,255,255,.18); color: var(--cab-tx); }
 
 /* ===== Aviso de sincronización sin configurar ===== */
 .aviso {
-  background: #f7e9c9;
-  color: #7a5a1e;
-  border-bottom: 1px solid #e0cb9a;
+  background: var(--aviso-bg);
+  color: var(--aviso-tx);
+  border-bottom: 1px solid var(--aviso-borde);
   padding: 10px 16px;
   font-size: 0.82rem;
   text-align: center;
@@ -95,7 +146,7 @@ main { max-width: 640px; margin: 0 auto; padding: 14px; }
 }
 
 /* ===== Formularios ===== */
-.form h2 { font-size: 1.05rem; color: var(--verde-oscuro); margin-bottom: 12px; }
+.form h2 { font-size: 1.05rem; color: var(--marca-oscuro); margin-bottom: 12px; }
 .form label {
   display: block;
   font-size: 0.8rem;
@@ -112,11 +163,11 @@ input, select {
   font-family: inherit;
   color: var(--tinta);
   background: var(--crema);
-  border: 1px solid #e2ddd0;
+  border: 1px solid var(--linea);
   border-radius: 10px;
   outline: none;
 }
-input:focus, select:focus { border-color: var(--verde); }
+input:focus, select:focus { border-color: var(--marca); }
 
 .btn {
   display: block;
@@ -126,18 +177,18 @@ input:focus, select:focus { border-color: var(--verde); }
   font-size: 1rem;
   font-family: inherit;
   font-weight: 700;
-  color: var(--blanco);
-  background: var(--verde);
+  color: var(--sobre-color);
+  background: var(--marca);
   border: none;
   border-radius: 10px;
   cursor: pointer;
   text-align: center;
 }
 .btn:active { filter: brightness(0.92); }
-.btn-in { background: var(--verde); }
+.btn-in { background: var(--pos); }
 .btn-out { background: var(--tierra); }
-.btn-debt { background: var(--rojo); }
-.btn-sec { background: var(--blanco); color: var(--verde-oscuro); border: 1.5px solid var(--verde); margin-top: 8px; }
+.btn-debt { background: var(--neg); }
+.btn-sec { background: var(--blanco); color: var(--marca-oscuro); border: 1.5px solid var(--marca); margin-top: 8px; }
 .btn-ghost { background: none; color: var(--gris); margin-top: 8px; font-weight: 400; }
 .file-btn { display: block; }
 
@@ -149,7 +200,7 @@ input:focus, select:focus { border-color: var(--verde); }
   gap: 8px;
   margin: 6px 2px 8px;
 }
-.list-head h3 { font-size: 0.95rem; color: var(--verde-oscuro); }
+.list-head h3 { font-size: 0.95rem; color: var(--marca-oscuro); }
 .list-head input, .list-head select { width: auto; margin: 0; padding: 6px 10px; font-size: 0.85rem; }
 
 .mov-list { list-style: none; }
@@ -173,22 +224,22 @@ input:focus, select:focus { border-color: var(--verde); }
   text-overflow: ellipsis;
 }
 .mov-monto { font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
-.monto-in { color: var(--verde-oscuro); }
+.monto-in { color: var(--pos); }
 .monto-out { color: var(--tierra); }
-.monto-debt { color: var(--rojo); }
+.monto-debt { color: var(--neg); }
 .mov-del {
   background: none;
   border: none;
-  color: #c9c3b4;
+  color: var(--gris-claro);
   font-size: 1.1rem;
   cursor: pointer;
   padding: 4px 6px;
 }
-.mov-del:active { color: var(--rojo); }
+.mov-del:active { color: var(--neg); }
 .mov-check {
   background: none;
-  border: 1.5px solid var(--verde);
-  color: var(--verde);
+  border: 1.5px solid var(--marca);
+  color: var(--marca);
   border-radius: 8px;
   font-size: 0.72rem;
   padding: 5px 8px;
@@ -196,7 +247,7 @@ input:focus, select:focus { border-color: var(--verde); }
   font-family: inherit;
   white-space: nowrap;
 }
-.mov-check.pagada { background: var(--verde); color: var(--blanco); }
+.mov-check.pagada { background: var(--pos); color: var(--sobre-color); }
 .empty { text-align: center; color: var(--gris); font-style: italic; padding: 18px; font-size: 0.85rem; }
 
 /* ===== Deudas ===== */
@@ -207,7 +258,7 @@ input:focus, select:focus { border-color: var(--verde); }
 
 /* ===== Resumen ===== */
 .resumen-selector { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.resumen-selector h2 { font-size: 1.1rem; color: var(--verde-oscuro); }
+.resumen-selector h2 { font-size: 1.1rem; color: var(--marca-oscuro); }
 .resumen-selector select { width: auto; margin: 0; padding: 7px 10px; font-size: 0.9rem; }
 
 .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -218,20 +269,20 @@ input:focus, select:focus { border-color: var(--verde); }
   background: var(--crema);
   border-left: 4px solid var(--gris);
 }
-.kpi-in  { border-color: var(--verde); }
+.kpi-in  { border-color: var(--pos); }
 .kpi-out { border-color: var(--tierra); }
-.kpi-bal { border-color: var(--verde-oscuro); }
-.kpi-debt{ border-color: var(--rojo); }
+.kpi-bal { border-color: var(--marca-oscuro); }
+.kpi-debt{ border-color: var(--neg); }
 .kpi-label { display: block; font-size: 0.72rem; color: var(--gris); }
 .kpi-val { font-weight: 700; font-size: 1.1rem; }
-.kpi-val.neg { color: var(--rojo); }
+.kpi-val.neg { color: var(--neg); }
 
-.card h3 { font-size: 0.95rem; color: var(--verde-oscuro); margin-bottom: 10px; }
+.card h3 { font-size: 0.95rem; color: var(--marca-oscuro); margin-bottom: 10px; }
 .desglose .dg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 0.85rem; }
 .dg-name { flex: 0 0 38%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dg-bar-wrap { flex: 1; background: var(--crema); border-radius: 6px; height: 14px; overflow: hidden; }
 /* Es un <span>: sin display block ignora el ancho y la barra quedaba vacía. */
-.dg-bar { display: block; height: 100%; border-radius: 6px; background: var(--verde-claro); }
+.dg-bar { display: block; height: 100%; border-radius: 6px; background: var(--pos-claro); }
 .dg-bar.out { background: var(--tierra-claro); }
 .dg-val { flex: 0 0 auto; font-weight: 700; font-size: 0.8rem; min-width: 84px; text-align: right; }
 .dg-pct { color: var(--gris); font-weight: 400; }
@@ -241,9 +292,9 @@ input:focus, select:focus { border-color: var(--verde); }
 
 /* ===== Productos ===== */
 .prod-barra { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.prod-barra h2 { font-size: 1.05rem; color: var(--verde-oscuro); }
+.prod-barra h2 { font-size: 1.05rem; color: var(--marca-oscuro); }
 .btn-mini {
-  background: var(--verde); color: var(--blanco); border: none;
+  background: var(--marca); color: var(--sobre-color); border: none;
   border-radius: 8px; padding: 7px 12px; font-family: inherit;
   font-size: 0.82rem; font-weight: 700; cursor: pointer;
 }
@@ -273,9 +324,9 @@ input:focus, select:focus { border-color: var(--verde); }
   color: var(--gris); background: var(--crema);
   border-radius: 5px; padding: 2px 6px;
 }
-.prod-cat.cat-fruta, .prod-cat.cat-congelado { color: var(--rojo); background: #f7e8e4; }
+.prod-cat.cat-fruta, .prod-cat.cat-congelado { color: var(--neg); background: var(--neg-suave); }
 .prod-cat.cat-elaborado, .prod-cat.cat-animal { color: var(--tierra); background: var(--tierra-claro); }
-.prod-cat.cat-bolsón { color: var(--blanco); background: var(--verde); }
+.prod-cat.cat-bolsón { color: var(--sobre-color); background: var(--marca); }
 .prod-cab .prod-unidad { margin-right: 74px; }
 #filtro-categoria { margin-top: 8px; }
 .prod-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -286,7 +337,7 @@ input:focus, select:focus { border-color: var(--verde); }
   flex: 1; text-align: center; background: var(--crema);
   border-radius: 7px; padding: 5px 3px; min-width: 0;
 }
-.prc.fijado { background: #f3ead9; box-shadow: inset 0 0 0 1px var(--tierra-claro); }
+.prc.fijado { background: var(--tierra-suave); box-shadow: inset 0 0 0 1px var(--tierra-claro); }
 .prc-lbl {
   display: block; font-size: 0.55rem; color: var(--gris);
   text-transform: uppercase; letter-spacing: 0;
@@ -324,28 +375,28 @@ input:focus, select:focus { border-color: var(--verde); }
 .renglon .r-unidad b { color: var(--tierra); display: block; }
 .renglon .r-sub {
   margin-left: auto; text-align: right; font-weight: 700;
-  font-size: 0.8rem; color: var(--verde-oscuro); white-space: nowrap;
+  font-size: 0.8rem; color: var(--marca-oscuro); white-space: nowrap;
 }
 .renglon .r-del {
   flex: 0 0 auto; background: none; border: none;
-  color: #b9b2a2; font-size: 0.95rem; cursor: pointer; padding: 2px;
+  color: var(--gris-claro); font-size: 0.95rem; cursor: pointer; padding: 2px;
 }
-.renglon .r-del:active { color: var(--rojo); }
+.renglon .r-del:active { color: var(--neg); }
 .venta-total {
   display: flex; justify-content: space-between; align-items: baseline;
-  border-top: 1px solid #eee8da; margin: 12px 0 10px; padding-top: 10px;
+  border-top: 1px solid var(--linea); margin: 12px 0 10px; padding-top: 10px;
 }
 .venta-total span { font-size: 0.8rem; color: var(--gris); }
-.venta-total strong { font-size: 1.25rem; color: var(--verde-oscuro); }
+.venta-total strong { font-size: 1.25rem; color: var(--marca-oscuro); }
 #venta-monto {
   width: auto; max-width: 46%; margin: 0; text-align: right;
-  font-size: 1.05rem; font-weight: 700; color: var(--verde-oscuro);
+  font-size: 1.05rem; font-weight: 700; color: var(--marca-oscuro);
 }
 .mov-edit {
   background: none; border: none; color: var(--gris);
   font-size: 1rem; cursor: pointer; padding: 4px 6px;
 }
-.mov-edit:active { color: var(--verde-oscuro); }
+.mov-edit:active { color: var(--marca-oscuro); }
 
 /* Revisión de la importación */
 .modal-ancho { max-width: 620px; }
@@ -353,9 +404,9 @@ input:focus, select:focus { border-color: var(--verde); }
 .rev-fila {
   display: grid; grid-template-columns: 1fr 1fr auto;
   gap: 6px; align-items: center;
-  padding: 7px 0; border-bottom: 1px solid #f0ece2;
+  padding: 7px 0; border-bottom: 1px solid var(--linea);
 }
-.rev-fila.sin-resolver { background: #fdf6e7; }
+.rev-fila.sin-resolver { background: var(--tierra-suave); }
 .rev-origen { min-width: 0; }
 .rev-nombre {
   display: block; font-size: 0.8rem; font-weight: 700;
@@ -375,16 +426,16 @@ input:focus, select:focus { border-color: var(--verde); }
 
 /* Barras: el saldo del mes. Van de fondo y suaves para que las líneas se
    lean por encima. */
-.fg-barra.pos { fill: var(--verde); opacity: 0.38; }
-.fg-barra.neg { fill: var(--rojo); opacity: 0.38; }
+.fg-barra.pos { fill: var(--pos); opacity: 0.38; }
+.fg-barra.neg { fill: var(--neg); opacity: 0.38; }
 .fg-cero { stroke: var(--gris); stroke-width: 1; }
 
 /* Líneas: lo que entró y lo que salió. La distancia entre las dos es la
    altura de la barra, porque el saldo es justamente esa resta. */
 .fg-linea { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.fg-linea.in { stroke: var(--verde-oscuro); }
+.fg-linea.in { stroke: var(--pos); }
 .fg-linea.out { stroke: var(--tierra); }
-.fg-punto.in { fill: var(--verde-oscuro); }
+.fg-punto.in { fill: var(--pos); }
 .fg-punto.out { fill: var(--tierra); }
 
 .fg-lbl { font-size: 9px; fill: var(--gris); }
@@ -396,41 +447,41 @@ input:focus, select:focus { border-color: var(--verde); }
 .fg-leyenda span { display: inline-flex; align-items: center; gap: 4px; }
 .fg-leyenda i { display: inline-block; }
 .fg-leyenda .m-barra { width: 9px; height: 9px; border-radius: 2px;
-  background: var(--verde); opacity: 0.38; }
-.fg-leyenda .m-in { width: 13px; height: 2px; background: var(--verde-oscuro); }
+  background: var(--pos); opacity: 0.38; }
+.fg-leyenda .m-in { width: 13px; height: 2px; background: var(--pos); }
 .fg-leyenda .m-out { width: 13px; height: 2px; background: var(--tierra); }
 
 .tabla-flujo { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
 .tabla-flujo th {
   text-align: right; font-weight: 700; color: var(--gris);
   font-size: 0.66rem; text-transform: uppercase;
-  border-bottom: 1px solid #eee8da; padding: 4px 3px;
+  border-bottom: 1px solid var(--linea); padding: 4px 3px;
 }
 .tabla-flujo th:first-child, .tabla-flujo td:first-child {
   text-align: left; white-space: nowrap;
 }
-.tabla-flujo td { padding: 5px 3px; border-bottom: 1px solid #f4f1e8; }
+.tabla-flujo td { padding: 5px 3px; border-bottom: 1px solid var(--linea); }
 .tabla-flujo td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.tabla-flujo td.in { color: var(--verde-oscuro); }
+.tabla-flujo td.in { color: var(--pos); }
 .tabla-flujo td.out { color: var(--tierra); }
-.tabla-flujo td.pos { font-weight: 700; color: var(--verde-oscuro); }
-.tabla-flujo td.neg { font-weight: 700; color: var(--rojo); }
+.tabla-flujo td.pos { font-weight: 700; color: var(--pos); }
+.tabla-flujo td.neg { font-weight: 700; color: var(--neg); }
 
 /* ===== Horas de trabajo ===== */
 .horas-total {
   display: flex; justify-content: space-between;
   font-size: 0.8rem; color: var(--gris);
-  border-bottom: 1px solid #eee8da; padding-bottom: 8px; margin-bottom: 10px;
+  border-bottom: 1px solid var(--linea); padding-bottom: 8px; margin-bottom: 10px;
 }
 .horas-total strong { color: var(--tinta); font-size: 0.95rem; }
 .dg-bar.horas { background: #8a7fb0; }
 .horas-saldo {
   display: flex; justify-content: space-between; align-items: baseline;
-  border-top: 1px solid #eee8da; margin-top: 10px; padding-top: 9px;
+  border-top: 1px solid var(--linea); margin-top: 10px; padding-top: 9px;
   font-size: 0.78rem; color: var(--gris);
 }
 .horas-saldo strong { font-size: 1.05rem; color: var(--tinta); }
-.horas-saldo strong.neg { color: var(--rojo); }
+.horas-saldo strong.neg { color: var(--neg); }
 #horas-vista { width: auto; margin: 0; padding: 6px 10px; font-size: 0.85rem; }
 #card-horas .resumen-selector { margin-bottom: 10px; }
 #card-horas h3 { margin: 0; }
@@ -443,7 +494,7 @@ input:focus, select:focus { border-color: var(--verde); }
   right: 0;
   display: flex;
   background: var(--blanco);
-  border-top: 2px solid var(--verde);
+  border-top: 2px solid var(--marca);
   z-index: 10;
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -462,7 +513,7 @@ input:focus, select:focus { border-color: var(--verde); }
   gap: 2px;
 }
 .tabbar button .t-ico { font-size: 1.15rem; line-height: 1; }
-.tabbar button.active { color: var(--verde-oscuro); font-weight: 700; }
+.tabbar button.active { color: var(--marca-oscuro); font-weight: 700; }
 
 /* ===== Modal ===== */
 .modal {
@@ -476,9 +527,9 @@ input:focus, select:focus { border-color: var(--verde); }
   padding: 20px;
 }
 .modal-box { width: 100%; max-width: 420px; }
-.modal-box h2 { color: var(--verde-oscuro); font-size: 1.1rem; margin-bottom: 8px; }
+.modal-box h2 { color: var(--marca-oscuro); font-size: 1.1rem; margin-bottom: 8px; }
 .modal-box label { display: block; font-size: 0.8rem; color: var(--gris); margin-bottom: 10px; }
-.icon-btn.sync-error { border-color: var(--rojo); color: var(--rojo); }
+.icon-btn.sync-error { border-color: var(--neg); color: var(--neg); }
 
 /* Punto naranja: hay cambios que la planilla todavía no recibió */
 .icon-btn.pendiente { position: relative; }
@@ -492,7 +543,7 @@ input:focus, select:focus { border-color: var(--verde); }
   border: 2px solid var(--blanco);
 }
 .hint { font-size: 0.8rem; color: var(--gris); margin-bottom: 12px; }
-.modal hr { border: none; border-top: 1px solid #eee8da; margin: 14px 0; }
+.modal hr { border: none; border-top: 1px solid var(--linea); margin: 14px 0; }
 .hidden { display: none !important; }
 
 /* ===== Toast ===== */
@@ -501,8 +552,8 @@ input:focus, select:focus { border-color: var(--verde); }
   bottom: 84px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--verde-oscuro);
-  color: var(--blanco);
+  background: var(--marca-oscuro);
+  color: var(--sobre-color);
   padding: 10px 18px;
   border-radius: 20px;
   font-size: 0.85rem;
@@ -516,7 +567,7 @@ input:focus, select:focus { border-color: var(--verde); }
      después del <main> y en la notebook terminaba al final de la página.
      Acá solo se angosta y flota centrada; el body guarda lugar para ella. */
   body { padding-bottom: 96px; }
-  .tabbar { left: 50%; right: auto; bottom: 12px; transform: translateX(-50%); width: min(640px, calc(100% - 32px)); border: 1px solid #e2ddd0; border-radius: 12px; box-shadow: var(--sombra); }
+  .tabbar { left: 50%; right: auto; bottom: 12px; transform: translateX(-50%); width: min(640px, calc(100% - 32px)); border: 1px solid var(--linea); border-radius: 12px; box-shadow: var(--sombra); }
   main { padding-top: 20px; }
 }
 
@@ -548,11 +599,11 @@ input:focus, select:focus { border-color: var(--verde); }
 .cuenta-fila .liq-pista { margin-top: 6px; height: 5px; }
 .cuenta-fila .alerta, .cuenta-nombre + .hint .alerta { color: var(--tierra); font-weight: 700; font-size: .78rem; }
 .cuenta-nombre { font-size: 1.15rem !important; margin: 4px 0 10px !important; }
-.pago-form { border-top: 1px solid #eee8da; margin: 16px 0 6px; padding-top: 12px; }
+.pago-form { border-top: 1px solid var(--linea); margin: 16px 0 6px; padding-top: 12px; }
 .pago-form h3 { margin-bottom: 8px; }
 #tab-pagos .volver-cuentas {
   margin: 0; padding: 4px 0; width: auto; text-align: left; border: none; background: none;
-  font-family: inherit; font-size: .88rem; color: var(--verde-oscuro); cursor: pointer;
+  font-family: inherit; font-size: .88rem; color: var(--marca-oscuro); cursor: pointer;
 }
 #tab-pagos h3 small { font-weight: 400; }
 
@@ -564,7 +615,7 @@ input:focus, select:focus { border-color: var(--verde); }
   background: var(--crema);
   overflow: hidden;
 }
-.liq-llena { display: block; height: 100%; background: var(--verde); }
+.liq-llena { display: block; height: 100%; background: var(--marca); }
 .liq-texto {
   display: block;
   margin-top: 5px;
@@ -575,19 +626,19 @@ input:focus, select:focus { border-color: var(--verde); }
 /* ===== Proyección: lo planificado en AMA Producción por los precios de acá ===== */
 #tab-proyeccion .row { display: flex; gap: 10px; margin-bottom: 12px; }
 #tab-proyeccion .row label { flex: 1; font-size: .8rem; color: var(--gris); }
-#proyeccion-estado.alerta { color: var(--rojo); }
+#proyeccion-estado.alerta { color: var(--neg); }
 #tab-proyeccion .kpis { margin-bottom: 14px; }
 .proy-scroll { overflow-x: auto; }
 .proy-tabla { width: 100%; border-collapse: collapse; font-size: .86rem; }
 .proy-tabla th { text-align: left; font-size: .72rem; color: var(--gris); font-weight: 400;
-  border-bottom: 1.5px solid var(--verde); padding: 4px 6px; }
-.proy-tabla td { padding: 7px 6px; border-bottom: 1px solid #eee8da; vertical-align: top; }
+  border-bottom: 1.5px solid var(--marca); padding: 4px 6px; }
+.proy-tabla td { padding: 7px 6px; border-bottom: 1px solid var(--linea); vertical-align: top; }
 .proy-tabla .n { text-align: right; white-space: nowrap; }
 .proy-tabla td small { display: block; font-size: .72rem; color: var(--gris); margin-top: 1px; }
 .proy-tabla td small.motivo { color: var(--tierra); font-weight: 700; }
 .proy-tabla tr.sin-precio td:not(:first-child) { color: var(--gris); }
-.proy-tabla tfoot td { font-weight: 700; color: var(--verde-oscuro);
-  border-top: 2px solid var(--verde); border-bottom: none; padding-top: 9px; }
+.proy-tabla tfoot td { font-weight: 700; color: var(--marca-oscuro);
+  border-top: 2px solid var(--marca); border-bottom: none; padding-top: 9px; }
 .proy-nota { margin-top: 12px; line-height: 1.45; }
 
 /* ===== Productos: una lista de precios a la vez ===== */
@@ -605,9 +656,9 @@ input:focus, select:focus { border-color: var(--verde); }
 .prod-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
 .prod-tabla th {
   text-align: left; font-size: .72rem; font-weight: 400; color: var(--gris);
-  border-bottom: 1.5px solid var(--verde); padding: 8px 4px 5px;
+  border-bottom: 1.5px solid var(--marca); padding: 8px 4px 5px;
 }
-.prod-tabla td { padding: 7px 4px; border-bottom: 1px solid #eee8da; vertical-align: middle; }
+.prod-tabla td { padding: 7px 4px; border-bottom: 1px solid var(--linea); vertical-align: middle; }
 .prod-tabla tr:last-child td { border-bottom: none; }
 .prod-tabla .n { text-align: right; white-space: nowrap; }
 .prod-tabla td.fijado { color: var(--tierra); font-weight: 700; }
@@ -625,4 +676,4 @@ input:focus, select:focus { border-color: var(--verde); }
 .prod-u { font-size: .75rem; color: var(--gris); margin-left: 3px; }
 .prod-por { font-size: .78rem; color: var(--gris); }
 /* El casillero de un atado sin peso: se marca para que se note que falta. */
-.prod-kg.falta { border-color: var(--tierra); background: #fbf3e6; }
+.prod-kg.falta { border-color: var(--tierra); background: var(--tierra-suave); }

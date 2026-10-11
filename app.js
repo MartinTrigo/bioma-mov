@@ -28,6 +28,32 @@ document.querySelectorAll('.tabbar button').forEach(btn => {
   });
 });
 
+/* ================= Apariencia (10/10) =================
+   ◐ pasa por: como el teléfono → clara → oscura. Queda guardada en este
+   dispositivo (bioma_tema) y la lee también index.html antes de dibujar. */
+const TEMAS = ['', 'claro', 'oscuro'];
+const NOMBRE_TEMA = { '': 'como el teléfono', claro: 'clara', oscuro: 'oscura' };
+const COLOR_BARRA = { claro: '#A33A55', oscuro: '#24141A' };
+function aplicarTema(tema) {
+  const html = document.documentElement;
+  if (tema === 'claro' || tema === 'oscuro') html.dataset.tema = tema;
+  else delete html.dataset.tema;
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
+    const propio = (m.media || '').includes('dark') ? COLOR_BARRA.oscuro : COLOR_BARRA.claro;
+    m.content = COLOR_BARRA[tema] || propio;
+  });
+}
+function temaGuardado() {
+  try { return localStorage.getItem('bioma_tema') || ''; } catch (e) { return ''; }
+}
+$('#btnTema').addEventListener('click', () => {
+  const siguiente = TEMAS[(TEMAS.indexOf(temaGuardado()) + 1) % TEMAS.length];
+  try { localStorage.setItem('bioma_tema', siguiente); } catch (e) { /* sin almacenamiento: vale hasta cerrar */ }
+  aplicarTema(siguiente);
+  toast(`Apariencia ${NOMBRE_TEMA[siguiente]}`);
+});
+aplicarTema(temaGuardado());
+
 /* ================= Init ================= */
 function initAll() {
   document.querySelectorAll('input[type=date]').forEach(i => { if (!i.value) i.value = hoy(); });

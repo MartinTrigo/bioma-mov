@@ -107,6 +107,18 @@ Al agregar un archivo nuevo hay que sumarlo a `index.html` **y** a `sw.js`.
 **Publicación:** GitHub Pages sirve desde la raíz de `main`. Cada `git push`
 publica. Al cambiar archivos hay que subir `CACHE` en `sw.js` (`bioma-vN`).
 
+## Estilo (10/10)
+
+Letra **Figtree** (en `fuentes/`, licencia OFL; la misma que AMA Producción)
+y paleta **vino**, con modo claro y oscuro. El oscuro sigue al teléfono salvo
+que se elija con el botón ◐ de arriba (`bioma_tema` → `data-tema` en
+`<html>`, aplicado en el `<head>` antes de dibujar). **Todo color va por las
+variables de `:root` en `styles.css`**, que se redefinen para el oscuro. La
+marca (`--marca*`, vino) no se mezcla con el código de los montos: `--pos`
+verde (ingresos, a favor, pagado), `--tierra` ocre (egresos), `--neg` vino
+oscuro con su "−" (negativos, deudas). Letra sobre un fondo de color:
+`--sobre-color` (blanca en claro, oscura en oscuro).
+
 ## Reglas duras (romperlas ya causó problemas reales)
 
 1. **La planilla manda.** La hoja `conceptos` es la única fuente de verdad de

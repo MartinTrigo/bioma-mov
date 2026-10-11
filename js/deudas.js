@@ -68,8 +68,8 @@ function renderDeudas() {
   const debemos = pend.filter(d => d.direccion !== 'nos_deben').reduce((s, d) => s + num(d.monto), 0);
   const nosDeben = pend.filter(d => d.direccion === 'nos_deben').reduce((s, d) => s + num(d.monto), 0);
   $('#deuda-totales').innerHTML = `
-    <div><span class="dr-label">Debemos</span><span class="dr-val" style="color:var(--rojo)">${fmt(debemos)}</span></div>
-    <div><span class="dr-label">Nos deben</span><span class="dr-val" style="color:var(--verde-oscuro)">${fmt(nosDeben)}</span></div>
+    <div><span class="dr-label">Debemos</span><span class="dr-val" style="color:var(--neg)">${fmt(debemos)}</span></div>
+    <div><span class="dr-label">Nos deben</span><span class="dr-val" style="color:var(--pos)">${fmt(nosDeben)}</span></div>
     <div><span class="dr-label">Neto</span><span class="dr-val">${fmt(nosDeben - debemos)}</span></div>`;
 }
 

@@ -1,9 +1,9 @@
 /* Service worker: cachea la app para funcionar sin conexión.
    Solo intercepta GET del mismo origen: las peticiones de sincronización
    a script.google.com pasan directo a la red. */
-const CACHE = 'bioma-v40';
+const CACHE = 'bioma-v41';
 const ARCHIVOS = [
-  './', './index.html', './styles.css', './logo.svg', './manifest.json',
+  './', './index.html', './styles.css', './logo.svg', './manifest.json', './fuentes/figtree.woff2',
   './js/util.js', './js/db.js', './js/sincro.js', './js/movimientos.js',
   './js/deudas.js', './js/productos.js', './js/ventas.js',
   './js/ventas-importar.js', './js/resumen.js', './js/proyeccion.js', './js/pagos.js',
