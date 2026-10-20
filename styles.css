@@ -353,7 +353,7 @@ input:focus, select:focus { border-color: var(--marca); }
 /* Un renglón = una línea. Son muchos productos por venta (los núcleos
    llegan a 80), así que cada fila tiene que ocupar lo mínimo posible. */
 .renglon {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
   background: var(--crema); border-radius: 8px;
   padding: 4px 6px; margin-bottom: 4px;
 }
@@ -382,6 +382,22 @@ input:focus, select:focus { border-color: var(--marca); }
   color: var(--gris-claro); font-size: 0.95rem; cursor: pointer; padding: 2px;
 }
 .renglon .r-del:active { color: var(--neg); }
+/* El precio del renglón (19/10): viene el de la lista, se puede cambiar
+   (descuentos, precios especiales). Segunda línea, chica, para no robarle
+   ancho al producto en el teléfono. */
+.r-precio-fila {
+  flex-basis: 100%; display: flex; align-items: center; gap: 5px;
+  font-size: 0.72rem; color: var(--gris); padding: 0 2px 2px;
+}
+.renglon .r-precio-fila .r-precio {
+  flex: 0 0 82px; text-align: right; padding: 3px 5px; font-size: 0.78rem;
+  border: 1px solid var(--linea);
+}
+.renglon .r-precio-fila .r-precio.editado {
+  border-color: var(--tierra); background: var(--tierra-suave); color: var(--tinta); font-weight: 700;
+}
+.r-precio-fila .r-lista { margin-left: auto; color: var(--gris); }
+.r-precio-fila .r-lista b { color: var(--tierra); }
 .venta-total {
   display: flex; justify-content: space-between; align-items: baseline;
   border-top: 1px solid var(--linea); margin: 12px 0 10px; padding-top: 10px;

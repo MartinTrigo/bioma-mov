@@ -34,8 +34,15 @@ function ventaVacia() {
     monto: '',   // solo se usa cuando no hay productos cargados
     // nombre + prodId: se elige el nombre y, si hay varias presentaciones,
     // el prodId termina de decidir cuál de ellas es
-    lineas: [{ nombre: '', prodId: '', cantidad: '' }]
+    lineas: [lineaVacia()]
   };
+}
+
+/* precio: '' = el de la lista elegida. Escrito a mano = el que se cobró de
+   verdad (un descuento, un precio especial): se registra la realidad, no la
+   lista (19/10). */
+function lineaVacia() {
+  return { nombre: '', prodId: '', cantidad: '', precio: '' };
 }
 
 // Los renglones que llegaron a tener producto y cantidad
@@ -163,6 +170,18 @@ function pintarRenglones() {
             >${esc(o.presentacion || 'sin presentación')}</option>`).join('')}
         </select>` : '';
 
+    // Con el producto elegido, una segunda línea con el precio: viene el de
+    // la lista y se puede cambiar.
+    const filaPrecio = p ? `
+        <div class="r-precio-fila">
+          <span>$</span>
+          <input type="number" class="r-precio${precioEditado(l) ? ' editado' : ''}" inputmode="decimal"
+                 step="0.01" min="0" value="${esc(precioEditado(l) ? l.precio : precioListaLinea(l))}"
+                 aria-label="Precio por ${esc(unidadPlural(p, 1))}">
+          <span>por ${esc(unidadPlural(p, 1))}</span>
+          <small class="r-lista">${textoLista(l)}</small>
+        </div>` : '';
+
     return `
       <div class="renglon" data-i="${i}">
         <input type="text" class="r-prod" list="lista-productos-venta"
@@ -173,6 +192,7 @@ function pintarRenglones() {
         <span class="r-unidad">${textoUnidad(p, l.cantidad)}</span>
         <span class="r-sub">${p && l.cantidad ? fmt(subtotalDe(l)) : ''}</span>
         <button type="button" class="r-del" title="Quitar">✕</button>
+        ${filaPrecio}
       </div>`;
   }).join('');
 
@@ -190,17 +210,31 @@ function pintarRenglones() {
       borrador.lineas[i].nombre = opciones.length ? opciones[0].nombre : '';
       // Con una sola presentación queda elegida sola; con varias, la primera
       borrador.lineas[i].prodId = opciones.length ? opciones[0].id : '';
+      borrador.lineas[i].precio = '';   // otro producto: vuelve el de la lista
       pintarRenglones();
     });
 
     const pres = div.querySelector('.r-pres');
     if (pres) pres.addEventListener('change', e => {
       borrador.lineas[i].prodId = e.target.value;
+      borrador.lineas[i].precio = '';
       pintarRenglones();
     });
 
-    /* Al tipear la cantidad se actualizan solo los textos de ese renglón.
-       Repintar la lista entera perdería el foco en mitad del número. */
+    /* El precio: vacío o igual al de la lista = el de la lista. Como con la
+       cantidad, se actualizan solo los textos del renglón para no perder
+       el foco en mitad del número. */
+    const precio = div.querySelector('.r-precio');
+    if (precio) precio.addEventListener('input', e => {
+      const l = borrador.lineas[i];
+      const v = e.target.value;
+      l.precio = (v === '' || num(v) === precioListaLinea(l)) ? '' : v;
+      e.target.classList.toggle('editado', precioEditado(l));
+      div.querySelector('.r-lista').innerHTML = textoLista(l);
+      div.querySelector('.r-sub').textContent = l.cantidad ? fmt(subtotalDe(l)) : '';
+      recalcularTotal();
+    });
+
     /* Al tipear la cantidad se actualizan solo los textos de ese renglón.
        Repintar la lista entera perdería el foco en mitad del número. */
     div.querySelector('.r-cant').addEventListener('input', e => {
@@ -214,16 +248,34 @@ function pintarRenglones() {
 
     div.querySelector('.r-del').addEventListener('click', () => {
       borrador.lineas.splice(i, 1);
-      if (!borrador.lineas.length) borrador.lineas.push({ nombre: '', prodId: '', cantidad: '' });
+      if (!borrador.lineas.length) borrador.lineas.push(lineaVacia());
       pintarRenglones();
     });
   });
   recalcularTotal();
 }
 
-function precioLinea(l) {
+// El precio de la lista elegida para el producto del renglón
+function precioListaLinea(l) {
   const p = db.productos.find(x => x.id === l.prodId);
   return p ? precioDe(p, borrador.lista) : 0;
+}
+
+function precioEditado(l) {
+  return l.precio !== '' && l.precio != null && num(l.precio) !== precioListaLinea(l);
+}
+
+// El que se cobra: el escrito a mano si lo hay, si no el de la lista
+function precioLinea(l) {
+  return precioEditado(l) ? num(l.precio) : precioListaLinea(l);
+}
+
+// "lista $3.200" o, si se cambió, "lista $3.200 · −10 %"
+function textoLista(l) {
+  const lista = precioListaLinea(l);
+  if (!precioEditado(l) || !lista) return `lista ${fmt(lista)}`;
+  const dif = Math.round((num(l.precio) / lista - 1) * 100);
+  return `lista ${fmt(lista)} · <b>${dif > 0 ? '+' : '−'}${Math.abs(dif)} %</b>`;
 }
 
 function subtotalDe(l) {
@@ -254,7 +306,7 @@ function totalOperacion() {
 }
 
 $('#btnAgregarRenglon').addEventListener('click', () => {
-  borrador.lineas.push({ nombre: '', prodId: '', cantidad: '' });
+  borrador.lineas.push(lineaVacia());
   pintarRenglones();
   // Foco en el renglón nuevo, para poder encadenar la carga sin tocar nada
   const ultimos = $$('#venta-renglones .r-prod');
@@ -342,10 +394,15 @@ $('#form-venta').addEventListener('submit', e => {
       // (cuántos kg de acelga se vendieron), y la presentación del producto
       // puede cambiar más adelante sin que esta venta deba cambiar con ella.
       kg: kgDe(p, l.cantidad),
+      // El precio que se cobró de verdad. Si no es el de la lista, la
+      // observación del renglón dice cuál era: así se puede estudiar cuánto
+      // se descuenta sin agregar una columna a la planilla.
       precio: precioLinea(l),
       subtotal: subtotalDe(l),
       origen: 'manual',
-      obs: borrador.obs,
+      obs: [borrador.obs, precioEditado(l)
+        ? `precio de lista ${fmt(precioListaLinea(l))}`.replace(/\s+/g, ' ') : '']
+        .filter(Boolean).join(' · '),
       mod: ahora + i + 1
     });
   });
@@ -435,7 +492,7 @@ function editarVenta(idVenta) {
     obs: mov.obs || '',
     // Sin detalle de productos se edita el monto directo
     monto: lineas.length ? '' : String(num(mov.monto)),
-    lineas: !lineas.length ? [{ nombre: '', prodId: '', cantidad: '' }] : lineas.map(l => {
+    lineas: !lineas.length ? [lineaVacia()] : lineas.map(l => {
       // Se busca por nombre + presentación: el id del producto no se guarda
       // en la venta a propósito, para que la venta sobreviva aunque después
       // se borre o se renombre el producto.
@@ -445,10 +502,15 @@ function editarVenta(idVenta) {
       return {
         nombre: p ? p.nombre : l.producto,
         prodId: p ? p.id : '',
-        cantidad: String(l.cantidad)
+        cantidad: String(l.cantidad),
+        // Se conserva el precio al que se vendió. Si hoy coincide con la
+        // lista, queda como "de lista" (precioEditado lo resuelve).
+        precio: l.precio != null && l.precio !== '' ? String(num(l.precio)) : ''
       };
     })
   };
+  // La observación de la venta, sin la nota automática de cada renglón
+  borrador.obs = String(borrador.obs).replace(/\s*·?\s*precio de lista \$\s?[\d.]+/g, '').trim();
   renderFormVenta();
   $('#form-venta').scrollIntoView({ behavior: 'smooth', block: 'start' });
   const faltan = borrador.lineas.filter(l => !l.prodId).length;
