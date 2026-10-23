@@ -154,7 +154,7 @@ Sección **Cuentas** en MonAgric:
 > En MonAgric quiero una sección nueva "Cuentas": lista de integrantes y, al
 > tocar uno, su cuenta de horas y pagos. Los datos no se calculan acá: los
 > devuelve un endpoint de solo lectura del proyecto Bioma. El contrato está
-> en `C:\MARTO\INFORMATICA\Bioma\movimientos\apps-script\CUENTAS.md`, leelo
+> en `C:\MARTO\INFORMATICA\AMA\economia\apps-script\CUENTAS.md`, leelo
 > antes de empezar. La URL la consulta el backend de Python (no el navegador)
 > y va en la configuración local, no en el código. MonAgric solo muestra: no
 > registra pagos ni recalcula saldos.

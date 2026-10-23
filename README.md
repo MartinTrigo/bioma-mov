@@ -76,7 +76,7 @@ Para usarla normalmente alcanza con el enlace de arriba. Esto es únicamente
 para probar cambios locales antes de publicarlos:
 
 ```
-cd C:\MARTO\INFORMATICA\Bioma\movimientos
+cd C:\MARTO\INFORMATICA\AMA\economia
 python -m http.server 8642
 ```
 
@@ -86,7 +86,7 @@ funciona en la misma máquina y mientras el comando esté corriendo.
 ## Cómo editarla en VS Code
 
 1. Abrir VS Code → `Archivo > Abrir carpeta` → elegir
-   `C:\MARTO\INFORMATICA\Bioma\movimientos`.
+   `C:\MARTO\INFORMATICA\AMA\economia` (o `AMA`, para ver también Producción).
 2. Abrir la extensión de Claude Code y pedir los cambios que quieras ("agregá un gráfico de torta al resumen", etc.).
 3. No hay compilación: guardás el archivo y recargás el navegador.
 

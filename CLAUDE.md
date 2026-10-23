@@ -51,22 +51,22 @@ conviene decir en qué etapa cae.
 
 ## El ecosistema
 
-Todo vive en `C:\MARTO\INFORMATICA\` y en GitHub de MartinTrigo:
+Desde el 23/10/2026 todo el sistema vive en `C:\MARTO\INFORMATICA\AMA\` (el
+mapa está en `AMA\CLAUDE.md`) y en GitHub de MartinTrigo:
 
-| Proyecto | Qué hace | Relación con esta app |
-|---|---|---|
-| **AMA** (antes MonAgric) | Producción: chacras, bancales, siembras, cosechas, objetivos, horas | Carga las horas; muestra las cuentas y el resumen económico que sirve esta app |
-| **Bioma/movimientos** | Esta app: economía y comercialización | — |
-| **Bioma/registro-horas** | Horas de trabajo de los socios | Los sueldos aparecen como egresos acá |
-| **Cocina Viva** | Ventas, stock y consignación de fermentos | **Modelo a imitar**: más madura, misma arquitectura |
-| **BioSalud** | (a futuro) | Podría aportar datos algún día |
+| Proyecto | Carpeta | Qué hace | Relación con esta app |
+|---|---|---|---|
+| **AMA Producción** | `AMA\produccion` (repo `MonAgric`) | Chacras, bancales, siembras, cosechas, objetivos, horas | Carga las horas; muestra las cuentas y el resumen económico que sirve esta app |
+| **AMA Economía** | `AMA\economia` (repo `bioma-mov`) | Esta app: economía y comercialización | — |
+| **Planilla de horas** | `AMA\_archivo\horas-bioma` (repo `bioma-horas`) | Horas de trabajo de los socios (su Web App está archivado) | Los sueldos aparecen como egresos acá |
+| **Cocina Viva** | `INFORMATICA\Cocina Viva` | Ventas, stock y consignación de fermentos | **Modelo a imitar**: más madura, misma arquitectura |
+| **BioSalud** | `INFORMATICA\AppBio` | Base de la futura AMA Salud | Podría aportar datos algún día |
 
 **AMA = Aplicaciones para el Manejo Agroecológico** (28/9/2026), con tres
-versiones: **AMA Producción** (el repo `MonAgric`), **AMA Economía** (esta,
-`bioma-mov`) y **AMA Salud** (a futuro). Las carpetas y los repositorios
-conservan sus nombres viejos: renombrarlos rompería los enlaces y las
-instalaciones. Se puede leer el código de Producción desde acá; pedir acceso a
-`C:\MARTO\INFORMATICA\MonAgric` si no está concedido.
+versiones: **AMA Producción**, **AMA Economía** (esta) y **AMA Salud** (a
+futuro). Los repositorios conservan sus nombres viejos: renombrarlos rompería
+los enlaces y las instalaciones. Lo mejor es abrir la conversación en la
+carpeta `AMA`: así se ven las dos apps sin pedir acceso.
 
 Cuando haya que resolver algo que Cocina Viva ya resolvió (ventas con detalle,
 remitos, consignación, control de acceso), **mirar cómo lo hizo ahí antes de
