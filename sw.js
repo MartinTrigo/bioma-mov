@@ -1,7 +1,7 @@
 /* Service worker: cachea la app para funcionar sin conexión.
    Solo intercepta GET del mismo origen: las peticiones de sincronización
    a script.google.com pasan directo a la red. */
-const CACHE = 'bioma-v42';
+const CACHE = 'bioma-v43';
 const ARCHIVOS = [
   './', './index.html', './styles.css', './logo.svg', './manifest.json', './fuentes/figtree.woff2',
   './js/util.js', './js/db.js', './js/sincro.js', './js/movimientos.js',
@@ -20,7 +20,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k.startsWith('bioma-') && k !== CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
