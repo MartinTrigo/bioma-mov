@@ -29,8 +29,8 @@
 // Versión del protocolo. La app rechaza las respuestas que no la traigan:
 // así una implementación vieja que haya quedado publicada no puede
 // sobrescribir los datos del teléfono con un esquema que ya no existe.
-var API = 12; // 9: action 'proyeccion' · 10: presentación al público · 11: escribe por cambios
-           // 12: no repite las listas que la app ya tiene (firmas)
+var API = 13; // 9: action 'proyeccion' · 10: presentación al público · 11: escribe por cambios
+           // 12: no repite las listas que la app ya tiene (firmas) · 13: action 'semana'
 
 /* Cuántos renglones de venta viaja la app. La hoja las guarda todas; el
    teléfono solo necesita las últimas para mostrarlas y poder corregirlas.
@@ -129,6 +129,10 @@ function doPost(e) {
     var pedido = JSON.parse(e.postData.contents);
     if (pedido && pedido.action === 'proyeccion') {
       return salidaJson_(proyeccion_(!!pedido.refrescar));
+    }
+    // El stock de la semana tampoco toca bioma-db: lee otras dos fuentes.
+    if (pedido && pedido.action === 'semana') {
+      return salidaJson_(semana_(pedido.semana, !!pedido.refrescar));
     }
   } catch (err) {
     return salidaJson_({ error: String(err) });
@@ -2452,6 +2456,175 @@ function probarProyeccion() {
   p.plan.forEach(function (c) {
     Logger.log('  ' + c.cultivo + ': ' + c.superficie_m2 + ' m², ' + c.kg + ' kg');
   });
+}
+
+/* ================= La semana: stock para armar la oferta (31/10) =================
+
+   Lo que hay para vender esta semana sale de dos lados, y ninguno se copia
+   acá (como la proyección: se cruza al mirar):
+
+   · Los PROVEEDORES: lo que Nati relevó el viernes en la planilla «Stock de
+     proveedores · Bioma» (apps-script/stock-proveedores/). Se lee directo con
+     openById: es una planilla de Martín, no hace falta otro Web App.
+     Propiedad del script: STOCK_PROVEEDORES_ID (el id de esa planilla).
+   · TICA: el stock relevado en AMA Producción, pedido con la misma clave que
+     la proyección (AMA_URL, AMA_PROYECCION_TOKEN, AMA_CHACRA). Llega sin
+     precios ni nombres de personas.
+
+   Cada lado puede fallar sin tapar al otro: la respuesta trae su error aparte.
+   La semana se nombra por su viernes (aaaa-mm-dd), igual que en la planilla
+   de Nati. */
+
+function semana_(pedida, refrescar) {
+  var r = { api: API };
+  try {
+    r.proveedores = stockProveedores_(pedida);
+  } catch (e) {
+    r.proveedoresError = String(e && e.message || e);
+  }
+  var t = stockTica_(refrescar);
+  if (t.error) r.ticaError = t.error; else r.tica = t.datos;
+  return r;
+}
+
+function stockProveedores_(pedida) {
+  var id = (PropertiesService.getScriptProperties().getProperty('STOCK_PROVEEDORES_ID') || '').trim();
+  if (!id) throw new Error('Falta conectar la planilla de proveedores: la propiedad STOCK_PROVEEDORES_ID del script de bioma-db.');
+  var libro;
+  try { libro = SpreadsheetApp.openById(id); }
+  catch (e) { throw new Error('No se pudo abrir la planilla de proveedores (revisar STOCK_PROVEEDORES_ID).'); }
+
+  var provs = filasPorEncabezado_(libro, 'Proveedores', ['Proveedor', 'Rubro', 'Activo']);
+  var stock = filasPorEncabezado_(libro, 'Stock',
+    ['Semana', 'Proveedor', 'Producto', 'Presentación', 'Unidad', 'Cantidad', 'Precio']);
+  var consultas = filasPorEncabezado_(libro, 'Consultas', ['Semana', 'Proveedor', 'Estado', 'Nota']);
+
+  // Las semanas con algo cargado, de la más nueva a la más vieja.
+  var vistas = {};
+  stock.concat(consultas).forEach(function (f) {
+    var s = textoSemana_(f['Semana']);
+    if (s) vistas[s] = true;
+  });
+  var semanas = Object.keys(vistas).sort().reverse();
+  // Sin pedir una: la última que ya empezó (el jueves ya se releva la siguiente).
+  var limite = Utilities.formatDate(new Date(Date.now() + 864e5), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var semana = /^\d{4}-\d{2}-\d{2}$/.test(String(pedida || '')) ? pedida
+    : (semanas.filter(function (s) { return s <= limite; })[0] || semanas[0] || '');
+
+  var porProv = {};
+  var orden = [];
+  var alta = function (nombre, rubro) {
+    var k = claveTexto_(nombre);
+    if (!porProv[k]) {
+      porProv[k] = { nombre: String(nombre).trim(), rubro: rubro || '', estado: '', nota: '', productos: [] };
+      orden.push(k);
+    }
+    return porProv[k];
+  };
+  provs.forEach(function (p) {
+    if (claveTexto_(p['Activo']) !== 'no' && String(p['Proveedor']).trim()) alta(p['Proveedor'], String(p['Rubro'] || '').trim());
+  });
+  consultas.forEach(function (c) {
+    if (textoSemana_(c['Semana']) !== semana || !String(c['Proveedor']).trim()) return;
+    var p = alta(c['Proveedor'], '');
+    p.estado = String(c['Estado'] || '').trim();
+    p.nota = String(c['Nota'] || '').trim();
+  });
+  stock.forEach(function (f) {
+    var cant = Number(f['Cantidad']);
+    if (textoSemana_(f['Semana']) !== semana || !(cant > 0)) return;
+    alta(f['Proveedor'], '').productos.push({
+      producto: String(f['Producto']).trim(),
+      presentacion: f['Presentación'] === '' ? '' : Number(f['Presentación']),
+      unidad: String(f['Unidad'] || '').trim(),
+      cantidad: cant,
+      precio: f['Precio'] === '' ? '' : Number(f['Precio'])
+    });
+  });
+  var lista = orden.map(function (k) { return porProv[k]; });
+  return {
+    semana: semana,
+    semanas: semanas.slice(0, 12),
+    proveedores: lista,
+    sinConsultar: lista.filter(function (p) { return !p.estado && !p.productos.length; })
+      .map(function (p) { return p.nombre; })
+  };
+}
+
+// Lee una hoja de otra planilla por sus encabezados. Falta la hoja o una
+// columna: error con el nombre, nunca una lectura corrida de lugar.
+function filasPorEncabezado_(libro, nombre, columnas) {
+  var hoja = libro.getSheetByName(nombre);
+  if (!hoja) throw new Error('A la planilla de proveedores le falta la hoja «' + nombre + '».');
+  var n = hoja.getLastRow(), ancho = hoja.getLastColumn();
+  if (n < 1 || ancho < 1) return [];
+  var valores = hoja.getRange(1, 1, n, ancho).getValues();
+  var cab = valores[0].map(claveTexto_);
+  var pos = columnas.map(function (c) {
+    var i = cab.indexOf(claveTexto_(c));
+    if (i < 0) throw new Error('A la hoja «' + nombre + '» de la planilla de proveedores le falta la columna «' + c + '».');
+    return i;
+  });
+  return valores.slice(1).map(function (v) {
+    var o = {};
+    columnas.forEach(function (c, j) { o[c] = v[pos[j]]; });
+    return o;
+  });
+}
+
+function claveTexto_(v) {
+  return String(v == null ? '' : v).trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ');
+}
+
+// La semana viene en texto, pero si alguien la tipeó a mano Sheets la vuelve fecha.
+function textoSemana_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var t = String(v == null ? '' : v).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : '';
+}
+
+function stockTica_(refrescar) {
+  var props = PropertiesService.getScriptProperties();
+  var url = (props.getProperty('AMA_URL') || '').trim();
+  var token = (props.getProperty('AMA_PROYECCION_TOKEN') || '').trim();
+  var chacra = props.getProperty('AMA_CHACRA') || 'tica';
+  if (!url || !token) {
+    return { error: 'Falta conectar con AMA Producción: las propiedades AMA_URL y AMA_PROYECCION_TOKEN.' };
+  }
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(url)) {
+    return { error: 'La propiedad AMA_URL no es una dirección completa (…/macros/s/…/exec).' };
+  }
+  // Cinco minutos: el stock se releva el viernes, no cambia a cada rato.
+  var cache = CacheService.getScriptCache();
+  var guardado = refrescar ? null : cache.get('stock_ama');
+  if (guardado) return { datos: JSON.parse(guardado) };
+  var r;
+  try {
+    r = UrlFetchApp.fetch(url + '?stockcomercial=1&chacra=' + encodeURIComponent(chacra) +
+      '&token=' + encodeURIComponent(token), { muteHttpExceptions: true, followRedirects: true });
+  } catch (e) {
+    // El mensaje de Apps Script repite la dirección con la clave: no se muestra.
+    return { error: 'No se pudo llegar a AMA Producción. Revisar AMA_URL.' };
+  }
+  var datos;
+  try { datos = JSON.parse(r.getContentText()); } catch (e) { datos = null; }
+  if (!datos || datos.api !== 1 || !Array.isArray(datos.vigente)) {
+    return { error: (datos && datos.error) ? 'AMA respondió: ' + datos.error
+      : 'AMA todavía no sabe mandar su stock (falta implementar su nueva versión).' };
+  }
+  try { cache.put('stock_ama', JSON.stringify(datos), 300); } catch (e) { /* muy grande: sin caché */ }
+  return { datos: datos };
+}
+
+// Ejecutar a mano para ver qué llega de cada lado.
+function probarSemana() {
+  var r = semana_('', true);
+  if (r.proveedoresError) Logger.log('Proveedores: ' + r.proveedoresError);
+  else Logger.log('Proveedores, semana ' + r.proveedores.semana + ': ' + r.proveedores.proveedores.length +
+    ' proveedores, faltan consultar ' + r.proveedores.sinConsultar.length);
+  if (r.ticaError) Logger.log('Tica: ' + r.ticaError);
+  else Logger.log('Tica: ' + r.tica.vigente.length + ' cosas relevadas al ' + r.tica.fecha);
 }
 
 /* ================= Salida ================= */

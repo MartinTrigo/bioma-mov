@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock de proveedores · Bioma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<!--
+  La página de carga de Nati (31/10). La sirve StockProveedores.gs.
+  Pensada para quien trabaja con cuaderno: una lista de proveedores y, al tocar
+  uno, sus productos con un casillero para el número. Nunca se escriben nombres.
+  En el celular se ve una cosa por vez; desde 820 px, la lista y el proveedor
+  lado a lado. Modo claro y oscuro según el aparato. Todo color va por variables.
+-->
+<style>
+  :root {
+    color-scheme: light;
+    --marca: #A33A55; --marca-oscuro: #6E1A30; --marca-suave: #F7E6EA; --sobre-color: #FFFFFF;
+    --cab: #A33A55; --cab-tx: #FFFFFF;
+    --pos: #3F7A33; --pos-suave: #E6F0DF; --tierra: #9A6B2E; --tierra-suave: #F8EEDF;
+    --crema: #FBF6F7; --blanco: #FFFFFF; --tinta: #2E1A20; --gris: #7D6A70; --linea: #EFE3E6;
+    --sombra: 0 1px 4px rgba(46, 26, 32, 0.10); --radio: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --marca: #E68AA2; --marca-oscuro: #F2B8C6; --marca-suave: #331C25; --sobre-color: #2A0E17;
+      --cab: #24141A; --cab-tx: #F2B8C6;
+      --pos: #A9CF86; --pos-suave: #22301A; --tierra: #E0B377; --tierra-suave: #2E2216;
+      --crema: #160D10; --blanco: #1F1217; --tinta: #F3E7EA; --gris: #B39BA2; --linea: #36202A;
+      --sombra: 0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { font-family: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         font-size: 17px; line-height: 1.4; background: var(--crema); color: var(--tinta);
+         font-variant-numeric: tabular-nums; min-height: 100dvh; }
+  button, input, textarea { font: inherit; color: inherit; }
+
+  header { background: var(--cab); color: var(--cab-tx); padding: 14px 16px 12px; }
+  header h1 { font-size: 1.2rem; font-weight: 700; }
+  header .semana { font-size: .95rem; opacity: .95; margin-top: 2px; }
+  .avance { margin-top: 10px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.3); overflow: hidden; }
+  .avance > div { height: 100%; background: var(--cab-tx); width: 0; transition: width .3s; }
+  .avance-tx { font-size: .85rem; margin-top: 4px; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 12px 16px 40px; }
+  .paneles { display: block; }
+  #panel-proveedor { display: none; }
+  body.viendo #panel-lista { display: none; }
+  body.viendo #panel-proveedor { display: block; }
+
+  /* Notebook: las dos cosas a la vez */
+  @media (min-width: 820px) {
+    .paneles { display: grid; grid-template-columns: 320px 1fr; gap: 18px; align-items: start; }
+    #panel-lista, body.viendo #panel-lista { display: block; position: sticky; top: 12px;
+      max-height: calc(100dvh - 24px); overflow-y: auto; }
+    #panel-proveedor { display: block; }
+    .volver { display: none !important; }
+  }
+
+  .grupo { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--gris);
+           margin: 14px 4px 6px; }
+  .grupo:first-child { margin-top: 2px; }
+  .prov { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+          text-align: left; background: var(--blanco); border: 1px solid var(--linea); border-radius: 12px;
+          padding: 13px 14px; margin-bottom: 6px; cursor: pointer; box-shadow: var(--sombra); min-height: 54px; }
+  .prov.activo { border-color: var(--marca); box-shadow: 0 0 0 2px var(--marca-suave); }
+  .prov b { font-weight: 600; }
+  .chip { font-size: .78rem; border-radius: 999px; padding: 3px 9px; white-space: nowrap; font-weight: 600; }
+  .chip.listo { background: var(--pos-suave); color: var(--pos); }
+  .chip.nada { background: var(--linea); color: var(--gris); }
+  .chip.falta { background: var(--tierra-suave); color: var(--tierra); }
+
+  .card { background: var(--blanco); border: 1px solid var(--linea); border-radius: var(--radio);
+          box-shadow: var(--sombra); padding: 16px; }
+  .volver { background: none; border: none; color: var(--marca-oscuro); font-weight: 600;
+            padding: 6px 0 12px; cursor: pointer; font-size: 1rem; }
+  .vacio { color: var(--gris); padding: 30px 10px; text-align: center; }
+  h2 { font-size: 1.3rem; color: var(--marca-oscuro); }
+  .contacto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 4px; color: var(--gris); }
+  .contacto a { text-decoration: none; background: var(--marca-suave); color: var(--marca-oscuro);
+                border-radius: 999px; padding: 6px 12px; font-weight: 600; font-size: .9rem; }
+  .notas-prov { font-size: .9rem; color: var(--gris); margin-top: 4px; }
+  .estado-prov { margin-top: 8px; font-size: .9rem; }
+
+  .productos { margin-top: 14px; border-top: 1px solid var(--linea); }
+  .producto { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center;
+              padding: 12px 0; border-bottom: 1px solid var(--linea); }
+  .producto .nombre { font-weight: 600; }
+  .producto .detalle { font-size: .85rem; color: var(--gris); }
+  .producto .pasada { font-size: .8rem; color: var(--tierra); }
+  .cant { display: flex; align-items: center; gap: 6px; }
+  .cant input { width: 86px; padding: 10px; font-size: 1.15rem; text-align: right; border-radius: 10px;
+                border: 2px solid var(--linea); background: var(--crema); }
+  .cant input:focus { outline: none; border-color: var(--marca); }
+  .cant input.con-valor { border-color: var(--pos); background: var(--pos-suave); }
+  .cant .u { min-width: 44px; font-size: .9rem; color: var(--gris); }
+  .precio { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--gris); }
+  .precio input { width: 96px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--linea);
+                  background: var(--crema); text-align: right; }
+  @media (min-width: 560px) {
+    .producto { grid-template-columns: 1fr auto auto; }
+    .precio { grid-column: auto; }
+  }
+
+  label.nota { display: block; margin-top: 16px; font-size: .95rem; font-weight: 600; }
+  textarea { width: 100%; margin-top: 6px; min-height: 70px; padding: 10px; border-radius: 10px;
+             border: 1px solid var(--linea); background: var(--crema); resize: vertical; }
+  .acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .btn { border: none; border-radius: 12px; padding: 14px 18px; font-weight: 700; cursor: pointer; font-size: 1rem; }
+  .btn.principal { background: var(--marca); color: var(--sobre-color); flex: 1 1 200px; }
+  .btn.segundo { background: var(--marca-suave); color: var(--marca-oscuro); flex: 1 1 200px; }
+  .btn.chico { padding: 8px 12px; font-size: .88rem; font-weight: 600; background: var(--linea); color: var(--tinta); }
+  .btn:disabled { opacity: .55; cursor: wait; }
+
+  #aviso { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--tinta);
+           color: var(--crema); padding: 12px 18px; border-radius: 12px; font-weight: 600; opacity: 0;
+           pointer-events: none; transition: opacity .2s; max-width: calc(100% - 32px); text-align: center; }
+  #aviso.ver { opacity: 1; }
+  .error { background: var(--tierra-suave); color: var(--tierra); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Stock de proveedores</h1>
+  <div class="semana" id="semana">Cargando…</div>
+  <div class="avance"><div id="barra"></div></div>
+  <div class="avance-tx" id="avance-tx"></div>
+</header>
+<main>
+  <div id="error"></div>
+  <div class="paneles">
+    <section id="panel-lista"></section>
+    <section id="panel-proveedor"></section>
+  </div>
+</main>
+<div id="aviso"></div>
+
+<script>
+/* ================= Estado ================= */
+var D = null;            // lo que devolvió datos(): semana, proveedores…
+var elegido = '';        // nombre del proveedor abierto
+var sinGuardar = false;  // hay números tocados y no guardados
+
+var DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+function fecha(t) { var p = t.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2], 12); }
+function corta(t) { var d = fecha(t); return d.getDate() + '/' + (d.getMonth() + 1); }
+function mas(t, n) { var d = fecha(t); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function plata(n) { return '$' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 }); }
+function numero(v) { var s = String(v == null ? '' : v).trim().replace(',', '.');
+  if (s === '') return ''; var n = Number(s); return isNaN(n) ? '' : n; }
+function decimal(n) { return n === '' || n == null ? '' : String(n).replace('.', ','); }
+
+function aviso(t) {
+  var a = document.getElementById('aviso');
+  a.textContent = t; a.classList.add('ver');
+  clearTimeout(a._t); a._t = setTimeout(function () { a.classList.remove('ver'); }, 2400);
+}
+
+/* ================= Hablar con la planilla ================= */
+function pedir(funcion, arg, ok) {
+  document.getElementById('error').innerHTML = '';
+  google.script.run
+    .withSuccessHandler(ok)
+    .withFailureHandler(function (e) {
+      var msg = (e && e.message) || String(e);
+      document.getElementById('error').innerHTML = '<div class="error">No se pudo ' +
+        (funcion === 'guardar' ? 'guardar' : 'leer la planilla') + ': ' + esc(msg) +
+        ' <button class="btn chico" onclick="cargar()">Reintentar</button></div>';
+      document.querySelectorAll('.btn').forEach(function (b) { b.disabled = false; });
+    })[funcion](arg);
+}
+
+function cargar() {
+  pedir('datos', D ? D.semana : null, function (r) { D = r; dibujar(); });
+}
+
+/* ================= Dibujo ================= */
+function estadoDe(p) {
+  if (p.estado === 'no ofrece') return { clase: 'nada', tx: 'No ofrece' };
+  var n = p.productos.filter(function (x) { return x.cantidad !== '' && x.cantidad > 0; }).length;
+  if (p.estado === 'ofrece') return { clase: 'listo', tx: n ? 'Listo · ' + n : 'Listo' };
+  return { clase: 'falta', tx: 'Falta' };
+}
+
+function dibujar() {
+  var viernes = D.semana, lunes = mas(viernes, 3);
+  document.getElementById('semana').textContent =
+    'Viernes ' + corta(viernes) + ' · para la tienda del lunes ' + corta(lunes);
+  var hechos = D.proveedores.filter(function (p) { return p.estado; }).length;
+  var total = D.proveedores.length;
+  document.getElementById('barra').style.width = (total ? 100 * hechos / total : 0) + '%';
+  document.getElementById('avance-tx').textContent = hechos + ' de ' + total + ' proveedores consultados';
+  dibujarLista();
+  dibujarProveedor();
+}
+
+function dibujarLista() {
+  var html = '', rubro = null;
+  D.proveedores.forEach(function (p) {
+    if (p.rubro !== rubro) { rubro = p.rubro; html += '<div class="grupo">' + esc(rubro || 'Otros') + '</div>'; }
+    var e = estadoDe(p);
+    html += '<button class="prov' + (p.nombre === elegido ? ' activo' : '') + '" data-prov="' + esc(p.nombre) + '">' +
+      '<b>' + esc(p.nombre) + '</b><span class="chip ' + e.clase + '">' + e.tx + '</span></button>';
+  });
+  var lista = document.getElementById('panel-lista');
+  lista.innerHTML = html || '<p class="vacio">No hay proveedores activos en la planilla.</p>';
+  lista.querySelectorAll('.prov').forEach(function (b) {
+    b.addEventListener('click', function () { abrir(b.dataset.prov); });
+  });
+}
+
+function proveedor() {
+  return D.proveedores.filter(function (p) { return p.nombre === elegido; })[0] || null;
+}
+
+// "por kg", "por atado", "por unidad de 600 g"
+function porQue(x) {
+  var u = x.unidad || 'unidad';
+  if (x.presentacion === '' || x.presentacion === 1) return 'por ' + (u === 'u' ? 'unidad' : u);
+  return 'por unidad de ' + decimal(x.presentacion) + ' ' + u;
+}
+function sufijo(x) {
+  if (x.presentacion === '' || x.presentacion === 1) {
+    return { kg: 'kg', atado: 'atados', frasco: 'frascos', maple: 'maples', L: 'litros',
+             pieza: 'piezas', sobre: 'sobres' }[x.unidad] || 'unid.';
+  }
+  return 'unid.';
+}
+
+function telefonos(p) {
+  var dig = String(p.telefono || '').replace(/\D/g, '');
+  if (dig.length < 8) return p.contacto ? '<span>' + esc(p.contacto) + '</span>' : '';
+  var wa = dig.length === 10 ? '549' + dig : dig;
+  return (p.contacto ? '<span>' + esc(p.contacto) + '</span>' : '') +
+    '<a href="tel:' + dig + '">📞 Llamar</a>' +
+    '<a href="https://wa.me/' + wa + '" target="_blank" rel="noopener">WhatsApp</a>';
+}
+
+function dibujarProveedor() {
+  var panel = document.getElementById('panel-proveedor');
+  var p = proveedor();
+  if (!p) {
+    panel.innerHTML = '<div class="card vacio">Elegí un proveedor de la lista.</div>';
+    return;
+  }
+  var hayPasada = p.productos.some(function (x) { return x.anterior !== '' && x.anterior > 0; });
+  var filas = p.productos.map(function (x, i) {
+    return '<div class="producto">' +
+      '<div><div class="nombre">' + esc(x.producto) + '</div>' +
+        '<div class="detalle">' + porQue(x) + '</div>' +
+        (x.anterior !== '' && x.anterior > 0 ? '<div class="pasada">La semana pasada: ' + decimal(x.anterior) + '</div>' : '') +
+      '</div>' +
+      '<label class="cant"><input type="text" inputmode="decimal" autocomplete="off" data-i="' + i + '" data-campo="cantidad"' +
+        ' value="' + esc(decimal(x.cantidad)) + '" placeholder="—"' +
+        ' aria-label="Cuántos ' + esc(x.producto) + '"' + (x.cantidad !== '' && x.cantidad > 0 ? ' class="con-valor"' : '') + '>' +
+        '<span class="u">' + sufijo(x) + '</span></label>' +
+      '<label class="precio">Precio $<input type="text" inputmode="decimal" autocomplete="off" data-i="' + i + '" data-campo="precio"' +
+        ' value="' + esc(decimal(x.precio)) + '" placeholder="?" aria-label="Precio de ' + esc(x.producto) + '"></label>' +
+    '</div>';
+  }).join('');
+
+  var e = estadoDe(p);
+  panel.innerHTML = '<div class="card">' +
+    '<button class="volver" id="volver">← Proveedores</button>' +
+    '<h2>' + esc(p.nombre) + '</h2>' +
+    '<div class="contacto">' + telefonos(p) + '</div>' +
+    (p.notas ? '<div class="notas-prov">' + esc(p.notas) + '</div>' : '') +
+    '<div class="estado-prov">Esta semana: <span class="chip ' + e.clase + '">' + e.tx + '</span></div>' +
+    (hayPasada ? '<div class="acciones"><button class="btn chico" id="copiar">Poner lo mismo que la semana pasada</button></div>' : '') +
+    '<div class="productos">' + (filas || '<p class="vacio">Este proveedor no tiene productos en la planilla.</p>') + '</div>' +
+    '<label class="nota">¿Algo más? Un producto nuevo, cuándo entrega…' +
+      '<textarea id="nota" placeholder="Opcional">' + esc(p.nota) + '</textarea></label>' +
+    '<div class="acciones">' +
+      '<button class="btn principal" id="guardar">Guardar</button>' +
+      '<button class="btn segundo" id="nada">Esta semana no ofrece nada</button>' +
+    '</div></div>';
+
+  document.getElementById('volver').addEventListener('click', function () { cerrar(); });
+  document.getElementById('guardar').addEventListener('click', function () { guardar('ofrece'); });
+  document.getElementById('nada').addEventListener('click', function () { guardar('no ofrece'); });
+  var copiar = document.getElementById('copiar');
+  if (copiar) copiar.addEventListener('click', function () {
+    p.productos.forEach(function (x, i) {
+      if (x.anterior !== '' && x.anterior > 0) {
+        var inp = panel.querySelector('input[data-i="' + i + '"][data-campo="cantidad"]');
+        inp.value = decimal(x.anterior); inp.classList.add('con-valor');
+      }
+    });
+    sinGuardar = true;
+  });
+  panel.querySelectorAll('input, textarea').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      sinGuardar = true;
+      if (inp.dataset.campo === 'cantidad') inp.classList.toggle('con-valor', numero(inp.value) > 0);
+    });
+  });
+}
+
+/* ================= Acciones ================= */
+function puedoSalir() {
+  return !sinGuardar || confirm('Hay números sin guardar. ¿Salir igual?');
+}
+
+function abrir(nombre) {
+  if (nombre === elegido) { document.body.classList.add('viendo'); return; }
+  if (!puedoSalir()) return;
+  elegido = nombre; sinGuardar = false;
+  document.body.classList.add('viendo');
+  dibujarLista(); dibujarProveedor();
+  window.scrollTo(0, 0);
+}
+
+function cerrar() {
+  if (!puedoSalir()) return;
+  sinGuardar = false; elegido = '';
+  document.body.classList.remove('viendo');
+  dibujarLista(); dibujarProveedor();
+}
+
+function guardar(estado) {
+  var p = proveedor();
+  if (!p) return;
+  var panel = document.getElementById('panel-proveedor');
+  var valores = {};
+  panel.querySelectorAll('input[data-i]').forEach(function (inp) {
+    valores[inp.dataset.i] = valores[inp.dataset.i] || {};
+    valores[inp.dataset.i][inp.dataset.campo] = inp.value;
+  });
+  var malos = [];
+  var filas = p.productos.map(function (x, i) {
+    var v = valores[i] || {};
+    var cant = numero(v.cantidad), precio = numero(v.precio);
+    if (String(v.cantidad || '').trim() !== '' && (cant === '' || cant < 0)) malos.push(x.producto);
+    return { producto: x.producto, presentacion: x.presentacion, unidad: x.unidad,
+             cantidad: cant === '' || cant < 0 ? '' : cant, precio: precio };
+  });
+  if (malos.length && estado === 'ofrece') {
+    aviso('Revisá el número de: ' + malos.join(', '));
+    return;
+  }
+  var algo = filas.some(function (f) { return f.cantidad !== '' && f.cantidad > 0; });
+  if (estado === 'ofrece' && !algo &&
+      !confirm('No anotaste ninguna cantidad. ¿Guardar igual, como consultado?')) return;
+  if (estado === 'no ofrece' && algo &&
+      !confirm('Hay cantidades anotadas. ¿Seguro que esta semana no ofrece nada?')) return;
+
+  panel.querySelectorAll('.btn').forEach(function (b) { b.disabled = true; });
+  pedir('guardar', {
+    semana: D.semana, proveedor: p.nombre, estado: estado,
+    nota: document.getElementById('nota').value, filas: filas
+  }, function (r) {
+    D = r; sinGuardar = false;
+    aviso(estado === 'no ofrece' ? p.nombre + ': no ofrece esta semana' : p.nombre + ': guardado ✓');
+    // En el celular vuelve a la lista; en la notebook se queda a la vista.
+    if (window.matchMedia('(max-width: 819px)').matches) {
+      elegido = ''; document.body.classList.remove('viendo'); window.scrollTo(0, 0);
+    }
+    dibujar();
+  });
+}
+
+window.addEventListener('beforeunload', function (e) {
+  if (sinGuardar) { e.preventDefault(); e.returnValue = ''; }
+});
+
+cargar();
+</script>
+</body>
+</html>

@@ -222,6 +222,28 @@
     </div>
   </section>
 
+  <!-- ============ TAB: SEMANA ============ -->
+  <!-- Lo que hay para vender esta semana: Tica (AMA Producción) y lo que
+       Nati relevó de los proveedores (js/semana.js). -->
+  <section id="tab-semana" class="tab">
+    <div class="card">
+      <div class="resumen-selector">
+        <h2>Semana</h2>
+        <button id="btnSemana" class="btn-mini" title="Volver a pedir el stock">↻ Actualizar</button>
+      </div>
+      <p id="semana-estado" class="hint"></p>
+      <div class="row">
+        <label>Relevamiento del
+          <select id="semana-semana"></select>
+        </label>
+        <label>Lista de precios
+          <select id="semana-lista"></select>
+        </label>
+      </div>
+      <div id="semana-contenido"></div>
+    </div>
+  </section>
+
   <!-- ============ TAB: PROYECCIÓN ============ -->
   <!-- Lo planificado en AMA Producción por los precios de acá. -->
   <section id="tab-proyeccion" class="tab">
@@ -314,6 +336,7 @@
   <button data-tab="pagos"><span class="t-ico">$</span>Pagos</button>
   <button data-tab="deuda"><span class="t-ico">✦</span>Deudas</button>
   <button data-tab="producto"><span class="t-ico">☘</span>Productos</button>
+  <button data-tab="semana"><span class="t-ico">▦</span>Semana</button>
   <button data-tab="proyeccion"><span class="t-ico">↗</span>Proyección</button>
   <button data-tab="resumen"><span class="t-ico">≡</span>Resumen</button>
 </nav>
@@ -418,6 +441,7 @@
 <script src="js/ventas-importar.js"></script>
 <script src="js/resumen.js"></script>
 <script src="js/proyeccion.js"></script>
+<script src="js/semana.js"></script>
 <script src="js/pagos.js"></script>
 <script src="js/respaldo.js"></script>
 <script src="app.js"></script>

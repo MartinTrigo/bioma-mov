@@ -529,6 +529,11 @@ input:focus, select:focus { border-color: var(--marca); }
   gap: 2px;
 }
 .tabbar button .t-ico { font-size: 1.15rem; line-height: 1; }
+/* Ocho pestañas (31/10, Semana): en un teléfono de 360–420 px no entran a
+   partes iguales; cada una toma el ancho de su nombre y se reparte el resto. */
+@media (max-width: 420px) {
+  .tabbar button { flex: 1 1 auto; font-size: 0.66rem; }
+}
 .tabbar button.active { color: var(--marca-oscuro); font-weight: 700; }
 
 /* ===== Modal ===== */
@@ -656,6 +661,24 @@ input:focus, select:focus { border-color: var(--marca); }
 .proy-tabla tfoot td { font-weight: 700; color: var(--marca-oscuro);
   border-top: 2px solid var(--marca); border-bottom: none; padding-top: 9px; }
 .proy-nota { margin-top: 12px; line-height: 1.45; }
+
+/* ===== Semana: el stock del viernes (Tica + proveedores) ===== */
+#tab-semana .row { display: flex; gap: 10px; margin-bottom: 12px; }
+#tab-semana .row label { flex: 1; font-size: .8rem; color: var(--gris); }
+#semana-estado.alerta, #tab-semana .hint.alerta { color: var(--neg); }
+#tab-semana .kpis { margin-bottom: 6px; }
+.sem-titulo { margin: 18px 0 2px; }
+#tab-semana .sem-titulo + .hint { margin-bottom: 6px; }
+.proy-tabla td small.en-linea { display: inline; }
+.sem-prov-cab td { background: var(--marca-suave); color: var(--marca-oscuro); padding: 6px 8px; }
+.sem-prov-cab small.sem-nota { display: block; color: var(--gris); font-style: italic; }
+.sem-chip { font-size: .7rem; border-radius: 999px; padding: 1px 7px; margin-left: 4px; font-weight: 700;
+  background: var(--blanco); }
+.sem-chip.listo { color: var(--pos); }
+.sem-chip.nada { color: var(--gris); }
+.proy-tabla td.sem-bajo { color: var(--tierra); font-weight: 700; }
+.sem-despues { margin-top: 8px; font-size: .85rem; color: var(--gris); }
+.sem-despues summary { cursor: pointer; padding: 4px 0; }
 
 /* ===== Productos: una lista de precios a la vez ===== */
 .prod-filtros { display: flex; gap: 8px; }

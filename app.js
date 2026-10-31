@@ -12,6 +12,7 @@
 const AL_ENTRAR = {
   resumen: () => renderResumen(),
   proyeccion: () => entrarProyeccion(),
+  semana: () => entrarSemana(),
   producto: () => renderProductos(),
   venta: () => renderUltimasVentas(),
   pagos: () => renderPagos()

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock de proveedores · pruebas</title>
+<style>
+  body { font: 15px/1.45 system-ui, sans-serif; margin: 24px; color: #233; background: #faf8f2; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .res { font-weight: 700; margin: 14px 0; font-size: 17px; }
+  .ok { color: #3d6b35; } .mal { color: #b0533c; }
+  table { border-collapse: collapse; width: 100%; max-width: 980px; }
+  td { border-top: 1px solid #e3ddcf; padding: 6px 8px; vertical-align: top; }
+  td:first-child { width: 22px; font-weight: 700; }
+  code { font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+  iframe { width: 100%; height: 760px; border: 1px solid #ccc; border-radius: 8px; background: #fff; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>Stock de proveedores · pruebas</h1>
+<p>Corre <code>StockProveedores.gs</code> real contra una planilla simulada en memoria (datos
+inventados) y abajo muestra <code>Pagina.html</code> hablando con esa planilla. No toca ninguna
+planilla de verdad. Con <code>python -m http.server 8642</code> en <code>economia</code>, entrar a
+<code>/apps-script/stock-proveedores/pruebas.html</code>.</p>
+<div id="resultado" class="res">Corriendo…</div>
+<table id="tabla"></table>
+<p><b>La página</b>, contra la planilla simulada (lo que se guarda acá se pierde al recargar):</p>
+<iframe id="pagina" title="Página de carga"></iframe>
+<script src="../planilla-simulada.js"></script>
+<script>
+const MAS_DATOS = () => ({
+  Proveedores: [['Proveedor', 'Rubro', 'Contacto', 'Teléfono', 'Activo', 'Notas'],
+    ['Huerta Uno', 'Verduras', 'Ana', '2944 00-0001', 'Sí', ''],
+    ['Huerta Dos', 'Verduras', '', '', 'Sí', 'Entrega los jueves'],
+    ['Granja Tres', 'Huevos', 'Beto', '11 0000-0003', 'Sí', ''],
+    ['Vieja', 'Verduras', '', '', 'No', '']],
+  Productos: [['Proveedor', 'Producto', 'Presentación', 'Unidad', 'Precio', 'Activo', 'Notas'],
+    ['Huerta Uno', 'Acelga', 1, 'atado', 1200, 'Sí', ''],
+    ['Huerta Uno', 'Zanahoria', 1, 'kg', 2400, 'Sí', ''],
+    ['Huerta Uno', 'Apionabo', 600, 'g', 2800, 'Sí', ''],
+    ['Huerta Uno', 'Miel', 0.5, 'kg', 5000, 'Sí', ''],
+    ['Huerta Uno', 'Miel', 1, 'kg', 8000, 'Sí', ''],
+    ['Huerta Uno', 'Rabanito', 1, 'atado', '', 'No', ''],
+    ['Huerta Dos', 'Papa', 1, 'kg', 1250, 'Sí', ''],
+    ['Granja Tres', 'Huevos', 1, 'maple', 9000, 'Sí', '']],
+  Stock: [['Semana', 'Proveedor', 'Producto', 'Presentación', 'Unidad', 'Cantidad', 'Precio', 'Cargado'],
+    ['2026-10-30', 'Huerta Uno', 'Acelga', 1, 'atado', 12, 1200, new Date(2026, 9, 30)],
+    ['2026-10-30', 'Granja Tres', 'Huevos', 1, 'maple', 30, 9000, new Date(2026, 9, 30)]],
+  Consultas: [['Semana', 'Proveedor', 'Estado', 'Nota', 'Cargado'],
+    ['2026-10-30', 'Huerta Uno', 'ofrece', '', new Date(2026, 9, 30)]],
+});
+
+const filas = [];
+let fallas = 0;
+function prueba(nombre, fn) {
+  try { fn(); filas.push(['✓', nombre, '']); }
+  catch (e) { fallas++; filas.push(['✗', nombre, e.message]); }
+}
+function igual(a, b, que) {
+  const x = JSON.stringify(a), y = JSON.stringify(b);
+  if (x !== y) throw new Error(`${que || ''} esperaba ${y} y dio ${x}`);
+}
+const hoja = (n) => PLANILLA.hojas[n].datos;
+
+(async () => {
+  try {
+    const texto = await (await fetch('StockProveedores.gs', { cache: 'no-store' })).text();
+    (0, eval)(texto);
+  } catch (e) {
+    document.getElementById('resultado').textContent = 'No se pudo cargar StockProveedores.gs: ' + e;
+    return;
+  }
+
+  prueba('el viernes de cada día: sábado a miércoles el anterior, jueves el que viene', () => {
+    igual(semanaDe_('2026-11-06'), '2026-11-06', 'viernes');
+    igual(semanaDe_('2026-11-07'), '2026-11-06', 'sábado');
+    igual(semanaDe_('2026-11-08'), '2026-11-06', 'domingo');
+    igual(semanaDe_('2026-11-11'), '2026-11-06', 'miércoles');
+    igual(semanaDe_('2026-11-12'), '2026-11-13', 'jueves');
+    igual(esSemana_('2026-11-06'), true); igual(esSemana_('2026-11-07'), false);
+  });
+
+  prueba('datos(): solo activos, con la semana pasada como referencia', () => {
+    nuevaPlanilla(MAS_DATOS());
+    const d = datos('2026-11-06');
+    igual(d.anterior, '2026-10-30');
+    igual(d.proveedores.map((p) => p.nombre), ['Huerta Uno', 'Huerta Dos', 'Granja Tres']);
+    const uno = d.proveedores[0];
+    igual(uno.productos.map((x) => x.producto), ['Acelga', 'Zanahoria', 'Apionabo', 'Miel', 'Miel']);
+    igual(uno.productos[0].anterior, 12, 'acelga la semana pasada');
+    igual(uno.productos[0].cantidad, '', 'acelga esta semana');
+    igual(uno.estado, '', 'todavía no consultado');
+  });
+
+  prueba('guardar(): escribe solo lo que tiene cantidad, con la semana en texto', () => {
+    nuevaPlanilla(MAS_DATOS());
+    const d = guardar({ semana: '2026-11-06', proveedor: 'huerta uno', estado: 'ofrece', nota: 'trae espinaca',
+      filas: [{ producto: 'Acelga', presentacion: 1, unidad: 'atado', cantidad: 10, precio: 1200 },
+              { producto: 'Zanahoria', presentacion: 1, unidad: 'kg', cantidad: '', precio: 2400 },
+              { producto: 'Miel', presentacion: 0.5, unidad: 'kg', cantidad: 4, precio: 5000 }] });
+    const nuevas = hoja('Stock').filter((f) => f[0] === '2026-11-06');
+    igual(nuevas.map((f) => [f[1], f[2], f[3], f[5]]), [['Huerta Uno', 'Acelga', 1, 10], ['Huerta Uno', 'Miel', 0.5, 4]]);
+    const c = hoja('Consultas').filter((f) => f[0] === '2026-11-06');
+    igual(c.map((f) => [f[1], f[2], f[3]]), [['Huerta Uno', 'ofrece', 'trae espinaca']]);
+    igual(d.proveedores[0].estado, 'ofrece');
+    igual(d.proveedores[0].productos[3].cantidad, 4, 'miel 500 g');
+    igual(d.proveedores[0].productos[4].cantidad, '', 'miel 1 kg no se toca');
+  });
+
+  prueba('guardar dos veces corrige, no duplica; borrar una cantidad la deja en 0', () => {
+    nuevaPlanilla(MAS_DATOS());
+    const base = { semana: '2026-11-06', proveedor: 'Huerta Uno', estado: 'ofrece', nota: '' };
+    guardar({ ...base, filas: [{ producto: 'Acelga', presentacion: 1, unidad: 'atado', cantidad: 10, precio: 1200 },
+                               { producto: 'Zanahoria', presentacion: 1, unidad: 'kg', cantidad: 5, precio: 2400 }] });
+    guardar({ ...base, filas: [{ producto: 'Acelga', presentacion: 1, unidad: 'atado', cantidad: 8, precio: 1200 },
+                               { producto: 'Zanahoria', presentacion: 1, unidad: 'kg', cantidad: '', precio: 2400 }] });
+    const s = hoja('Stock').filter((f) => f[0] === '2026-11-06');
+    igual(s.map((f) => [f[2], f[5]]), [['Acelga', 8], ['Zanahoria', 0]]);
+    igual(hoja('Consultas').filter((f) => f[0] === '2026-11-06').length, 1, 'una consulta');
+  });
+
+  prueba('un precio nuevo queda en la lista de Productos', () => {
+    nuevaPlanilla(MAS_DATOS());
+    guardar({ semana: '2026-11-06', proveedor: 'Huerta Dos', estado: 'ofrece', nota: '',
+      filas: [{ producto: 'Papa', presentacion: 1, unidad: 'kg', cantidad: 200, precio: 1400 }] });
+    igual(hoja('Productos').find((f) => f[1] === 'Papa')[4], 1400);
+    const d = datos('2026-11-13');
+    igual(d.proveedores[1].productos[0].precio, 1400, 'la semana siguiente arranca con el precio nuevo');
+    igual(d.proveedores[1].productos[0].anterior, 200);
+  });
+
+  prueba('«no ofrece nada» deja todo en 0 y lo marca', () => {
+    nuevaPlanilla(MAS_DATOS());
+    guardar({ semana: '2026-11-06', proveedor: 'Huerta Uno', estado: 'ofrece', nota: '',
+      filas: [{ producto: 'Acelga', presentacion: 1, unidad: 'atado', cantidad: 10, precio: 1200 }] });
+    const d = guardar({ semana: '2026-11-06', proveedor: 'Huerta Uno', estado: 'no ofrece', nota: 'helada',
+      filas: [{ producto: 'Acelga', presentacion: 1, unidad: 'atado', cantidad: 10, precio: 1200 }] });
+    igual(hoja('Stock').filter((f) => f[0] === '2026-11-06').map((f) => f[5]), [0]);
+    igual(d.proveedores[0].estado, 'no ofrece');
+  });
+
+  prueba('rechaza una semana que no es viernes y un proveedor que no existe', () => {
+    nuevaPlanilla(MAS_DATOS());
+    let error = '';
+    try { guardar({ semana: '2026-11-07', proveedor: 'Huerta Uno', filas: [] }); } catch (e) { error = e.message; }
+    if (!/viernes/.test(error)) throw new Error('no rechazó el sábado');
+    error = '';
+    try { guardar({ semana: '2026-11-06', proveedor: 'Nadie', filas: [] }); } catch (e) { error = e.message; }
+    if (!/No existe/.test(error)) throw new Error('no rechazó el proveedor');
+  });
+
+  prueba('lee por encabezado: una columna movida en Productos no rompe nada', () => {
+    const datosMovidos = MAS_DATOS();
+    datosMovidos.Productos = datosMovidos.Productos.map((f) => [f[6], f[0], f[1], f[2], f[3], f[4], f[5]]);
+    nuevaPlanilla(datosMovidos);
+    const d = datos('2026-11-06');
+    igual(d.proveedores[0].productos[0].precio, 1200);
+  });
+
+  const r = document.getElementById('resultado');
+  r.textContent = fallas ? `${fallas} prueba(s) fallaron` : `Todo en verde: ${filas.length} pruebas`;
+  r.className = 'res ' + (fallas ? 'mal' : 'ok');
+  document.getElementById('tabla').innerHTML = filas.map(([s, n, e]) =>
+    `<tr><td class="${s === '✓' ? 'ok' : 'mal'}">${s}</td><td>${n}${e ? `<br><code>${e}</code>` : ''}</td></tr>`).join('');
+
+  /* ===== La página, con google.script.run simulado =====
+     Llama a las funciones del script cargado acá, de forma asíncrona como el
+     de verdad. La planilla arranca con los datos inventados de arriba. */
+  nuevaPlanilla(MAS_DATOS());
+  window.__google = { script: { run: corredor({}) } };
+  function corredor(h) {
+    return new Proxy({}, {
+      get(_, nombre) {
+        if (nombre === 'withSuccessHandler') return (f) => corredor({ ...h, ok: f });
+        if (nombre === 'withFailureHandler') return (f) => corredor({ ...h, mal: f });
+        return (...args) => setTimeout(() => {
+          let r;
+          try { r = JSON.parse(JSON.stringify(window[nombre](...args))); }
+          catch (e) { if (h.mal) h.mal(e); return; }
+          if (h.ok) h.ok(r);
+        }, 300);
+      }
+    });
+  }
+  const html = await (await fetch('Pagina.html', { cache: 'no-store' })).text();
+  document.getElementById('pagina').srcdoc =
+    html.replace('<head>', '<head><script>window.google = parent.__google;<\/script>');
+})();
+</script>
+</body>
+</html>

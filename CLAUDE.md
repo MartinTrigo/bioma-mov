@@ -90,6 +90,8 @@ js/ventas.js        ventas por producto y punto de venta
 js/ventas-importar.js  importar la descarga de la tienda virtual
 js/resumen.js       resumen mensual
 js/proyeccion.js    lo planificado en AMA Producción × los precios de acá
+js/semana.js        el stock del viernes: Tica (AMA Producción) + lo que Nati
+                    relevó de los proveedores, con precios de venta (Fase 4.7)
 js/pagos.js         pestaña Pagos: la cuenta de cada trabajador y registrar
                     sus pagos (se guardan como egresos de sueldos)
 js/respaldo.js      exportar / importar
@@ -99,6 +101,9 @@ apps-script/Cuentas.gs  endpoint SOLO LECTURA de cuentas de trabajadores,
                         proyecto de Apps Script APARTE (ver CUENTAS.md)
 apps-script/Economia.gs endpoint SOLO LECTURA del resumen económico,
                         otro proyecto APARTE (ver ECONOMIA.md)
+apps-script/stock-proveedores/  la planilla de Nati: StockProveedores.gs +
+                        Pagina.html, proyecto DENTRO de esa planilla (no de
+                        bioma-db). Ver su LEEME.md
 ```
 
 Los scripts se cargan en ese orden con `<script>` clásicos; no son módulos ES.
@@ -239,6 +244,25 @@ del plan de su Configuración) con los **precios de Productos**.
   Un atado sin peso no suma: no hay manera honesta de pasarlo a kg.
 - Lo último que llegó se guarda en `bioma-proyeccion` del navegador, aparte de
   `db`: guardarlo con `save()` encendería el aviso de cambios sin subir.
+
+## Semana (31/10)
+
+La pestaña para armar la oferta. La semana se nombra por su **viernes**
+(relevamiento) y el ciclo es: viernes stock · sábado tienda · lunes abre ·
+martes cierra · miércoles cosecha y pedido a proveedores · jueves flete y
+entrega (tabla en `PLAN.md`, Fase 4.7).
+
+- Lo trae `Code.gs` (action `semana`, antes del candado): **proveedores** de la
+  planilla de Nati por `openById` y **Tica** de AMA Producción por
+  `UrlFetchApp` (`?stockcomercial=1`, la clave de la proyección). Cada lado
+  trae su error aparte (`proveedoresError`, `ticaError`): uno roto no tapa al
+  otro. No se guarda en bioma-db; lo último que llegó, en `bioma-semana`.
+- Los precios de venta se cruzan acá con `productoParaCultivo` (el de la
+  Proyección) y se pasan a la presentación que ofrece cada uno: por kg si los
+  dos lados dicen su peso, por unidad si los dos se cuentan. Si no, «—» y el
+  motivo. **Nunca se adivina.**
+- El stock de un proveedor es un **tope**, no algo a colocar: el miércoles se
+  le pide solo lo vendido. Lo que puede sobrar es lo de Tica.
 
 ## Estado actual
 

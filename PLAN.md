@@ -6,7 +6,89 @@ y **qué depende de qué**.
 
 ---
 
-# Lo próximo · al 7/10/2026
+# Lo próximo · al 31/10/2026
+
+## Comercialización semanal (Fase 4.7) — etapa 1 hecha el 31/10, falta instalar
+
+**Estado al 31/10:** la etapa 1 está hecha y probada con datos simulados
+(`apps-script/stock-proveedores/pruebas.html` y `pruebas-servidor.html`, todo
+en verde). La planilla de Nati ya existe en Drive. **Falta que Martín instale
+los tres scripts** (pasos en `apps-script/stock-proveedores/LEEME.md`):
+el de la planilla de Nati (y pasarle el enlace), `Code.gs` de bioma-db con
+`STOCK_PROVEEDORES_ID`, y `Code.gs` de AMA Producción. Después, mirar con el
+primer viernes de verdad: que los nombres de Productos crucen con el catálogo
+(lo que no, sale «no está en Productos») y si a Nati la página le resulta
+cómoda.
+
+**Decisión (Martín, 31/10):** la planificación semanal de la venta va
+**dentro de AMA Economía**, no en una app nueva. Necesita el catálogo, las
+listas de precios, los puntos de venta y las ventas importadas, que ya viven
+acá; y la receta del bolsón es lo que la Fase 4 necesita para abrirlo en sus
+componentes. Reabrir solo si la comercialización pasa a ser compartida entre
+chacras o si planifica alguien que no debe ver la economía de Bioma.
+
+Reemplaza a la planilla «Comecialización bioma26-27» (hojas Stock y
+DISTRIBUCION VENTAS) y a «Gestión de Proveedores Bioma», ambas en la carpeta
+de comercialización de Drive. Las dos son de la temporada pasada: tienen días
+y logística que ya no van.
+
+### La semana, desde la temporada 2026-27
+
+| día | qué pasa |
+|---|---|
+| **viernes** | se releva el stock: Tica en el campo, Nati con los proveedores |
+| **sábado** | se arma la oferta (bolsón, extras, puntos de venta) y se actualiza la tienda |
+| lunes | abre la tienda (Whataform) |
+| martes noche | cierra la tienda |
+| **miércoles** | se cosecha, se pasa el pedido a los proveedores, se preparan pedidos |
+| jueves mañana | se termina de preparar |
+| jueves mediodía | sale el flete a Bariloche; a la tarde, entregas |
+
+Consecuencias para el diseño:
+- **El pedido a proveedores sale de lo vendido, no de lo planificado**: la
+  tienda cierra el martes y el miércoles se pide exactamente lo que se vendió.
+  El stock que ofrece un proveedor es un **tope** para publicar, no algo que
+  haya que colocar.
+- **Lo que puede sobrar es lo propio** (cosecha de Tica): el armado tiene que
+  empezar por ahí, y el bolsón es lo que lo absorbe.
+- El stock de proveedores **no** sale de AMA Producción aunque varios la usen:
+  no ofrecen todo lo que tienen. Lo releva Nati.
+
+### Lo que carga Nati (que trabaja con cuaderno) · hecho
+
+Planilla propia «Stock de proveedores · Bioma» (Drive, comercialización) con
+una **página adaptable** que sirve su propio Apps Script: en el celular, la
+lista de proveedores y al tocar uno sus productos; en la notebook, lado a lado.
+Cada producto ya está escrito (nombre, presentación, precio de la última vez):
+Nati anota **solo cuánto ofrece**, corrige el precio si cambió, y tiene botones
+para llamar o escribir por WhatsApp, «lo mismo que la semana pasada» y «esta
+semana no ofrece nada». Nunca escribe nombres de productos. Producto nuevo →
+una fila en Productos (lo agrega Martín).
+
+- Planilla propia, no bioma-db: Nati no puede tener la URL de `Code.gs`.
+- `Code.gs` la lee con `openById` (`stockProveedores_`, propiedad
+  `STOCK_PROVEEDORES_ID`). Contrato: los encabezados de Stock y Consultas.
+- Se armó desde «Gestión de Proveedores Bioma»: 25 proveedores, 138 productos.
+  «Bioma» quedó afuera (el campo de Tica viene de AMA Producción); «Tika»
+  (frutas, Tomi) quedó adentro: revisar si va.
+- Instalación, uso y reglas: `apps-script/stock-proveedores/LEEME.md`.
+
+### Por etapas
+1. **Stock de la semana** · **hecho (31/10), falta instalar** — pestaña
+   «Semana» (`js/semana.js`, action `semana`, API 13): Tica desde AMA
+   Producción (`?stockcomercial=1`, misma clave que la proyección) agrupado por
+   cultivo, separando lo que no llega al jueves; y cada proveedor con lo que
+   ofrece, lo que le pagamos, el precio de venta en la lista elegida, el margen
+   (ocre si < 20 %) y la venta posible. Avisa quién falta consultar. Cada lado
+   puede fallar sin tapar al otro.
+2. **Armado del bolsón** — n.º de bolsones, tocar cultivos, stock final que se
+   pone en rojo si no alcanza, precio del bolsón, ingreso posible; extras.
+   Sale la lista para cargar en Whataform.
+3. **Puntos de venta** — cada uno con su lista de precios y frecuencia
+   (necesita la Fase 5, clientes). Sin el bloque «Bari» duplicado.
+4. **Miércoles y cierre** — importar las ventas de la tienda, armar el pedido
+   de cada proveedor (texto para WhatsApp) y comparar lo planificado con lo
+   vendido. Los bolsones se abren en sus componentes (decisión B3).
 
 ## Pagos a trabajadores — sistematizar registro y seguimiento
 
