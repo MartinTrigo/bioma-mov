@@ -73,6 +73,27 @@ una fila en Productos (lo agrega Martín).
   (frutas, Tomi) quedó adentro: revisar si va.
 - Instalación, uso y reglas: `apps-script/stock-proveedores/LEEME.md`.
 
+**Antes de instalar, a pensar con Martín (1/11):** la lista de productos de la
+planilla vieja no sirve como lista fija. El stock de casi todos cambia en la
+temporada (Humus: quesos, lácteos, fruta congelada y fresca; Foco Verde un
+viernes rabanito, otro acelga) y los precios son del año pasado. Solo Los Tres
+Clavos es estable (miel, propóleo, polen). Nati tiene que poder **agregar,
+quitar y corregir** productos y proveedores desde la página, sin abrir la
+planilla. Propuesta (no hecha, esta semana Martín lo hace a la vieja usanza):
+1. Arriba, lo ofrecido en las **últimas 4 semanas**, con el precio de la última vez.
+2. Plegado, «Otras cosas que alguna vez ofreció» (ahí queda la lista vieja).
+3. **+ Agregar producto**: nombre (con sugerencias de los que ya existen, para
+   no duplicar «Rabanito»/«Rabanitos»), por kg o por unidad de cuánto, precio.
+   Queda en la lista del proveedor.
+4. **✏ en cada producto**: cambiar nombre, presentación o unidad, o «Ya no lo
+   hace» (Activo = No, no borra la historia).
+5. **+ Proveedor nuevo** al pie de la lista.
+6. Precios de la temporada pasada marcados **«precio viejo, confirmar»** hasta
+   que Nati los toque una vez.
+Alternativa más simple: arrancar con la lista vacía y que se arme sola en 2-3
+viernes. La pestaña Semana no cambia en ninguno de los dos casos (lo que no
+cruce con el catálogo sale «no está en Productos»).
+
 ### Por etapas
 1. **Stock de la semana** · **hecho (31/10), falta instalar** — pestaña
    «Semana» (`js/semana.js`, action `semana`, API 13): Tica desde AMA
